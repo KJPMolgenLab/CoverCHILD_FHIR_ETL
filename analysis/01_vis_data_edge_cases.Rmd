@@ -1,0 +1,15 @@
+---
+title: "CoverCHILD KGU data edge cases"
+author: "SP"
+date: "`r Sys.Date()`"
+output: 
+  workflowr::wflow_html: 
+    fig_width: 11
+    fig_height: 8
+    fig_caption: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+

@@ -8,4 +8,6 @@ editor_options:
   chunk_output_type: console
 ---
 
-Welcome to my research website.
+CoverCHILD KGU data analysis repo.
+
+[Visualisation of extreme/edge cases in KGU data.](01_vis_data_edge_cases.html)
