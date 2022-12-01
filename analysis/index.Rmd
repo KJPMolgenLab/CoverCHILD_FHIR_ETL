@@ -11,3 +11,6 @@ editor_options:
 CoverCHILD KGU data analysis repo.
 
 [Visualisation of extreme/edge cases in KGU data.](01_vis_data_edge_cases.html)
+
+
+Also see notes/documentation on [elab](https://kjpelab.kgu.de/experiments.php?mode=view&id=140).
