@@ -4,12 +4,158 @@ author: "SP"
 date: "`r Sys.Date()`"
 output: 
   workflowr::wflow_html: 
+    df_print: paged
     fig_width: 11
     fig_height: 8
     fig_caption: yes
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+# knitr::opts_knit$set(root.dir = dirname(getwd()))
+
+library("tidyverse")
+library("tools")
+library("magrittr")
+library("ggVennDiagram")
+library("psych")
+
+## generate missingness report of input df #####################################
+descr_mis <- function(df) {
+  descr_mis_df <- df %>% 
+    describe(skew = FALSE) %>% 
+    select(-vars) %>% 
+    mutate(n_missing = nrow(df)-n, 
+           perc_missing = round(n_missing/nrow(df)*100, 1)) %>% 
+    relocate(n_missing, perc_missing, .after = n)
+  rownames(descr_mis_df) %<>% str_remove(fixed("*"))
+  descr_mis_df %<>% rownames_to_column(var = "variable")
+  descr_mis_df <- 
+    df %>% 
+    summarise(across(.fns = ~list(sort(unique(na.omit(.)))))) %>% 
+    pivot_longer(cols = everything(), 
+                 names_to = "variable", 
+                 values_to = "unique_vals") %>% 
+    rowwise() %>% 
+    mutate(n_unique = length(unique_vals)) %>% 
+    ungroup() %>% 
+    left_join(descr_mis_df, by = "variable") %>% 
+    arrange(n)
+  return(descr_mis_df)
+}
 ```
 
+```{r read_data, include=FALSE}
+print(getwd())
+files <- Sys.glob("data/*.csv")
+names(files) <- basename(file_path_sans_ext(files))
+data_raw <- lapply(files, \(x) {
+  encoding <- try(guess_encoding(x)$encoding[[1]])
+  if (inherits(encoding, "try-error")) encoding <- "ISO-8859-1"
+  read_delim(x, delim = ";", trim_ws = TRUE,
+             locale = locale(date_names = "de", decimal_mark =".", encoding = encoding))
+})
+for (x in names(data_raw)) assign(x, data_raw[[x]])
+```
+
+
+Some data have many duplicate rows
+```{r}
+data <- lapply(data_raw, distinct)
+for (x in names(data)) assign(x, data[[x]])
+
+tibble(df_name = names(data_raw), 
+       nrow_raw = map_int(data_raw, nrow), 
+       nrow_distinct = map_int(data_raw, ~distinct(.) %>% nrow())) %>% 
+  mutate(diff_perc = round(nrow_distinct / nrow_raw * 100, 1))
+```
+
+# Missingness {.tabset}
+## ICD_V2
+```{r}
+descr_mis(ICD_V2)
+```
+
+## ICPM_V3
+```{r}
+descr_mis(ICPM_V3)
+```
+
+## KIJUPSY_Med_Detail_V2_pseudonym
+```{r}
+descr_mis(KIJUPSY_Med_Detail_V2_pseudonym)
+```
+
+## Labordaten_V3
+```{r}
+descr_mis(Labordaten_V3)
+```
+
+## P21_FAB_V1_pseudonym
+```{r}
+descr_mis(P21_FAB_V1_pseudonym)
+```
+
+## P21_Fall_V1_pseudonym
+- Fast alle PLZ vorhanden
+```{r}
+descr_mis(P21_Fall_V1_pseudonym)
+```
+
+## P21_ICD_V1_pseudonym
+```{r}
+descr_mis(P21_ICD_V1_pseudonym)
+```
+
+## P21_OPS_V1_pseudonym
+```{r}
+descr_mis(P21_OPS_V1_pseudonym)
+```
+
+## Pers_Fall_V2_pseudonym
+```{r}
+descr_mis(Pers_Fall_V2_pseudonym)
+```
+
+## Rezepte_Pack_Wirkstoff_V4_pseudonym
+```{r}
+descr_mis(Rezepte_Pack_Wirkstoff_V4_pseudonym)
+```
+
+
+# Intersection Orbis- & §21-data
+```{r}
+ggVennDiagram(list(Orbis_stat = ICD_V2 %>% 
+                     filter(FALLSTATUS == "stationär") %>% 
+                     use_series(Fall_Pseudonym) %>% 
+                     unique(),
+                   P21_ICD = unique(P21_ICD_V1_pseudonym$P21_Fallnummer_Pseudonym),
+                   P21_plz = unique(P21_Fall_V1_pseudonym$P21_Fallnummer_Pseudonym)))
+```
+- §21-Daten haben keine Info ob Erstanschrift, frühere Adresse usw.
+
+# ambulanter Fall mit sich mehrfach wiederholenden Diagnosen
+```{r}
+ICD_V2 %>% 
+  filter(Fall_Pseudonym == "CC9354247946261937") %>% 
+  arrange(ICD_DATUM)
+```
+
+# Misc
+Hinweis auf "path. Medienkonsum" nicht im ICD Freitext enthalten
+```{r}
+ICD_V2 %>% filter(ICD_CODE == "F63.8")
+```
+Nicht F-Diagnosen
+```{r}
+ICD_V2 %>%  filter(str_starts(ICD_CODE, "F", negate = TRUE)) %>% 
+  count(ICD_CODE) %>% arrange(desc(n)) #%T>%
+  #write_excel_csv("output/nicht-f-diagnosen.csv")
+```
+- Z11 Covid-Test
+
+
+Änderung in Bettenverfügbarkeit usw. (siehe Mitternachtsstatistiken)
+
+- Anzahl Betten
+- Anzahl Ärzte / Therapeuten
