@@ -4,6 +4,7 @@
 # @author: SP
 # @date: 2022-11-04
 
+# setup ------------------------------------------------------------------------
 # set wd for VS Code (doesn't align automatically to .Rproj)
 if (basename(getwd()) != "CoverCHILD") {
   old_wd <- getwd()
@@ -15,15 +16,42 @@ if (basename(getwd()) != "CoverCHILD") {
 library("tidyverse")
 library("tools")
 library("magrittr")
+library("lubridate")
 library("ggVennDiagram")
 
+# read data ------------------------------------------------------------------------------------------------------------
 files <- Sys.glob("data/*.csv")
 names(files) <- basename(file_path_sans_ext(files))
-data_raw <- lapply(files, \(x) {
-  encoding <- try(guess_encoding(x)$encoding[[1]])
+
+# specify column formats
+# different date/time formats in the data sources:
+dt_forms <- list(dt1 = col_datetime("%d.%m.%Y %H:%M"), # e.g. "02.01.2016 01:48"
+                 dt2 = col_datetime("%Y%m%d%H%M")) # e.g. "201601020148"
+col_formats <- list(
+  ICD_V2 =
+    cols("f", "f", "i", "f", dt_forms$dt1, dt_forms$dt1, "d", "f", "f", dt_forms$dt1, "f", "f", "f", "c", "f", "c"),
+  ICPM_V3 = cols("f", "f", "f", "d", "d", "f", dt_forms$dt1, "f", "f", "f", "c"),
+  KIJUPSY_Med_Detail_V2_pseudonym =
+    cols("f", dt_forms$dt1, "f", "f", "D", "D", "f", "f", "c", "c", "l"),
+  Labordaten_V3 = cols("f", dt_forms$dt1, "f", "f", dt_forms$dt1, "f", "c", "f", "d", "f", "c", "f", "c", "?", "?"),
+  P21_FAB_V1_pseudonym = cols("f", "f", dt_forms$dt2, dt_forms$dt2),
+  P21_Fall_V1_pseudonym =
+    cols("f", "f", "i", "f", "f", "i", dt_forms$dt2, "f","f", dt_forms$dt2, "f", "d", "f", "f", "f", "i"),
+  P21_ICD_V1_pseudonym = cols("f", "f", "i", "f", "f", "f", "f"),
+  P21_OPS_V1_pseudonym = cols("f", "i", "f", "f", dt_forms$dt2),
+  Pers_Fall_V2_pseudonym =
+    cols("f", "f", "i", "d", "i", "f", "f", "f", dt_forms$dt1, dt_forms$dt1, "f", "f", "i", "f", "f"),
+  Rezepte_Pack_Wirkstoff_V4_pseudonym = cols("f", "D", "t", "f", "f", "f", "f"))
+
+data_raw <- imap(files, \(path, name) {
+  encoding <- try(guess_encoding(path)$encoding[[1]])
   if (inherits(encoding, "try-error")) encoding <- "ISO-8859-1"
-  read_csv2(x, locale = locale("de", encoding = encoding))
+  read_delim(path, delim = ";", trim_ws = TRUE, col_types = col_formats[[name]],
+             locale = locale(date_names = "de", date_format = "%d.%m.%Y", time_format = "%H:%M:%S",
+                             decimal_mark =".", tz = "Europe/Berlin", encoding = encoding))
 })
+
+# misc section - not needed atm -------------------------------------------------------------------------------------------------------
 
 # convert to DFs in global env if desired
 # for (x in names(data_raw)) assign(x, data_raw[[x]])
@@ -34,101 +62,48 @@ data_raw <- lapply(files, \(x) {
 # for (x in names(data_raw)) write_csv2(data_raw[[x]], file.path(outdir, str_c(x, "_utf8.csv")))
 
 # recode column names
-col_names <- c(case_id = "Fall_Pseudonym", # ICD_V2
-               p_id = "PID Pseudonym",
-               yob = "Geburtsjahr",
-               sex = "GE",
-               adm_date = "AUFNDAT",
-               dis_date = "ENTLDAT",
-               ret_time = "Verweildauer",
-               case_state = "FALLSTATUS",
-               icd_fa = "ICD_FA", # ?
-               icd_date = "ICD_DATUM",
-               icd_code = "ICD_CODE",
-               icd_type = "ICD_TYPE",
-               icd_hn = "ICD_HN",
-               icd_label = "ICD_BEZ",
-               icd_2_code = "SEK_ICD_CODE",
-               icd_2_label = "SEK_ICD_BEZ",
-               age_adm = "Alter_bei_Aufnahme", # ICPM_V3
-               age_treat = "Alter_bei_Maßnahme",
-               icpm_fa = "ICPM_FA",
-               icpm_date = "ICPM_DATUM",
-               icpm_code = "ICPM_CODE",
-               icpm_hn = "ICPM_HN",
-               loc = "LOKALISATION",
-               icpm_label = "ICPM_BEZ",
-               age_adm = "Alter_Aufnahme", # Pers_Fall_V2_pseudonym
-               plz = "PLZ-3stellig",
-               addr_type = "ADRESSART",
-               adm_reason = "AUFNAHMEGRUND",
-               adm_type = "AUFNAHMEART",
-               stay_type = "AUFENTHALTSART",
-               dis_type = "ENTLASSART")
+# col_names <- c(case_id = "Fall_Pseudonym", # ICD_V2
+#                p_id = "PID Pseudonym",
+#                yob = "Geburtsjahr",
+#                sex = "GE",
+#                adm_date = "AUFNDAT",
+#                dis_date = "ENTLDAT",
+#                ret_time = "Verweildauer",
+#                case_state = "FALLSTATUS",
+#                icd_fa = "ICD_FA", # ?
+#                icd_date = "ICD_DATUM",
+#                icd_code = "ICD_CODE",
+#                icd_type = "ICD_TYPE",
+#                icd_hn = "ICD_HN",
+#                icd_label = "ICD_BEZ",
+#                icd_2_code = "SEK_ICD_CODE",
+#                icd_2_label = "SEK_ICD_BEZ",
+#                age_adm = "Alter_bei_Aufnahme", # ICPM_V3
+#                age_treat = "Alter_bei_Maßnahme",
+#                icpm_fa = "ICPM_FA",
+#                icpm_date = "ICPM_DATUM",
+#                icpm_code = "ICPM_CODE",
+#                icpm_hn = "ICPM_HN",
+#                loc = "LOKALISATION",
+#                icpm_label = "ICPM_BEZ",
+#                age_adm = "Alter_Aufnahme", # Pers_Fall_V2_pseudonym
+#                plz = "PLZ-3stellig",
+#                addr_type = "ADRESSART",
+#                adm_reason = "AUFNAHMEGRUND",
+#                adm_type = "AUFNAHMEART",
+#                stay_type = "AUFENTHALTSART",
+#                dis_type = "ENTLASSART")
 
-# P21 ------------------
+# preprocessing --------------------------------------------------------------------------------------------------------
 
-ggVennDiagram(list(Orbis_ICD = unique(ICD_V2) %>% filter(FALLSTATUS == "stationär") %>% use_series(Fall_Pseudonym),
-                   P21_ICD = unique(P21_ICD_V1_pseudonym$P21_Fallnummer_Pseudonym),
-                   P21_plz = unique(P21_Fall_V1_pseudonym$P21_Fallnummer_Pseudonym)))
-
-
-join_srcs <- c("ICD_V2", "Pers_Fall_V2_pseudonym")
+# select dataframes to merge
+# join_srcs <- c("ICD_V2", "Pers_Fall_V2_pseudonym", "P21_Fall_V1_pseudonym", "P21_ICD_V1_pseudonym")
+join_srcs <- names(data_raw)
 
 df <-
   data_raw[join_srcs] %>%
-  map(~rename(., any_of(col_names)) %>% distinct())
-
-df[["Pers_Fall_V2_pseudonym"]] %>%
-  filter(!is.na(plz), addr_type == "Erstanschrift") %>%
-  use_series(p_id) %>%
-  n_distinct()
-
-df[["Pers_Fall_V2_pseudonym"]] %>%
-  group_by(case_id, addr_type) %>%
-  mutate(n = n()) %>%
-  ungroup() %>%
-  filter(n > 1) %>%
-  arrange(desc(n)) %>%
-  View()
-
-
-
-Pers_Fall_V2_pseudonym %>% distinct() %>% nrow()
-
-df2 <- df %>%
-  reduce(full_join) %>%
-  group_by(case_id) %>%
-  summarise(n = n()) %>%
-  ungroup() %>%
-  filter(n > 1) %>%
-  arrange(desc(n))
-
-temp2 <- ICD_V2 %>%
-  rename(any_of(col_names)) %>%
-  filter(case_id == "CC3577569597159394")
-
-temp2 %>%
-  summarise(across(.fns = n_distinct))
-
-joins <- intersect(names(ICPM_V3), names(ICD_V2))
-full_join(select(ICD_V2, joins), select(ICPM_V3, joins))
-
-ggVennDiagram::ggVennDiagram(map(list(ICD_V2, ICPM_V3, KIJUPSY_Med_Detail_V2_pseudonym, Labordaten_V3), names))
-
-ICD_V2 %>% rename(any_of(col_names)) %>% names()
-
-ICD_V2 %>% filter(starts_with("F50.", ICD_CODE))
-
-
-temp <-
-  Pers_Fall_V2_pseudonym %>%
-  filter(!is.na(`PLZ-3stellig`)) %>%
-  group_by(`PID Pseudonym`) %>%
-  mutate(n = n_distinct(`PLZ-3stellig`)) %>%
-  ungroup() %>%
-  filter(n > 1) %>%
-  group_by(`PID Pseudonym`, `PLZ-3stellig`) %>%
-  slice_head(n = 1) %>%
-  ungroup()
-
+  map(~distinct(.) %>% # remove duplicate rows
+        # rename(., any_of(col_names)) %>%
+        select(where(~!all(is.na(.)))) # remove empty cols
+      ) # %>%
+  # mutate(across(.cols = where(~ is.POSIXt(.) || is.Date(.)), .fns = isoweek, .names = "{.col}_KW")) # Kalenderwoche
