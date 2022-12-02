@@ -14,35 +14,8 @@ output:
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
 # knitr::opts_knit$set(root.dir = dirname(getwd()))
 
-library("tidyverse")
-library("tools")
-library("magrittr")
-library("ggVennDiagram")
-library("psych")
-
-## generate missingness report of input df #####################################
-descr_mis <- function(df) {
-  descr_mis_df <- df %>% 
-    describe(skew = FALSE) %>% 
-    select(-vars) %>% 
-    mutate(n_missing = nrow(df)-n, 
-           perc_missing = round(n_missing/nrow(df)*100, 1)) %>% 
-    relocate(n_missing, perc_missing, .after = n)
-  rownames(descr_mis_df) %<>% str_remove(fixed("*"))
-  descr_mis_df %<>% rownames_to_column(var = "variable")
-  descr_mis_df <- 
-    df %>% 
-    summarise(across(.fns = ~list(sort(unique(na.omit(.)))))) %>% 
-    pivot_longer(cols = everything(), 
-                 names_to = "variable", 
-                 values_to = "unique_vals") %>% 
-    rowwise() %>% 
-    mutate(n_unique = length(unique_vals)) %>% 
-    ungroup() %>% 
-    left_join(descr_mis_df, by = "variable") %>% 
-    arrange(n)
-  return(descr_mis_df)
-}
+source("code/functions.R")
+load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "psych")
 ```
 
 ```{r read_data, include=FALSE}

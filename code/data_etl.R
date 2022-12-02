@@ -5,19 +5,12 @@
 # @date: 2022-11-04
 
 # setup ------------------------------------------------------------------------
-# set wd for VS Code (doesn't align automatically to .Rproj)
-if (basename(getwd()) != "CoverCHILD") {
-  old_wd <- getwd()
-  setwd(dirname(dir(path = getwd(),
-                    pattern = "CoverCHILD.Rproj",
-                    recursive = TRUE, full.names = TRUE)))
-}
+source("code/functions.R")
 
-library("tidyverse")
-library("tools")
-library("magrittr")
-library("lubridate")
-library("ggVennDiagram")
+# set wd for VS Code (doesn't align automatically to .Rproj)
+old_wd <- set_wd()
+
+load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "psych")
 
 # read data ------------------------------------------------------------------------------------------------------------
 files <- Sys.glob("data/*.csv")
@@ -94,16 +87,32 @@ data_raw <- imap(files, \(path, name) {
 #                stay_type = "AUFENTHALTSART",
 #                dis_type = "ENTLASSART")
 
+
+# sandbox for individual dataframes ------------------------------------------------------------------------------------
+
+tmp <- df[[1]]
+tmp$`PID Pseudonym` %>% unique() %>% length
+tmp_desc <- tmp %>%
+  group_by(`PID Pseudonym`, Fall_Pseudonym) %>%
+  summarise(n_case = n()) %>%
+  ungroup(Fall_Pseudonym) %>%
+  mutate(cases_patient = n())
+
+tmp_desc %>% slice_head(n = 1) %>% use_series(cases_patient) %>% qplot()
+tmp_desc %>% arrange(desc(cases_patient)) %>% View()
+tmp %>% filter(`PID Pseudonym` == "CC8748848558568597") %>% descr_mis() %>% select(1:4)
+
+
 # preprocessing --------------------------------------------------------------------------------------------------------
 
 # select dataframes to merge
-# join_srcs <- c("ICD_V2", "Pers_Fall_V2_pseudonym", "P21_Fall_V1_pseudonym", "P21_ICD_V1_pseudonym")
-join_srcs <- names(data_raw)
+join_srcs <- c("ICD_V2", "Pers_Fall_V2_pseudonym", "P21_Fall_V1_pseudonym", "P21_ICD_V1_pseudonym")
+# join_srcs <- names(data_raw)
 
 df <-
   data_raw[join_srcs] %>%
   map(~distinct(.) %>% # remove duplicate rows
         # rename(., any_of(col_names)) %>%
-        select(where(~!all(is.na(.)))) # remove empty cols
+        select(where(~!all(is.na(.)))) # %>% # remove empty cols
+        # mutate(across(.cols = where(~ is.POSIXt(.) || is.Date(.)), .fns = isoweek, .names = "{.col}_KW")) %>% # Kalenderwoche
       ) # %>%
-  # mutate(across(.cols = where(~ is.POSIXt(.) || is.Date(.)), .fns = isoweek, .names = "{.col}_KW")) # Kalenderwoche
