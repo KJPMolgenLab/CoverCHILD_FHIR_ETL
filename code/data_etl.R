@@ -6,11 +6,12 @@
 
 # setup ------------------------------------------------------------------------
 source("code/functions.R")
+load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "psych")
 
 # set wd for VS Code (doesn't align automatically to .Rproj)
 old_wd <- set_wd()
-
-load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "psych")
+outdir <- "output"
+dir.create(outdir, , recursive = TRUE, showWarnings = FALSE)
 
 # read data ------------------------------------------------------------------------------------------------------------
 files <- Sys.glob("data/*.csv")
@@ -88,7 +89,7 @@ data_raw <- imap(files, \(path, name) {
 #                dis_type = "ENTLASSART")
 
 
-# sandbox for individual dataframes ------------------------------------------------------------------------------------
+# sandbox for individual dataframes
 
 tmp <- df[[1]]
 tmp$`PID Pseudonym` %>% unique() %>% length
@@ -102,11 +103,18 @@ tmp_desc %>% slice_head(n = 1) %>% use_series(cases_patient) %>% qplot()
 tmp_desc %>% arrange(desc(cases_patient)) %>% View()
 tmp %>% filter(`PID Pseudonym` == "CC8748848558568597") %>% descr_mis() %>% select(1:4)
 
+p21 <- df[["P21_ICD_V1_pseudonym"]]
+p21 %>% filter(P21_Fallnummer_Pseudonym == "CC4725478752193819") %>% View()
+p21 %>%
+  filter(Diagnoseart == "HD") %>%
+  group_by(P21_Fallnummer_Pseudonym) %>%
+  summarise(n = n()) %>% arrange(desc(n)) %>% View()
 
 # preprocessing --------------------------------------------------------------------------------------------------------
 
 # select dataframes to merge
-join_srcs <- c("ICD_V2", "Pers_Fall_V2_pseudonym", "P21_Fall_V1_pseudonym", "P21_ICD_V1_pseudonym")
+join_srcs <- c("P21_Fall_V1_pseudonym", "P21_ICD_V1_pseudonym")
+# join_srcs <- c("ICD_V2", "Pers_Fall_V2_pseudonym", "P21_Fall_V1_pseudonym", "P21_ICD_V1_pseudonym")
 # join_srcs <- names(data_raw)
 
 df <-
@@ -115,4 +123,7 @@ df <-
         # rename(., any_of(col_names)) %>%
         select(where(~!all(is.na(.)))) # %>% # remove empty cols
         # mutate(across(.cols = where(~ is.POSIXt(.) || is.Date(.)), .fns = isoweek, .names = "{.col}_KW")) %>% # Kalenderwoche
-      ) # %>%
+      ) %>%
+  reduce(inner_join) # by = "P21_Fallnummer_Pseudonym"
+
+write_rds(df, file.path(outdir, "P21_Fall+ICD_sample_data.rds"))
