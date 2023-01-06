@@ -11,7 +11,7 @@ load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "
 # set wd for VS Code (doesn't align automatically to .Rproj)
 old_wd <- set_wd()
 outdir <- "output"
-dir.create(outdir, , recursive = TRUE, showWarnings = FALSE)
+dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 
 # read data ------------------------------------------------------------------------------------------------------------
 files <- Sys.glob("data/*.csv")
@@ -45,10 +45,29 @@ data_raw <- imap(files, \(path, name) {
                              decimal_mark =".", tz = "Europe/Berlin", encoding = encoding))
 })
 
-# misc section - not needed atm -------------------------------------------------------------------------------------------------------
+# preprocessing --------------------------------------------------------------------------------------------------------
+
+# select dataframes to merge
+# join_srcs <- c("P21_Fall_V1_pseudonym", "P21_ICD_V1_pseudonym")
+# join_srcs <- c("ICD_V2", "Pers_Fall_V2_pseudonym", "P21_Fall_V1_pseudonym", "P21_ICD_V1_pseudonym")
+join_srcs <- names(data_raw)
+
+df <-
+  data_raw[join_srcs] %>%
+  map(~distinct(.) %>% # remove duplicate rows
+        # rename(., any_of(col_names)) %>%
+        select(where(~!all(is.na(.)))) # %>% # remove empty cols
+        # mutate(across(.cols = where(~ is.POSIXt(.) || is.Date(.)), .fns = isoweek, .names = "{.col}_KW")) %>% # Kalenderwoche
+      ) # %>%
+  # reduce(inner_join) # by = "P21_Fallnummer_Pseudonym"
 
 # convert to DFs in global env if desired
-# for (x in names(data_raw)) assign(x, data_raw[[x]])
+# for (x in names(df)) assign(x, data_raw[[x]])
+
+# write_rds(df, file.path(outdir, "P21_Fall+ICD_sample_data.rds"))
+
+
+# misc section - not needed atm -------------------------------------------------------------------------------------------------------
 
 # save UTF-8 encoded
 # outdir <- file.path("output", "data_utf8")
@@ -109,21 +128,3 @@ p21 %>%
   filter(Diagnoseart == "HD") %>%
   group_by(P21_Fallnummer_Pseudonym) %>%
   summarise(n = n()) %>% arrange(desc(n)) %>% View()
-
-# preprocessing --------------------------------------------------------------------------------------------------------
-
-# select dataframes to merge
-join_srcs <- c("P21_Fall_V1_pseudonym", "P21_ICD_V1_pseudonym")
-# join_srcs <- c("ICD_V2", "Pers_Fall_V2_pseudonym", "P21_Fall_V1_pseudonym", "P21_ICD_V1_pseudonym")
-# join_srcs <- names(data_raw)
-
-df <-
-  data_raw[join_srcs] %>%
-  map(~distinct(.) %>% # remove duplicate rows
-        # rename(., any_of(col_names)) %>%
-        select(where(~!all(is.na(.)))) # %>% # remove empty cols
-        # mutate(across(.cols = where(~ is.POSIXt(.) || is.Date(.)), .fns = isoweek, .names = "{.col}_KW")) %>% # Kalenderwoche
-      ) %>%
-  reduce(inner_join) # by = "P21_Fallnummer_Pseudonym"
-
-write_rds(df, file.path(outdir, "P21_Fall+ICD_sample_data.rds"))

@@ -11,12 +11,15 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+knitr::opts_chunk$set(warning = FALSE, echo = FALSE)
 # knitr::opts_knit$set(root.dir = dirname(getwd()))
+```
 
+```{r libs, include=FALSE}
 source("code/functions.R")
 load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "psych")
 ```
+
 
 ```{r read_data, include=FALSE}
 print(getwd())
