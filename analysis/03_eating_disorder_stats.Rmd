@@ -17,11 +17,11 @@ knitr::opts_chunk$set(warning = FALSE, echo = FALSE)
 
 ```{r libs, include=FALSE}
 source("code/eating_disorder_data_proc.R")
-load_inst_pkgs("tidyverse", "psych", "janitor", "kable")
+load_inst_pkgs("tidyverse", "psych", "janitor", "knitr")
 ```
 
 # Sample periods
-```{r}
+```{r echo=TRUE}
 df_an <- df_patched %>% filter(between(adm_date, ymd("2016-01-01"), # or 2018-03-01 - 2 years before Covid
                                        ymd("2022-02-28"))) # until start of Ukraine war
 covid_start <- ymd("2020-03-19")
@@ -45,7 +45,7 @@ df_c <- df_an %>%
   ungroup()
 ```
 
-# cases per year pre/during covid
+## cases per year pre/during covid
 ```{r}
 df_c %>% 
   group_by(covid) %>%
@@ -57,7 +57,7 @@ df_c %>%
          n_patients_year = n_patients/years)
 ```
 
-# mean & sd
+## mean & sd
 ```{r}
 summarise_mean_sd <- function(df) {
   summarise(df, 
@@ -81,7 +81,7 @@ df_c_stats <-
 df_c_stats
 ```
 
-# trend of ED diagnosis proportion
+## trend of ED diagnosis proportion
 ```{r}
 df_c %>% 
   arrange(adm_date) %>% 
@@ -100,7 +100,7 @@ df_c %>%
   ylab("cases with F50.* diagnosis [%]")
 ```
 
-# counts & proportions
+## counts & proportions
 ```{r}
 gen_tabyl <- function(df, ...){
   df %>% 
@@ -109,8 +109,7 @@ gen_tabyl <- function(df, ...){
     adorn_percentages("row") %>%
     adorn_pct_formatting(digits = 1) %>%
     adorn_ns() %>% 
-    adorn_title("combined") %>% 
-    kable()
+    adorn_title("combined")
 }
 
 df_c %>% gen_tabyl(covid, icd_f50)
