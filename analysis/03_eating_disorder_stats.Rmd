@@ -1,0 +1,119 @@
+---
+title: "03_eating_disorder_stats"
+author: "SP"
+date: "`r Sys.Date()`"
+output: 
+  workflowr::wflow_html: 
+    df_print: paged
+    fig_width: 11
+    fig_height: 8
+    fig_caption: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, echo = FALSE)
+# knitr::opts_knit$set(root.dir = dirname(getwd()))
+```
+
+```{r libs, include=FALSE}
+source("code/eating_disorder_data_proc.R")
+load_inst_pkgs("tidyverse", "psych", "janitor", "kable")
+```
+
+# Sample periods
+```{r}
+df_an <- df_patched %>% filter(between(adm_date, ymd("2016-01-01"), # or 2018-03-01 - 2 years before Covid
+                                       ymd("2022-02-28"))) # until start of Ukraine war
+covid_start <- ymd("2020-03-19")
+pre_cov_dur <- min(df_an$adm_date) %--% covid_start %>% as.numeric("years")
+cov_dur <- covid_start %--% max(df_an$adm_date) %>% as.numeric("years")
+```
+
+# sample characteristics
+```{r}
+df_an %>% group_by(case_id) %>% summarise(n = n()) %>% 
+  ggplot(aes(x = n)) + geom_bar() + ggtitle("number of diagnoses per case")
+
+# df_c has 1 row per case
+df_c <- df_an %>% 
+  filter(!is.na(icd_code)) %>% 
+  group_by(case_id) %>% 
+  mutate(icd_f50 = as_factor(if_else(any(str_detect(icd_code, "^F50")), "F50+", "F50-")),
+         covid = as_factor(if_else(adm_date < covid_start, "pre_covid", "dur_covid"))) %>% 
+  select(!c(icd_code, icd_date)) %>% 
+  slice_head(n = 1) %>% 
+  ungroup()
+```
+
+# cases per year pre/during covid
+```{r}
+df_c %>% 
+  group_by(covid) %>%
+  summarise(n_cases = n_distinct(case_id),
+            n_patients = n_distinct(p_id)) %>%
+  mutate(years = c(pre_cov_dur, cov_dur)) %>%
+  adorn_totals() %>%
+  mutate(n_cases_year = n_cases/years,
+         n_patients_year = n_patients/years)
+```
+
+# mean & sd
+```{r}
+summarise_mean_sd <- function(df) {
+  summarise(df, 
+            # across(where(~is.numeric(.x) | is.POSIXct(.x)), list(mean = ~mean(., na.rm = FALSE), sd = SD)), 
+            across(c(age_adm, length_stay), list(mean = ~mean(., na.rm = FALSE), sd = SD)), 
+            across(sex, list(mean = ~mean(as.numeric(.)-1, na.rm = FALSE), sd = ~SD(as.numeric(.)-1))),
+            n_cases = n())
+}
+
+df_c_stats <- 
+  # F50 all
+  df_c %>% summarise_mean_sd() %>% mutate(covid = "total_dur", .before = 1) %>% 
+  bind_rows(df_c %>% group_by(covid) %>% summarise_mean_sd()) %>% 
+  mutate(icd_f50 = "all_diag", .before = 2) %>% 
+  # F50 groups
+  bind_rows(df_c %>% group_by(icd_f50) %>% summarise_mean_sd() %>% mutate(covid = "total_dur", .before = 1)) %>% 
+  bind_rows(df_c %>% group_by(icd_f50, covid) %>% summarise_mean_sd()) %>% 
+  mutate(covid = fct(covid, c("pre_covid", "dur_covid", "total_dur")),
+         icd_f50 = fct(icd_f50, c("F50-", "F50+", "all_diag"))) %>% 
+  arrange(icd_f50, covid)
+df_c_stats
+```
+
+# trend of ED diagnosis proportion
+```{r}
+df_c %>% 
+  arrange(adm_date) %>% 
+  mutate(adm_week = as_factor(str_c(year(adm_date), week(adm_date), sep = "-KW")), 
+         adm_month = as_factor(str_c(year(adm_date), month(adm_date), sep = ".")),
+         adm_quarter = as_factor(quarter(adm_date, type = "year.quarter"))) %>%
+  group_by(adm_month) %>% 
+  summarise(F50_prop = sum(icd_f50 == "F50+")/n()*100) %>% 
+  ggplot(aes(x = adm_month, y = F50_prop)) + 
+  # geom_col() +
+  geom_line(aes(group = 1)) +
+  guides(x = guide_axis(angle = -90)) + 
+  geom_vline(aes(colour = "red", xintercept = "2020.3"), show.legend = FALSE) + 
+  ggtitle("Proportion of cases with F50.* diagnoses per month") +
+  xlab("Year.Month") +
+  ylab("cases with F50.* diagnosis [%]")
+```
+
+# counts & proportions
+```{r}
+gen_tabyl <- function(df, ...){
+  df %>% 
+    tabyl(..., show_missing_levels = FALSE) %>% 
+    adorn_totals(c("row", "col")) %>% 
+    adorn_percentages("row") %>%
+    adorn_pct_formatting(digits = 1) %>%
+    adorn_ns() %>% 
+    adorn_title("combined") %>% 
+    kable()
+}
+
+df_c %>% gen_tabyl(covid, icd_f50)
+df_c %>% gen_tabyl(icd_f50, sex)
+df_c %>% gen_tabyl(icd_f50, sex, covid)
+```

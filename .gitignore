@@ -5,6 +5,8 @@
 .Rapp.history
 .DS_Store
 notes*
+*.bak
+*~
 analysis/figure
 analysis/*png
 analysis/*html
