@@ -20,6 +20,7 @@ dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 dt_forms <- list(dt1 = col_datetime("%d.%m.%Y %H:%M"), # e.g. "02.01.2016 01:48"
                  dt2 = col_datetime("%Y%m%d%H%M")) # e.g. "201601020148"
 col_formats <- list(
+  Ergebnis_V2_PLZ_PID_Fall_pseudonym = cols("f", "f", "f", "f", "f"),
   ICD_V2 =
     cols("f", "f", "i", "f", dt_forms$dt1, dt_forms$dt1, "d", "f", "f", dt_forms$dt1, "f", "f", "f", "f", "f", "f"),
   ICPM_V3 = cols("f", "f", "f", "d", "d", "f", dt_forms$dt1, "f", "f", "f", "f"),
@@ -36,7 +37,12 @@ col_formats <- list(
   Rezepte_Pack_Wirkstoff_V4_pseudonym = cols("f", "D", "t", "f", "f", "f", "f"))
 
 # unify column names
-col_names <- list(ICD_V2 = c(case_id = "Fall_Pseudonym",
+col_names <- list(Ergebnis_V2_PLZ_PID_Fall_pseudonym = c(p_id = "Pseudonyme_PID",
+                                                         case_id = "Pseudonyme_Fälle",
+                                                         case_state_id = "FALLSTATUSID", # 1 11 13 12
+                                                         case_state = "FALLSTATUS", # "ambulant" "stationär" "teilstationär" "nachstationär"
+                                                         plz = "PLZ_3stellig"),
+                  ICD_V2 = c(case_id = "Fall_Pseudonym",
                              p_id = "PID Pseudonym",
                              yob = "Geburtsjahr",
                              sex = "GE", # "M" "W" "D"

@@ -4,7 +4,7 @@
 # @author: SP
 # @date: 2023-02-09
 
-# setup ------------------------------------------------------------------------
+# setup ----------------------------------------------------------------------------------------------------------------
 source("code/data_etl.R") # provides "df"
 
 # join data
@@ -51,12 +51,19 @@ p21_cases_filter_icd_hn_n <- df_p21 %>%
 
 df_patched <- df_orbis %>%
   mutate(across(where(is.factor), as.character)) %>%
+  # add info from p21 data
   rows_patch(df_p21 %>%
                filter(!(case_id %in% p21_cases_filter_icd_hn_n & icd_hn == "N")) %>%
                select(!setdiff(names(df_p21), names(df_orbis))) %>%
                mutate(across(where(is.factor), as.character)),
              by = c("case_id", "icd_code"),
              unmatched = "ignore") %>%
+  # add additional plz info
+  rows_patch(df$Ergebnis_V2_PLZ_PID_Fall_pseudonym %>%
+               select(-case_state_id) %>%
+               mutate(across(where(is.factor), as.character)),
+             by = "case_id") %>%
+  # fill in unambiguous missing data per case
   group_by(case_id) %>%
   mutate(across(everything(),
                 ~if(n_distinct(.x, na.rm = TRUE) == 1) {replace_na(.x, first(.x, na_rm = TRUE))} else {.x})) %>%
@@ -69,9 +76,10 @@ df_patched <- df_orbis %>%
 df_patched %>%
   group_by(case_id) %>%
   select(!c(icd_code, icd_date)) %>%
-  summarise(across(everything(), n_distinct)) %>%
+  summarise(across(everything(), n_distinct)) %>% # counts NA as distinct value
   filter(if_any(where(is.integer), ~.x>1))
 
+saveRDS(df_patched, "output/CoverCHILD_data_230215.rds")
 
 # df_full <- full_join(df_orbis, df_p21) %>%
 #   distinct() %>%
