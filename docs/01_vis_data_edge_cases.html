@@ -11,11 +11,11 @@
 
 <meta name="author" content="SP" />
 
-<meta name="date" content="2022-12-01" />
+<meta name="date" content="2023-02-16" />
 
 <title>CoverCHILD KGU data edge cases</title>
 
-<script src="site_libs/header-attrs-2.18/header-attrs.js"></script>
+<script src="site_libs/header-attrs-2.20/header-attrs.js"></script>
 <script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link href="site_libs/bootstrap-3.3.5/css/cosmo.min.css" rel="stylesheet" />
@@ -363,7 +363,7 @@ div.tocify {
 
 <h1 class="title toc-ignore">CoverCHILD KGU data edge cases</h1>
 <h4 class="author">SP</h4>
-<h4 class="date">2022-12-01</h4>
+<h4 class="date">2023-02-16</h4>
 
 </div>
 
@@ -392,7 +392,7 @@ class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span>
 <div class="tab-content">
 <div id="summary" class="tab-pane fade in active">
 <p>
-<strong>Last updated:</strong> 2022-12-01
+<strong>Last updated:</strong> 2023-02-16
 </p>
 <p>
 <strong>Checks:</strong> <span
@@ -523,15 +523,15 @@ project makes it easier to run your code on other machines.</p>
 <div class="panel panel-default">
 <div class="panel-heading">
 <p class="panel-title">
-<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongRepositoryversionstrongahrefhttpsgithubcomKJPMolgenLabCoverCHILDtree93d6f8f30ffc22ebd10fd1c8f584c3cecb7cb755targetblank93d6f8fa">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongRepositoryversionstrongahrefhttpsgithubcomKJPMolgenLabCoverCHILDtree4aac73e3f3f123586ae17bc022253345b17cfcdftargetblank4aac73ea">
 <span class="glyphicon glyphicon-ok text-success"
 aria-hidden="true"></span> <strong>Repository version:</strong>
-<a href="https://github.com/KJPMolgenLab/CoverCHILD/tree/93d6f8f30ffc22ebd10fd1c8f584c3cecb7cb755" target="_blank">93d6f8f</a>
+<a href="https://github.com/KJPMolgenLab/CoverCHILD/tree/4aac73e3f3f123586ae17bc022253345b17cfcdf" target="_blank">4aac73e</a>
 </a>
 </p>
 </div>
 <div
-id="strongRepositoryversionstrongahrefhttpsgithubcomKJPMolgenLabCoverCHILDtree93d6f8f30ffc22ebd10fd1c8f584c3cecb7cb755targetblank93d6f8fa"
+id="strongRepositoryversionstrongahrefhttpsgithubcomKJPMolgenLabCoverCHILDtree4aac73e3f3f123586ae17bc022253345b17cfcdftargetblank4aac73ea"
 class="panel-collapse collapse">
 <div class="panel-body">
 <p>
@@ -541,7 +541,7 @@ reproducibility.
 </p>
 <p>
 The results in this page were generated with repository version
-<a href="https://github.com/KJPMolgenLab/CoverCHILD/tree/93d6f8f30ffc22ebd10fd1c8f584c3cecb7cb755" target="_blank">93d6f8f</a>.
+<a href="https://github.com/KJPMolgenLab/CoverCHILD/tree/4aac73e3f3f123586ae17bc022253345b17cfcdf" target="_blank">4aac73e</a>.
 See the <em>Past versions</em> tab to see a history of the changes made
 to the R Markdown and HTML files.
 </p>
@@ -558,6 +558,12 @@ were generated:
 Ignored files:
     Ignored:    .Rhistory
     Ignored:    .Rproj.user/
+    Ignored:    .gitignore~
+    Ignored:    analysis/03_eating_disorder_stats.Rmd.bak
+    Ignored:    analysis/index.Rmd~
+    Ignored:    code/data_etl.R.bak
+    Ignored:    code/eating_dis_cases.R.bak
+    Ignored:    data/Ergebnis_V2_PLZ_PID_Fall_pseudonym.csv
     Ignored:    data/ICD_V2.csv
     Ignored:    data/ICPM_V3.csv
     Ignored:    data/KIJUPSY_Med_Detail_V2_pseudonym.csv
@@ -568,13 +574,25 @@ Ignored files:
     Ignored:    data/P21_OPS_V1_pseudonym.csv
     Ignored:    data/Pers_Fall_V2_pseudonym.csv
     Ignored:    data/Rezepte_Pack_Wirkstoff_V4_pseudonym.csv
+    Ignored:    data/ext/
+    Ignored:    notes_2022-11-30.odt
+    Ignored:    notes_221128
+    Ignored:    notes_etl.txt
+    Ignored:    output/CoverCHILD_Nicht-F-Diagnosen.csv
+    Ignored:    output/CoverCHILD_Nicht-F-Diagnosen.xlsx
+    Ignored:    output/CoverCHILD_data_230213.rds
+    Ignored:    output/CoverCHILD_data_230215.rds
+    Ignored:    output/Eating_disorder_cases.csv
+    Ignored:    output/F50_prop_per_month.png
+    Ignored:    output/P21_Fall+ICD_sample_data.rds
+    Ignored:    output/data_utf8/
+    Ignored:    variable_names_clarify.txt~
 
 Untracked files:
-    Untracked:  analysis/index.Rmd~
-    Untracked:  data/CoverChildDatenVerordnungen_Hessen_221110.xlsx
-    Untracked:  notes_2022-11-30.odt
-    Untracked:  notes_221128
-    Untracked:  output/data_utf8/
+    Untracked:  analysis/02_granger_time_series.Rmd
+    Untracked:  code/join_close_cases.R
+    Untracked:  variable_names.txt
+    Untracked:  variable_names_clarify.txt
 
 Unstaged changes:
     Modified:   code/data_etl.R
@@ -624,6 +642,57 @@ Message
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>
+Rmd
+</td>
+<td>
+<a href="https://github.com/KJPMolgenLab/CoverCHILD/blob/a6ba6c224179af1621936e639bce24e084e7a5c4/analysis/01_vis_data_edge_cases.Rmd" target="_blank">a6ba6c2</a>
+</td>
+<td>
+Simeon Platte
+</td>
+<td>
+2023-01-06
+</td>
+<td>
+Update etl script.
+</td>
+</tr>
+<tr>
+<td>
+Rmd
+</td>
+<td>
+<a href="https://github.com/KJPMolgenLab/CoverCHILD/blob/c85c0ed040bfea97067ae3ba864bf25922344f80/analysis/01_vis_data_edge_cases.Rmd" target="_blank">c85c0ed</a>
+</td>
+<td>
+Simeon Platte
+</td>
+<td>
+2022-12-02
+</td>
+<td>
+Add helper functions.R
+</td>
+</tr>
+<tr>
+<td>
+html
+</td>
+<td>
+<a href="https://rawcdn.githack.com/KJPMolgenLab/CoverCHILD/52ad2c6fdd65a34d29a36654a77cf76f46934364/docs/01_vis_data_edge_cases.html" target="_blank">52ad2c6</a>
+</td>
+<td>
+Simeon Platte
+</td>
+<td>
+2022-12-01
+</td>
+<td>
+Build site.
+</td>
+</tr>
 <tr>
 <td>
 Rmd
@@ -685,7 +754,7 @@ Publish initial html files
 Some data have many duplicate rows
 <div data-pagedtable="false">
 <script data-pagedtable-source type="application/json">
-{"columns":[{"label":["df_name"],"name":[1],"type":["chr"],"align":["left"]},{"label":["nrow_raw"],"name":[2],"type":["int"],"align":["right"]},{"label":["nrow_distinct"],"name":[3],"type":["int"],"align":["right"]},{"label":["diff_perc"],"name":[4],"type":["dbl"],"align":["right"]}],"data":[{"1":"ICD_V2","2":"74517","3":"74508","4":"100.0"},{"1":"ICPM_V3","2":"89492","3":"89489","4":"100.0"},{"1":"KIJUPSY_Med_Detail_V2_pseudonym","2":"18219","3":"18194","4":"99.9"},{"1":"Labordaten_V3","2":"500975","3":"321981","4":"64.3"},{"1":"P21_FAB_V1_pseudonym","2":"40605","3":"40605","4":"100.0"},{"1":"P21_Fall_V1_pseudonym","2":"3320","3":"3320","4":"100.0"},{"1":"P21_ICD_V1_pseudonym","2":"12502","3":"12502","4":"100.0"},{"1":"P21_OPS_V1_pseudonym","2":"95800","3":"95791","4":"100.0"},{"1":"Pers_Fall_V2_pseudonym","2":"190994","3":"16304","4":"8.5"},{"1":"Rezepte_Pack_Wirkstoff_V4_pseudonym","2":"1792","3":"1792","4":"100.0"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+{"columns":[{"label":["df_name"],"name":[1],"type":["chr"],"align":["left"]},{"label":["nrow_raw"],"name":[2],"type":["int"],"align":["right"]},{"label":["nrow_distinct"],"name":[3],"type":["int"],"align":["right"]},{"label":["diff_perc"],"name":[4],"type":["dbl"],"align":["right"]}],"data":[{"1":"Ergebnis_V2_PLZ_PID_Fall_pseudonym","2":"10617","3":"10617","4":"100.0"},{"1":"ICD_V2","2":"74517","3":"74508","4":"100.0"},{"1":"ICPM_V3","2":"89492","3":"89489","4":"100.0"},{"1":"KIJUPSY_Med_Detail_V2_pseudonym","2":"18219","3":"18194","4":"99.9"},{"1":"Labordaten_V3","2":"500975","3":"321981","4":"64.3"},{"1":"P21_FAB_V1_pseudonym","2":"40605","3":"40605","4":"100.0"},{"1":"P21_Fall_V1_pseudonym","2":"3320","3":"3320","4":"100.0"},{"1":"P21_ICD_V1_pseudonym","2":"12502","3":"12502","4":"100.0"},{"1":"P21_OPS_V1_pseudonym","2":"95800","3":"95791","4":"100.0"},{"1":"Pers_Fall_V2_pseudonym","2":"190994","3":"16304","4":"8.5"},{"1":"Rezepte_Pack_Wirkstoff_V4_pseudonym","2":"1792","3":"1792","4":"100.0"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
   </script>
 </div>
 <div id="missingness" class="section level1 tabset">
@@ -776,8 +845,48 @@ Some data have many duplicate rows
 </div>
 <div id="intersection-orbis--21-data" class="section level1">
 <h1>Intersection Orbis- &amp; §21-data</h1>
-<p><img src="figure/01_vis_data_edge_cases.Rmd/unnamed-chunk-12-1.png" width="1056" style="display: block; margin: auto;" />
-- §21-Daten haben keine Info ob Erstanschrift, frühere Adresse usw.</p>
+<p><img src="figure/01_vis_data_edge_cases.Rmd/unnamed-chunk-12-1.png" width="1056" style="display: block; margin: auto;" /></p>
+<p>
+<button type="button" class="btn btn-default btn-xs btn-workflowr btn-workflowr-fig" data-toggle="collapse" data-target="#fig-unnamed-chunk-12-1">
+Past versions of unnamed-chunk-12-1.png
+</button>
+</p>
+<div id="fig-unnamed-chunk-12-1" class="collapse">
+<div class="table-responsive">
+<table class="table table-condensed table-hover">
+<thead>
+<tr>
+<th>
+Version
+</th>
+<th>
+Author
+</th>
+<th>
+Date
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<a href="https://github.com/KJPMolgenLab/CoverCHILD/blob/52ad2c6fdd65a34d29a36654a77cf76f46934364/docs/figure/01_vis_data_edge_cases.Rmd/unnamed-chunk-12-1.png" target="_blank">52ad2c6</a>
+</td>
+<td>
+Simeon Platte
+</td>
+<td>
+2022-12-01
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<ul>
+<li>§21-Daten haben keine Info ob Erstanschrift, frühere Adresse
+usw.</li>
+</ul>
 </div>
 <div id="ambulanter-fall-mit-sich-mehrfach-wiederholenden-diagnosen"
 class="section level1">
@@ -840,34 +949,42 @@ attached base packages:
 [8] base     
 
 other attached packages:
- [1] psych_2.2.5         ggVennDiagram_1.2.0 magrittr_2.0.3     
- [4] forcats_0.5.1       stringr_1.4.1       dplyr_1.0.9        
- [7] purrr_0.3.5         readr_2.1.2         tidyr_1.2.0        
-[10] tibble_3.1.8        ggplot2_3.4.0       tidyverse_1.3.1    
-[13] workflowr_1.7.0    
+ [1] psych_2.2.9         ggVennDiagram_1.2.2 lubridate_1.9.1    
+ [4] magrittr_2.0.3      forcats_1.0.0       stringr_1.5.0      
+ [7] dplyr_1.1.0         purrr_1.0.1         readr_2.1.3        
+[10] tidyr_1.3.0         tibble_3.1.8        ggplot2_3.4.0      
+[13] tidyverse_1.3.2     workflowr_1.7.0    
 
 loaded via a namespace (and not attached):
- [1] nlme_3.1-160       fs_1.5.2           sf_1.0-7           lubridate_1.8.0   
- [5] bit64_4.0.5        httr_1.4.3         rprojroot_2.0.3    backports_1.4.1   
- [9] bslib_0.4.1        utf8_1.2.2         R6_2.5.1           KernSmooth_2.23-20
-[13] DBI_1.1.2          colorspace_2.0-3   withr_2.5.0        tidyselect_1.1.2  
-[17] mnormt_2.0.2       processx_3.8.0     bit_4.0.4          compiler_4.2.2    
-[21] git2r_0.30.1       cli_3.4.1          rvest_1.0.2        xml2_1.3.3        
-[25] labeling_0.4.2     sass_0.4.2         scales_1.2.1       classInt_0.4-3    
-[29] callr_3.7.3        proxy_0.4-26       digest_0.6.29      rmarkdown_2.18    
-[33] pkgconfig_2.0.3    htmltools_0.5.3    highr_0.9          dbplyr_2.1.1      
-[37] fastmap_1.1.0      rlang_1.0.6        readxl_1.4.0       rstudioapi_0.13   
-[41] farver_2.1.1       jquerylib_0.1.4    generics_0.1.2     jsonlite_1.8.0    
-[45] vroom_1.5.7        Rcpp_1.0.9         munsell_0.5.0      fansi_1.0.3       
-[49] lifecycle_1.0.3    stringi_1.7.8      whisker_0.4        yaml_2.3.6        
-[53] grid_4.2.2         parallel_4.2.2     promises_1.2.0.1   crayon_1.5.2      
-[57] lattice_0.20-45    haven_2.5.0        hms_1.1.1          tmvnsim_1.0-2     
-[61] knitr_1.40         ps_1.7.2           pillar_1.8.1       reprex_2.0.1      
-[65] glue_1.6.2         evaluate_0.18      getPass_0.2-2      modelr_0.1.8      
-[69] vctrs_0.5.0        tzdb_0.3.0         httpuv_1.6.5       cellranger_1.1.0  
-[73] gtable_0.3.1       assertthat_0.2.1   cachem_1.0.6       xfun_0.34         
-[77] broom_0.8.0        e1071_1.7-9        later_1.3.0        class_7.3-20      
-[81] RVenn_1.1.0        units_0.8-0        ellipsis_0.3.2    </code></pre>
+ [1] nlme_3.1-162        fs_1.6.0            sf_1.0-7           
+ [4] bit64_4.0.5         httr_1.4.3          rprojroot_2.0.3    
+ [7] backports_1.4.1     bslib_0.4.1         utf8_1.2.3         
+[10] R6_2.5.1            KernSmooth_2.23-20  DBI_1.1.2          
+[13] colorspace_2.1-0    withr_2.5.0         tidyselect_1.2.0   
+[16] mnormt_2.0.2        processx_3.8.0      bit_4.0.4          
+[19] compiler_4.2.2      git2r_0.30.1        cli_3.6.0          
+[22] rvest_1.0.2         xml2_1.3.3          labeling_0.4.2     
+[25] sass_0.4.5          scales_1.2.1        classInt_0.4-3     
+[28] callr_3.7.3         proxy_0.4-26        digest_0.6.29      
+[31] rmarkdown_2.20      pkgconfig_2.0.3     htmltools_0.5.4    
+[34] highr_0.9           dbplyr_2.1.1        fastmap_1.1.0      
+[37] rlang_1.0.6         readxl_1.4.2        rstudioapi_0.13    
+[40] farver_2.1.1        jquerylib_0.1.4     generics_0.1.2     
+[43] jsonlite_1.8.0      vroom_1.6.1         googlesheets4_1.0.0
+[46] Rcpp_1.0.10         munsell_0.5.0       fansi_1.0.4        
+[49] lifecycle_1.0.3     stringi_1.7.12      whisker_0.4        
+[52] yaml_2.3.7          grid_4.2.2          parallel_4.2.2     
+[55] promises_1.2.0.1    crayon_1.5.2        lattice_0.20-45    
+[58] haven_2.5.0         hms_1.1.1           tmvnsim_1.0-2      
+[61] knitr_1.42          ps_1.7.2            pillar_1.8.1       
+[64] reprex_2.0.1        glue_1.6.2          evaluate_0.20      
+[67] getPass_0.2-2       modelr_0.1.8        vctrs_0.5.2        
+[70] tzdb_0.3.0          httpuv_1.6.5        cellranger_1.1.0   
+[73] gtable_0.3.1        assertthat_0.2.1    cachem_1.0.6       
+[76] xfun_0.37           broom_0.8.0         e1071_1.7-9        
+[79] later_1.3.0         class_7.3-21        googledrive_2.0.0  
+[82] RVenn_1.1.0         gargle_1.2.0        units_0.8-0        
+[85] timechange_0.2.0    ellipsis_0.3.2     </code></pre>
 </div>
 </div>
 
