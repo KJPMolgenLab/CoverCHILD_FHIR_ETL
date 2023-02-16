@@ -24,7 +24,7 @@ load_inst_pkgs("tidyverse", "psych", "janitor", "knitr")
 ```{r echo=TRUE}
 df_an <- df_patched %>% filter(between(adm_date, ymd("2016-01-01"), # or 2018-03-01 - 2 years before Covid
                                        ymd("2022-02-28"))) # until start of Ukraine war
-covid_start <- ymd("2020-03-19")
+covid_start <- ymd("2020-03-01")
 pre_cov_dur <- min(df_an$adm_date) %--% covid_start %>% as.numeric("years")
 cov_dur <- covid_start %--% max(df_an$adm_date) %>% as.numeric("years")
 ```
@@ -95,9 +95,29 @@ df_c %>%
   geom_line(aes(group = 1)) +
   guides(x = guide_axis(angle = -90)) + 
   geom_vline(aes(colour = "red", xintercept = "2020.3"), show.legend = FALSE) + 
-  ggtitle("Proportion of cases with F50.* diagnoses per month") +
-  xlab("Year.Month") +
-  ylab("cases with F50.* diagnosis [%]")
+  labs(title = "Proportion of cases with F50.* diagnoses per month", 
+       x = "Year.Month", y = "cases with F50.* diagnosis [%]")
+```
+
+## periods of cases per patient
+```{r}
+df_c %>% 
+  group_by(p_id) %>%
+  mutate(n_cases = n()) %>%
+  filter(n_cases > 1) %>%
+  filter(case_id != first(case_id)) %>% 
+  ungroup() %>%
+  # slice_head(n = 500) %>%
+  ggplot(aes(x = adm_date, xend = dis_date, y = p_id, yend = p_id, group = case_id, colour = icd_f50)) +
+  geom_segment() + 
+  scale_x_datetime(date_breaks = "3 months", date_labels = "%y.%m", date_minor_breaks = "1 month", 
+                   guide = guide_axis(angle = -90)) +
+  # scale_y_discrete() +
+  # scale_colour_viridis_d() + 
+  geom_vline(aes(xintercept = as.POSIXct(covid_start)), show.legend = FALSE) + 
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank()) + 
+  labs(title = "periods of treatments per patient (excl. first visit)", 
+       x = "time", y = "patients", colour = "ED diag")
 ```
 
 ## counts & proportions
