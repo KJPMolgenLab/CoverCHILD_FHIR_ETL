@@ -6,7 +6,7 @@
 
 # setup ------------------------------------------------------------------------
 source("code/functions.R")
-load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "psych")
+load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "psych", "rlang")
 
 # set wd for VS Code (doesn't align automatically to .Rproj)
 old_wd <- set_wd() # function imported from functions.R
@@ -15,7 +15,7 @@ outdir <- "output"
 dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 
 # settings -------------------------------------------------------------------------------------------------------------
-# specify column formats
+# column formats
 # different date/time formats in the data sources:
 dt_forms <- list(dt1 = col_datetime("%d.%m.%Y %H:%M"), # e.g. "02.01.2016 01:48"
                  dt2 = col_datetime("%Y%m%d%H%M")) # e.g. "201601020148"
@@ -149,7 +149,9 @@ col_names <- list(Ergebnis_V2_PLZ_PID_Fall_pseudonym = c(p_id = "Pseudonyme_PID"
                                                           presc_drug = "WirkstoffBez")
                   )
 
-# unify factor levels & labels
+# unify/recode factor levels & labels
+# CAVE: order of names depends on used function: fct_recode needs new=old, fct_relabel needs old=new
+# relabel
 fa_lvls <- c("Kinder- und Jugendpsychiatrie KIJUPSY" = "KIJUPSY",
                "PIA 92 - Kinder- und Jugendliche PIA KIJU" = "PIA KIJU",
                "HSA Psy. Kinder- und Jugendliche KIJU POLI" = "KIJU POLI",
@@ -159,8 +161,10 @@ fa_lvls <- c("Kinder- und Jugendpsychiatrie KIJUPSY" = "KIJUPSY",
                # "HA0002" = ...,
                # "HA0001" = ...,
                # "HA2900" = ...)
-hn_lvls <- c(HD = "H", ND = "N")
-sex_lvls <- c(m = "M", w = "W", d = "D") # used right now is "toupper"
+hn_lvls <- c("HD" = "H", "ND" = "N")
+sex_lvls <- c("m" = "M", "w" = "W", "d" = "D") # used right now is "toupper"
+# recode
+case_state_lvls <- c("ambulant" = "nachstationär")
 
 #TODO adm_reason_lvls = ... # recode & separate reason + type
 #TODO add other codes from codebook (icd_type, fa_p21, adm_event, dis_reason, case_merge_reason, stay_type, +?)
@@ -174,6 +178,111 @@ filter_icd <- "[^XVZ]" # regex as defined by stringi, matched only at start of s
 lump_threshold <- 0.0005
 other_name <- "Sonstige"
 other_exclude <- TRUE
+
+# ICD code categories in 3 levels
+icd_cats_l3 <- exprs(
+  # Neuronale Entwicklungsstörungen
+  str_starts(icd_code, "F0") ~ "Organische Störung",
+  str_starts(icd_code, "F84\\.[015]") ~ "Autismus-Spektrum-Störung",
+  str_starts(icd_code, "F84\\.[2389]") ~ "Andere tiefgreifende Entwicklungsstörung",
+  str_sub(icd_code, end = 6) %in% c("F80.1", "F80.2", "F80.28", "F80.9") ~ "Sprachstörung",
+  str_starts(icd_code, "F81\\.[01]")  ~ "Lese-Rechtschreibstörung",
+  str_starts(icd_code, "F81\\.2") ~ "Dyskalkulie",
+  str_starts(icd_code, "F81\\.3") ~ "Kombinierte Störung schulischer Fertigkeiten",
+  str_starts(icd_code, "F82") ~ "Motorische Störung",
+  str_starts(icd_code, "F7") ~ "Intelligenz-assoziierte Störung",
+  str_starts(icd_code, "F90|F98\\.8") ~ "Hyperkinetische Störung",
+  str_starts(icd_code, "F98\\.[56]|F80\\.[08]") ~ "Sprechstörung",
+  str_starts(icd_code, "F98\\.[01]|R32|R39\\.4[0128]") ~ "Ausscheidungsstörung",
+
+  str_starts(icd_code, "F40|F41\\.[12389]|F93\\.[01289]|F94\\.0") ~ "Angststörung",
+
+  str_starts(icd_code, "F42|F63\\.3|F45\\.2") ~ "Zwangsstörung",
+
+  str_starts(icd_code, "F63\\.[0129]") ~ "Störung der Impulskontrolle",
+
+  str_starts(icd_code, "F63\\.8") ~ "Pathologischer Medienkonsum",
+
+  str_starts(icd_code, "F95") ~ "Tic-Störung",
+
+  str_starts(icd_code, "F91|F92|F93\\.3") ~ "Störung des Sozialverhaltens",
+
+  str_starts(icd_code, "F94\\.[1289]") ~ "Bindungsstörung",
+
+  # Affektive Störungen
+  str_starts(icd_code, "F32|F33|F34\\.[189]|F41\\.2|F48\\.[089]|F92\\.0") ~ "Depression",
+  str_starts(icd_code, "F31|F30\\.[1289]|F34\\.0") ~ "Bipolare Störung / Manie",
+
+  # Substanzbezogene Störungen
+  str_starts(icd_code, "F10\\.0") ~ "Alkohol Intoxikation",
+  str_starts(icd_code, "F10\\.[1-9]") ~ "Alkohol Sonst.",
+  str_starts(icd_code, "F12\\.0") ~ "Cannabinoide Intoxikation",
+  str_detect(icd_code, "F12\\.[1-9]") ~ "Cannabinoide Sonst.",
+  str_starts(icd_code, "F17\\.0") ~ "Tabak Intoxikation",
+  str_detect(icd_code, "F17\\.[1-9]") ~ "Tabak Sonst.",
+  str_starts(icd_code, "F18\\.0") ~ "Lösungsmittel Intoxikation",
+  str_starts(icd_code, "F18\\.[1-9]") ~ "Lösungsmittel Sonst.",
+  str_starts(icd_code, "F1[134569]\\.0") ~ "schwerer zug. Substanzen Intoxikation",
+  str_starts(icd_code, "F1[134569]\\.[1-9]") ~ "schwerer zug. Substanzen Sonst.",
+
+  str_starts(icd_code, "F43|F62") ~ "Stress-assoziierte Störung",
+
+  str_starts(icd_code, "F45\\.[013489]|F44|F48\\.[189]|F5[12]") ~ "Störung mit körperlicher Symptomatik",
+
+  str_starts(icd_code, "F6[456]") ~ "Störung i. Zsh. m. Sexualerleben",
+
+  # Essstörungen
+  icd_code %in% c("F50.0", "F50.00", "F50.01", "F50.1") ~ "Anorexie",
+  str_starts(icd_code, "F50\\.[23]") ~ "Bulimie",
+  str_starts(icd_code, "F50\\.[4589]|F98\\.2") ~ "Essstörung Sonst.",
+
+  str_starts(icd_code, "F6[012]|F21") ~ "Persönlichkeitsstörung",
+
+  str_starts(icd_code, "F20\\.[01235689]F2[234589]") ~ "Psychotische Störung",
+
+  # andere Kategorien
+  str_starts(icd_code, "F") ~ "F Sonst.", #TODO inspect!
+  str_starts(icd_code, "[^F]") ~ str_c(str_sub(icd_code, end = 2), " Gruppe")
+  )
+
+icd_cats_l2 <- exprs(
+  icd_cat_l3 %in% c("Sprachstörung", "Lese-Rechtschreibstörung", "Dyskalkulie",
+                    "Kombinierte Störung schulischer Fertigkeiten", "Motorische Störung") |
+    str_starts(icd_code, "F81\\.[89]|F83|F88|F89") ~ "Entwicklungsstörung",
+
+  str_starts(icd_cat_l3, "Alkohol |Cannabinoide |Tabak |Lösungsmittel ") ~ "Adoleszenten-assoziierte Substanz",
+
+  str_starts(icd_cat_l3, "schwerer zug\\. Substanzen ") | str_starts(icd_code, "F55") ~
+    "Nicht-adoleszenten-assoziierte Substanz",
+
+  # andere Kategorien
+  str_starts(icd_code, "[^F]") ~ str_c(str_sub(icd_code, end = 1), " Kapitel")
+
+  # defaults to icd_cat_l3 value if not specified
+  )
+
+icd_cats_l1 = exprs(
+  icd_cat_l2 %in% c("Autismus-Spektrum-Störung", "Andere tiefgreifende Entwicklungsstörung", "Entwicklungsstörung",
+    "Intelligenz-assoziierte Störung", "Hyperkinetische Störung", "Sprechstörung", "Ausscheidungsstörung") ~
+    "Neuronale Entwicklungsstörung",
+  icd_cat_l3 %in% c("Depression", "Bipolare Störung / Manie") ~ "Affektive Störung",
+  icd_cat_l2 %in% c("Adoleszenten-assoziierte Substanz", "Nicht-adoleszenten-assoziierte Substanz") ~
+    "Substanzbezogene Störung",
+  icd_cat_l3 %in% c("Anorexie", "Bulimie", "Essstörung Sonst.") ~ "Essstörung",
+
+  # andere Kategorien
+  str_starts(icd_code, "[^F]") ~ "somatische Diag."
+
+  # defaults to icd_cat_l2 value if not specified
+  )
+
+#TODO implement list of treatment cats?
+
+#TODO same case_id if <= 3 weeks between cases
+
+#TODO add lockdown data
+
+#TODO add calendar week to all POSIXct cols
 
 
 # read & tidy data -----------------------------------------------------------------------------------------------------
@@ -199,23 +308,33 @@ df <- data_raw %>%
          mutate(# recode factor levels
                 across(starts_with("fa_"), ~fct_relabel(., ~fa_lvls[.])),
                 across(ends_with("_hn"), ~fct_relabel(., ~hn_lvls[.])),
+                across(any_of("case_state"), ~fct_recode(., !!!case_state_lvls)),
                 across(any_of("sex"), ~fct_relabel(., toupper)),
 
                 # remove all occurences of "-" and "." to transfer icpm codes to ops codes
                 across(any_of("ops_code"), ~fct_relabel(., ~str_remove_all(., "[\\-\\.]"))),
 
                 # remove 2nd decimal place of diagnoses
-                across(any_of("icd_code"), ~fct_relabel(., ~str_sub(., end = 5))),
+                #TODO: add setting if & where to cut
+                # across(any_of("icd_code"), ~fct_relabel(., ~str_sub(., end = 5))),
 
-                #TODO: move to: after merging (proportions might shift)
                 # drop/lump rare diagnoses/treatmens
-                across(any_of(c("icd_code", "ops_code")), ~fct_lump_prop(., lump_threshold, other_level = other_name))
+                #TODO: move to: after merging (proportions might shift)
+                # across(any_of(c("icd_code", "ops_code")), ~fct_lump_prop(., lump_threshold, other_level = other_name))
                 ) %>%
          # exclude icd_code & ops_code lump category
          { if(other_exclude) filter(., if_any(any_of(c("icd_code", "ops_code")), ~!str_detect(., other_name)))
            else . } %>%
 
-         mutate(across(where(is.factor), fct_drop)) # drop unused factor levels after exclusion
+         # add ICD categories
+         { if("icd_code" %in% colnames(.)) {
+           mutate(., icd_cat_l3 = case_when(!!!icd_cats_l3, .default = "check me!"), #TODO check "check me!"
+                  icd_cat_l2 = case_when(!!!icd_cats_l2, .default = icd_cat_l3),
+                  icd_cat_l1 = case_when(!!!icd_cats_l1, .default = icd_cat_l2)) %>%
+             mutate(across(starts_with("icd_cat_l"), as_factor))
+           } else . } %>%
+
+         mutate(across(where(is.factor), fct_drop)) # drop unused factor levels after all exclusion steps
       )
 
 # expand data ----------------------------------------------------------------------------------------------------------
