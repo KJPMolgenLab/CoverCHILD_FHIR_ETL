@@ -15,6 +15,12 @@ outdir <- "output"
 dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 
 # settings -------------------------------------------------------------------------------------------------------------
+covid_start <- ymd("2020-03-01")
+
+data_fs <- Sys.glob("data/*.csv")
+names(data_fs) <- basename(file_path_sans_ext(data_fs))
+lockdown_f <- "data/ext/ZPID_lockdown_measures_dataset-V6.0.csv"
+
 # column formats
 # different date/time formats in the data sources:
 dt_forms <- list(dt1 = col_datetime("%d.%m.%Y %H:%M"), # e.g. "02.01.2016 01:48"
@@ -179,7 +185,7 @@ lump_threshold <- 0.0005
 other_name <- "Sonstige"
 other_exclude <- TRUE
 
-# ICD code categories in 3 levels
+# ICD categories in 3 levels
 icd_cats_l3 <- exprs(
   # Neuronale Entwicklungsstörungen
   str_starts(icd_code, "F0") ~ "Organische Störung",
@@ -210,7 +216,7 @@ icd_cats_l3 <- exprs(
   str_starts(icd_code, "F94\\.[1289]") ~ "Bindungsstörung",
 
   # Affektive Störungen
-  str_starts(icd_code, "F32|F33|F34\\.[189]|F41\\.2|F48\\.[089]|F92\\.0") ~ "Depression",
+  str_starts(icd_code, "F3[23]|F34\\.[189]|F41\\.2|F48\\.[089]|F92\\.0") ~ "Depression",
   str_starts(icd_code, "F31|F30\\.[1289]|F34\\.0") ~ "Bipolare Störung / Manie",
 
   # Substanzbezogene Störungen
@@ -278,19 +284,36 @@ icd_cats_l1 = exprs(
 
 #TODO implement list of treatment cats?
 
-#TODO same case_id if <= 3 weeks between cases
-
-#TODO add lockdown data
+#TODO same case_id if <= 3 weeks between cases (+check for Covid-related discharges)
 
 #TODO add calendar week to all POSIXct cols
 
 
-# read & tidy data -----------------------------------------------------------------------------------------------------
-files <- Sys.glob("data/*.csv")
-names(files) <- basename(file_path_sans_ext(files))
+# lockdown data --------------------------------------------------------------------------------------------------------
+df_lockdown_long <- read_csv(lockdown_f, col_types = cols("f", "f", "f", .default = "i")) %>%
+  rename(state_id = ...1) %>%
+  rename_with(tolower) %>%
+  filter(!is.na(state), !is.na(measure)) %>%
+  pivot_longer(cols = !c(state_id, state, measure), names_to = "date", values_to = "status") %>%
+  mutate(date = as_date(date, format = "%Y-%m-%d"))
 
-# read data
-data_raw <- imap(files, \(path, name) {
+df_lockdown_days <- df_lockdown_long %>%
+  pivot_wider(names_from = "measure", values_from = "status")
+
+lockdown_data_period <- df_lockdown_days$date %>% {interval(min(.), max(.))}
+
+df_lockdown_periods <- df_lockdown_long %>%
+  filter(status != 0) %>%
+  group_by(state, measure, status) %>%
+  mutate(period_n = cumsum((date-lag(date, default = first(date))) != 1)) %>%
+  group_by(period_n, .add = TRUE) %>%
+  summarise(date_start = min(date), date_end = max(date)) %>%
+  ungroup() %>%
+  mutate(date_period = interval(date_start, date_end))
+
+
+# read & tidy data -----------------------------------------------------------------------------------------------------
+data_raw <- imap(data_fs, \(path, name) {
   encoding <- try(guess_encoding(path)$encoding[[1]])
   if(inherits(encoding, "try-error")) encoding <- "ISO-8859-1"
   read_delim(path, delim = ";", trim_ws = TRUE, col_types = col_formats[[name]],
@@ -299,7 +322,7 @@ data_raw <- imap(files, \(path, name) {
 })
 
 # tidy data
-df <- data_raw %>%
+data_tidy <- data_raw %>%
   imap(~distinct(.) %>% # remove duplicate rows
          select(where(~!all(is.na(.)))) %>% # remove empty cols
          rename(., any_of(col_names[[.y]])) %>% # unify variable names
@@ -325,29 +348,42 @@ df <- data_raw %>%
          # exclude icd_code & ops_code lump category
          { if(other_exclude) filter(., if_any(any_of(c("icd_code", "ops_code")), ~!str_detect(., other_name)))
            else . } %>%
-
-         # add ICD categories
-         { if("icd_code" %in% colnames(.)) {
-           mutate(., icd_cat_l3 = case_when(!!!icd_cats_l3, .default = "check me!"), #TODO check "check me!"
-                  icd_cat_l2 = case_when(!!!icd_cats_l2, .default = icd_cat_l3),
-                  icd_cat_l1 = case_when(!!!icd_cats_l1, .default = icd_cat_l2)) %>%
-             mutate(across(starts_with("icd_cat_l"), as_factor))
-           } else . } %>%
-
          mutate(across(where(is.factor), fct_drop)) # drop unused factor levels after all exclusion steps
       )
 
-# expand data ----------------------------------------------------------------------------------------------------------
+# expand data, add new variables ---------------------------------------------------------------------------------------
+data_exp <- data_tidy %>%
+  map(~ # add ICD categories
+        { if("icd_code" %in% colnames(.)) {
+          mutate(., icd_cat_l3 = case_when(!!!icd_cats_l3, .default = "check_me"), #TODO check "check_me"
+                 icd_cat_l2 = case_when(!!!icd_cats_l2, .default = icd_cat_l3),
+                 icd_cat_l1 = case_when(!!!icd_cats_l1, .default = icd_cat_l2)) %>%
+            mutate(across(starts_with("icd_cat_l"), as_factor))
+        } else . } %>%
 
-
-# create new variables -------------------------------------------------------------------------------------------------
+        # add statuses based on case admission date
+        { if("adm_date" %in% colnames(.)) {
+          # covid pandemic status
+          mutate(., covid_pan = factor(if_else(adm_date < covid_start, "pre_covid", "dur_covid"),
+                                       levels = c("pre_covid", "dur_covid"), ordered = TRUE)) %>%
+            # lockdown / school closure status
+            left_join(df_lockdown_periods %>%
+                        filter(state == "Hessen", measure == "school") %>%
+                        select(lockdown_status = status, lockdown_period_n = period_n,
+                               lockdown_date_start = date_start, lockdown_date_end = date_end),
+                      by = join_by(between(adm_date, lockdown_date_start, lockdown_date_end))) %>%
+            # select(!c(lockdown_date_start, lockdown_date_end)) %>%
+            mutate(lockdown_status = if_else(is.na(lockdown_status) & (adm_date %within% lockdown_data_period),
+                                             0, lockdown_status))
+        } else . }
+  )
 
 # mutate(across(.cols = where(~ is.POSIXt(.) || is.Date(.)), .fns = isoweek, .names = "{.col}_KW")) %>% # Kalenderwoche
 
 
 # convert to DFs in global env if desired
-# for (x in names(df)) assign(x, df[[x]])
-# write_rds(df, file.path(outdir, "P21_Fall+ICD_sample_data.rds"))
+# for (x in names(data_tidy)) assign(x, data_tidy[[x]])
+# write_rds(data_tidy, file.path(outdir, "P21_Fall+ICD_sample_data.rds"))
 
 
 # merge data -----------------------------------------------------------------------------------------------------------
@@ -356,7 +392,7 @@ df <- data_raw %>%
 # join_srcs <- c("P21_Fall_V1_pseudonym", "P21_ICD_V1_pseudonym")
 # join_srcs <- c("ICD_V2", "Pers_Fall_V2_pseudonym", "P21_Fall_V1_pseudonym", "P21_ICD_V1_pseudonym")
 join_srcs <- names(data_raw)
-# df[join_srcs] %<>% reduce(inner_join) # by = "P21_Fallnummer_Pseudonym"
+# data_tidy[join_srcs] %<>% reduce(inner_join) # by = "P21_Fallnummer_Pseudonym"
 
 
 # misc section - not needed atm ----------------------------------------------------------------------------------------
@@ -365,27 +401,3 @@ join_srcs <- names(data_raw)
 # outdir <- file.path("output", "data_utf8")
 # dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 # for (x in names(data_raw)) write_csv2(data_raw[[x]], file.path(outdir, str_c(x, "_utf8.csv")))
-
-
-
-
-# sandbox for individual dataframes
-
-# tmp <- df[[1]]
-# tmp$`PID Pseudonym` %>% unique() %>% length
-# tmp_desc <- tmp %>%
-#   group_by(`PID Pseudonym`, Fall_Pseudonym) %>%
-#   summarise(n_case = n()) %>%
-#   ungroup(Fall_Pseudonym) %>%
-#   mutate(cases_patient = n())
-#
-# tmp_desc %>% slice_head(n = 1) %>% use_series(cases_patient) %>% qplot()
-# tmp_desc %>% arrange(desc(cases_patient)) %>% View()
-# tmp %>% filter(`PID Pseudonym` == "CC8748848558568597") %>% descr_mis() %>% select(1:4)
-#
-# p21 <- df[["P21_ICD_V1_pseudonym"]]
-# p21 %>% filter(P21_Fallnummer_Pseudonym == "CC4725478752193819") %>% View()
-# p21 %>%
-#   filter(Diagnoseart == "HD") %>%
-#   group_by(P21_Fallnummer_Pseudonym) %>%
-#   summarise(n = n()) %>% arrange(desc(n)) %>% View()
