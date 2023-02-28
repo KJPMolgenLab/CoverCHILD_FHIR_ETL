@@ -285,11 +285,12 @@ icd_cats_l1 = exprs(
   # defaults to icd_cat_l2 value if not specified
   )
 
+# Vars that should be uniform per case
+unify_per_case <- list(first = c("yob", "sex", "adm_date", "age_adm", "ik_insurer", "adm_event", "adm_reason",
+                                 "ik_hospital", "case_merge", "case_merge_reason", "leave_days_psy", "case_state"),
+                       last = c("dis_date", "dis_reason", "dis_type"))
+
 #TODO implement list of treatment cats?
-
-#TODO same case_id if <= 3 weeks between cases (+check for Covid-related discharges)
-
-#TODO add calendar week to all POSIXct cols
 
 
 # lockdown data --------------------------------------------------------------------------------------------------------
@@ -382,9 +383,79 @@ data_tidy <- data_raw %>%
          mutate(across(where(is.factor), fct_drop)) # drop unused factor levels after all exclusion steps
       )
 
-# expand data, add new variables ---------------------------------------------------------------------------------------
+# union of factor levels of same variable across all data sources
+# data_tidy %<>%
+#   map(~mutate(., across(where(is.factor),
+#                         ~fct_expand(., map(data_tidy, ~levels(.[[cur_column()]])) %>% list_c() %>% unique()))))
+
+
+# expand data, merge cases, add new variables --------------------------------------------------------------------------
+
+# factor order of case_ids & dict to merge cases with <3 weeks between discharge and next admission
+case_merge_dict <-
+  map(data_tidy[which(map_vec(data_tidy,
+                              ~ length(intersect(c("p_id", "case_id", "adm_date", "dis_date"), names(.))) == 4))],
+      ~select(., p_id, adm_date, dis_date, case_id_orig = case_id) %>% distinct()) %>%
+  reduce(bind_rows) %>%
+  distinct() %>%
+  arrange(p_id, adm_date) %>%
+  group_by(case_id_orig) %>%
+  mutate(dis_date = max(dis_date)) %>% # different dis_dates present between Orbis & P21
+  distinct() %>%
+  group_by(p_id, .add = FALSE) %T>%
+
+  # assign intermediate result: ordered case_id_orig factor levels
+  {use_series(., case_id_orig) %>% fct_inorder() %>% head(0) %>% assign("case_id_orig_lvls_ordered", ., pos = 1) } %>%
+
+  mutate(case_id = cumsum(!replace_na(adm_date < (lag(dis_date, default = origin) + weeks(3)), FALSE))) %>%
+  group_by(case_id, .add = TRUE) %>%
+  filter(n() > 1) %>%
+  mutate(case_id = str_c(first(case_id_orig, na_rm = TRUE), "_m")) %>%
+  ungroup() %>%
+  select(case_id, case_id_orig) %>%
+  mutate(case_id = as_factor(case_id)) %T>%
+
+  # assign intermediate result: case_id recode dict
+  { mutate(., across(everything(), as.character)) %>%
+      deframe() %>%
+      assign("case_id_lvls_rec", ., pos = 1) } %T>%
+  # assign intermediate result: case_id recode nested list
+  { summarise(., val = list(fct_inorder(unique(case_id_orig))), .by = case_id) %>%
+      deframe() %>%
+      assign("case_id_lvls_by_new", ., pos = 1) }
+
+#TODO: can probably be done with mutate if_any named list names .fn
 data_exp <- data_tidy %>%
-  map(~ # add ICD categories
+  map(~ # merge cases
+        mutate(., case_id_orig = fct_c(case_id_orig_lvls_ordered, case_id),
+               case_id = fct_recode(case_id_orig, !!!case_id_lvls_rec)) %>%
+        arrange(across(any_of(c("p_id", "case_id", "case_id_orig", "adm_date", "icd_date", "ops_date",
+                                "med_start_date", "med_end_date", "lab_date", "dis_date")))) %>%
+        rename_with(~str_c(., "_orig"), any_of(list_c(unify_per_case))) %>%
+        group_by(case_id) %>%
+        # unify selected variables per case
+        mutate(across(any_of(str_c(unify_per_case$first, "_orig")), ~first(., na_rm = TRUE),
+                      .names = '{str_remove(.col, "_orig")}'),
+               across(any_of(str_c(unify_per_case$last, "_orig")), ~last(., na_rm = TRUE),
+                      .names = '{str_remove(.col, "_orig")}'),
+               across(any_of("length_stay"), list(netto = ~(pick(case_id_orig, length_stay) %>%
+                                                              group_by(case_id_orig) %>%
+                                                              summarise(length_stay = first(length_stay)) %>%
+                                                              use_series(length_stay) %>%
+                                                              sum(na.rm = TRUE)),
+                                                  # technically, max()+min() should not be necessary as both dates are
+                                                  # recoded to last/first
+                                                  brutto = ~as.numeric(max(dis_date)-min(adm_date)))),
+               # keep only _orig values when differing from new versions
+               across(any_of(str_c(list_c(unify_per_case), "_orig")),
+                      ~if_else(. == get(str_remove(cur_column(), "_orig")), NA, .))
+               ) %>%
+        ungroup() %>%
+        select(!any_of("age_adm_orig")) %>% # remove age_adm_orig, since it can be reconstructed well enough from yob
+        select(where(~!all(is.na(.)))) %>% # remove empty cols
+        mutate(across(where(is.factor), fct_drop)) %>% # drop unused factor levels
+
+        # add ICD categories
         { if("icd_code" %in% colnames(.)) {
           mutate(., icd_cat_l3 = case_when(!!!icd_cats_l3, .default = "check_me"), #TODO check "check_me"
                  icd_cat_l2 = case_when(!!!icd_cats_l2, .default = icd_cat_l3),
