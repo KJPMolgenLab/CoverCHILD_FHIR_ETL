@@ -16,13 +16,27 @@ outdir <- "output"
 dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 
 # settings -------------------------------------------------------------------------------------------------------------
-save_objects <- FALSE # save final dataframes in outdir
+do_save_objects <- FALSE # save final dataframes in outdir
 
 covid_start <- ymd("2020-03-01")
 
 data_fs <- Sys.glob("data/*.csv")
 names(data_fs) <- basename(file_path_sans_ext(data_fs))
 lockdown_f <- "data/ext/ZPID_lockdown_measures_dataset-V6.0.csv"
+
+# data exclusion
+# ICD codes to be in-/excluded
+filter_icd <- "[^XVZ]" # regex as defined by stringi, matched only at start of string
+
+# icd_codes & ops_codes present in fewer than threshold proportion of cases will be lumped together as "Sonstige"
+# and excluded if applicable
+do_lump <- FALSE
+lump_threshold <- 0.0005
+other_name <- "Sonstige"
+do_other_exclude <- FALSE
+
+# Should factors contain union of factor levels of same variable across all data sources?
+do_unify_factor_lvls <- FALSE
 
 # column formats
 # different date/time formats in the data sources:
@@ -46,117 +60,129 @@ col_formats <- list(
   Rezepte_Pack_Wirkstoff_V4_pseudonym = cols("f", "D", "t", "f", "f", "f", "f"))
 
 # unify column names
-col_names <- list(Ergebnis_V2_PLZ_PID_Fall_pseudonym = c(p_id = "Pseudonyme_PID",
-                                                         case_id = "Pseudonyme_Fälle",
-                                                         case_state_id = "FALLSTATUSID", # 1 11 13 12
-                                                         case_state = "FALLSTATUS", # "ambulant" "stationär" "teilstationär" "nachstationär"
-                                                         plz = "PLZ_3stellig"),
-                  ICD_V2 = c(case_id = "Fall_Pseudonym",
-                             p_id = "PID Pseudonym",
-                             yob = "Geburtsjahr",
-                             sex = "GE", # "M" "W" "D"
-                             adm_date = "AUFNDAT",
-                             dis_date = "ENTLDAT",
-                             length_stay = "Verweildauer", # num
-                             case_state = "FALLSTATUS", # "stationär" "ambulant" "teilstationär" "nachstationär"
-                             fa_icd = "ICD_FA", # "Kinder- und Jugendpsychiatrie KIJUPSY" "PIA 92 - Kinder- und Jugendliche PIA KIJU" "Prof. Dr. Christine Freitag, Privatsprechstunde CA FREITAG" "HSA Psy. Kinder- und Jugendliche KIJU POLI"
-                             icd_date = "ICD_DATUM",
-                             icd_code = "ICD_CODE",
-                             icd_type = "ICD_TYPE", # "FA En" "Aufn." "Entl." "Abr" "Beh." "Einw."
-                             icd_hn = "ICD_HN", # "H" "N"
-                             icd_label = "ICD_BEZ",
-                             icd_2_code = "SEK_ICD_CODE",
-                             icd_2_label = "SEK_ICD_BEZ"),
-                  ICPM_V3 = c(case_id = "Fall_Pseudonym",
-                              p_id = "PID Pseudonym",
-                              case_state = "FALLSTATUS", # "ambulant" "stationär" "nachstationär" "teilstationär"
-                              age_adm = "Alter_bei_Aufnahme",
-                              age_treat = "Alter_bei_Maßnahme",
-                              fa_ops = "ICPM_FA", # "Prof. Dr. Christine Freitag, Privatsprechstunde CA FREITAG" "Kinder- und Jugendpsychiatrie KIJUPSY" "HSA Psy. Kinder- und Jugendliche KIJU POLI" "PIA 92 - Kinder- und Jugendliche PIA KIJU"
-                              ops_date = "ICPM_DATUM",
-                              ops_code = "ICPM_CODE",
-                              ops_hn = "ICPM_HN", # "H" "N"
-                              ops_loc = "LOKALISATION", # "" "B"
-                              ops_label = "ICPM_BEZ"),
-                  KIJUPSY_Med_Detail_V2_pseudonym = c(case_id = "Fall_Pseudonym",
-                                                      adm_date = "Aufnahmedatum",
-                                                      case_state = "Fallstatus", # "teilstationär" "stationär" "ambulant" "nachstationär"
-                                                      fa_med = "Fachabteilung", # "KIJUPSY"
-                                                      med_start_date = "BeginnDatum",
-                                                      med_end_date = "EndeDatum",
-                                                      med_nvl = "Medikament_NVL",
-                                                      med_unit = "Einheit",
-                                                      med_admin_weekly = "F_Wochenstring",
-                                                      med_admin_daily = "Tagesstring",
-                                                      med_cbx_req = "cbxBedarfsmedikation"),
-                  Labordaten_V3 = c(case_id = "Fall_Pseudonym",
-                                    adm_date = "AUFNDAT",
-                                    fa_lab = "OEBENEKURZ", # "KIJUPSY" "PIA KIJU" "KIJU POLI" "CA FREITAG"
-                                    lab_prot_n = "PROTOKOLLNUMMER",
-                                    lab_date = "BEFUNDDATUM",
-                                    lab_code = "CODE",
-                                    lab_label = "BEZEICHNUNG",
-                                    lab_group = "Gruppenbezeichnung",
-                                    lab_val = "WERT",
-                                    lab_unit = "EINHEIT",
-                                    lab_norm_val = "NORMALWERTE",
-                                    lab_abnorm_dir = "ABNORMRICHTUNG",
-                                    lab_val_text = "WERTTEXT"),
-                  P21_FAB_V1_pseudonym = c(case_id = "P21_Fallnummer_Pseudonym",
-                                           fa_p21 = "Fachabteilung", # "HA3000" "HA0003" "HA0002" "HA0001" "HA2900"
-                                           adm_date = "FAB-Aufnahmedatum",
-                                           dis_date = "FAB-Entlassungsdatum"),
-                  P21_Fall_V1_pseudonym = c(case_id = "P21_Fallnummer_Pseudonym",
-                                            p_id = "P21_PID_Pseudonym",
-                                            yob = "Geburtsjahr",
-                                            sex = "Geschlecht", # "m" "w" ""
-                                            ik_insurer = "IK-der-Krankenkasse",
-                                            plz = "PLZ",
-                                            adm_date = "Aufnahmedatum",
-                                            adm_event = "Aufnahmeanlass", # "N" "E" "V" "B" "A"
-                                            adm_reason = "Aufnahmegrund", # "0107" "0301" "0101" "" "0307" "0201" "0407"
-                                            dis_date = "Entlassungsdatum",
-                                            dis_reason = "Entlassungsgrund", # "019" "012" "039" "229" "042" "011" "049" "029" "032" "022" "" "031" "179" "149" "069" "152" "041" "159" "089"
-                                            age_adm = "Alter-in-Jahren-am-Aufnahmetag",
-                                            ik_hospital = "IK-Verlegungs-KH",
-                                            case_merge = "Fallzusammenführung", # "N" "J"
-                                            case_merge_reason= "Fallzusammenführungsgrund", # "" "PW" "PR" "PM"
-                                            leave_days_psy = "Beurlaubungstage-PSY"),
-                  P21_ICD_V1_pseudonym = c(case_id = "P21_Fallnummer_Pseudonym",
-                                           icd_hn = "Diagnoseart", # "HD" "ND"
-                                           icd_version = "ICD-Version",
-                                           icd_code = "ICD-Kode",
-                                           icd_loc = "Lokalisation...5", # "" "L" "R" "B"
-                                           icd_2_code = "Sekundär-Kode",
-                                           icd_2_loc = "Lokalisation...7"), # "" "L" "R" "B"
-                  P21_OPS_V1_pseudonym = c(case_id = "P21_Fallnummer_Pseudonym",
-                                           ops_version = "OPS-Version",
-                                           ops_code = "OPS-Kode",
-                                           ops_loc = "Lokalisation", # "" "B" "L" "R"
-                                           ops_date = "OPS-Datum"),
-                  Pers_Fall_V2_pseudonym = c(p_id = "PID Pseudonym",
-                                             sex = "GE", # "M" "W" "D"
-                                             yob = "Geburtsjahr",
-                                             age_adm = "Alter_Aufahme",
-                                             plz = "PLZ-3stellig",
-                                             addr_type = "ADRESSART", # "frühere Adresse" "Erstanschrift" "Rechnungsanschrift Ambu" "Zweitanschrift" "Ehemalige Erstanschrift" "Befundverschickung" "Rechnungsanschrift" "Info-Adresse"
-                                             case_id = "Fall_Pseudonym",
-                                             case_state = "FALLSTATUS", # "stationär" "ambulant" "teilstationär" "nachstationär"
-                                             adm_date = "AUFNDAT",
-                                             dis_date = "ENTLDAT",
-                                             adm_reason = "AUFNAHMEGRUND", # "KH-Behandlung, vollstat." "" "KH-Behandlung, teilstat." KH-Behandlung, vollstat. nach vorstat."
-                                             adm_type = "AUFNAHMEART", # "Notfall" "" "Normalfall"
-                                             stay_type = "AUFENTHALTSART", # 1 NA
-                                             dis_type = "ENTLASSART",
-                                             fa_icd = "ICD_FA"), # "Kinder- und Jugendpsychiatrie KIJUPSY" "PIA 92 - Kinder- und Jugendliche PIA KIJU" "Prof. Dr. Christine Freitag, Privatsprechstunde CA FREITAG" "HSA Psy. Kinder- und Jugendliche KIJU POLI"
-                  Rezepte_Pack_Wirkstoff_V4_pseudonym = c(case_id = "Fall_Pseudonym",
-                                                          presc_date = "Rezept_Datum", # unify
-                                                          presc_time = "Rezept_Zeit", # unify
-                                                          presc_orderer = "Mediz_BST", # "PIA KIJU" "92-2" "CA FREITAG" "92-3" "92-1" "93-1" "KIJU POLI" "92-5" "92-4"
-                                                          fa_presc = "Mediz_FA", # "KIJUPSY"
-                                                          pres_package_info = "PackungInfo",
-                                                          presc_drug = "WirkstoffBez")
-                  )
+col_names <- list(
+  Ergebnis_V2_PLZ_PID_Fall_pseudonym = c(
+    p_id = "Pseudonyme_PID",
+    case_id = "Pseudonyme_Fälle",
+    case_state_id = "FALLSTATUSID", # 1 11 13 12
+    case_state = "FALLSTATUS", # "ambulant" "stationär" "teilstationär" "nachstationär"
+    plz = "PLZ_3stellig"),
+  ICD_V2 = c(
+    case_id = "Fall_Pseudonym",
+    p_id = "PID Pseudonym",
+    yob = "Geburtsjahr",
+    sex = "GE", # "M" "W" "D"
+    adm_date = "AUFNDAT",
+    dis_date = "ENTLDAT",
+    length_stay = "Verweildauer", # num
+    case_state = "FALLSTATUS", # "stationär" "ambulant" "teilstationär" "nachstationär"
+    fa_icd = "ICD_FA", # "Kinder- und Jugendpsychiatrie KIJUPSY" "PIA 92 - Kinder- und Jugendliche PIA KIJU" "Prof. Dr. Christine Freitag, Privatsprechstunde CA FREITAG" "HSA Psy. Kinder- und Jugendliche KIJU POLI"
+    icd_date = "ICD_DATUM",
+    icd_code = "ICD_CODE",
+    icd_type = "ICD_TYPE", # "FA En" "Aufn." "Entl." "Abr" "Beh." "Einw."
+    icd_hn = "ICD_HN", # "H" "N"
+    icd_label = "ICD_BEZ",
+    icd_2_code = "SEK_ICD_CODE",
+    icd_2_label = "SEK_ICD_BEZ"),
+  ICPM_V3 = c(
+    case_id = "Fall_Pseudonym",
+    p_id = "PID Pseudonym",
+    case_state = "FALLSTATUS", # "ambulant" "stationär" "nachstationär" "teilstationär"
+    age_adm = "Alter_bei_Aufnahme",
+    age_treat = "Alter_bei_Maßnahme",
+    fa_ops = "ICPM_FA", # "Prof. Dr. Christine Freitag, Privatsprechstunde CA FREITAG" "Kinder- und Jugendpsychiatrie KIJUPSY" "HSA Psy. Kinder- und Jugendliche KIJU POLI" "PIA 92 - Kinder- und Jugendliche PIA KIJU"
+    ops_date = "ICPM_DATUM",
+    ops_code = "ICPM_CODE",
+    ops_hn = "ICPM_HN", # "H" "N"
+    ops_loc = "LOKALISATION", # "" "B"
+    ops_label = "ICPM_BEZ"),
+  KIJUPSY_Med_Detail_V2_pseudonym = c(
+    case_id = "Fall_Pseudonym",
+    adm_date = "Aufnahmedatum",
+    case_state = "Fallstatus", # "teilstationär" "stationär" "ambulant" "nachstationär"
+    fa_med = "Fachabteilung", # "KIJUPSY"
+    med_start_date = "BeginnDatum",
+    med_end_date = "EndeDatum",
+    med_nvl = "Medikament_NVL",
+    med_unit = "Einheit",
+    med_admin_weekly = "F_Wochenstring",
+    med_admin_daily = "Tagesstring",
+    med_cbx_req = "cbxBedarfsmedikation"),
+  Labordaten_V3 = c(
+    case_id = "Fall_Pseudonym",
+    adm_date = "AUFNDAT",
+    fa_lab = "OEBENEKURZ", # "KIJUPSY" "PIA KIJU" "KIJU POLI" "CA FREITAG"
+    lab_prot_n = "PROTOKOLLNUMMER",
+    lab_date = "BEFUNDDATUM",
+    lab_code = "CODE",
+    lab_label = "BEZEICHNUNG",
+    lab_group = "Gruppenbezeichnung",
+    lab_val = "WERT",
+    lab_unit = "EINHEIT",
+    lab_norm_val = "NORMALWERTE",
+    lab_abnorm_dir = "ABNORMRICHTUNG",
+    lab_val_text = "WERTTEXT"),
+  P21_FAB_V1_pseudonym = c(
+    case_id = "P21_Fallnummer_Pseudonym",
+    fa_p21 = "Fachabteilung", # "HA3000" "HA0003" "HA0002" "HA0001" "HA2900"
+    adm_date = "FAB-Aufnahmedatum",
+    dis_date = "FAB-Entlassungsdatum"),
+  P21_Fall_V1_pseudonym = c(
+    case_id = "P21_Fallnummer_Pseudonym",
+    p_id = "P21_PID_Pseudonym",
+    yob = "Geburtsjahr",
+    sex = "Geschlecht", # "m" "w" ""
+    ik_insurer = "IK-der-Krankenkasse",
+    plz = "PLZ",
+    adm_date = "Aufnahmedatum",
+    adm_event = "Aufnahmeanlass", # "N" "E" "V" "B" "A"
+    adm_reason = "Aufnahmegrund", # "0107" "0301" "0101" "" "0307" "0201" "0407"
+    dis_date = "Entlassungsdatum",
+    dis_reason = "Entlassungsgrund", # "019" "012" "039" "229" "042" "011" "049" "029" "032" "022" "" "031" "179" "149" "069" "152" "041" "159" "089"
+    age_adm = "Alter-in-Jahren-am-Aufnahmetag",
+    ik_hospital = "IK-Verlegungs-KH",
+    case_merge = "Fallzusammenführung", # "N" "J"
+    case_merge_reason= "Fallzusammenführungsgrund", # "" "PW" "PR" "PM"
+    leave_days_psy = "Beurlaubungstage-PSY"),
+  P21_ICD_V1_pseudonym = c(
+    case_id = "P21_Fallnummer_Pseudonym",
+    icd_hn = "Diagnoseart", # "HD" "ND"
+    icd_version = "ICD-Version",
+    icd_code = "ICD-Kode",
+    icd_loc = "Lokalisation...5", # "" "L" "R" "B"
+    icd_2_code = "Sekundär-Kode",
+    icd_2_loc = "Lokalisation...7"), # "" "L" "R" "B"
+  P21_OPS_V1_pseudonym = c(
+    case_id = "P21_Fallnummer_Pseudonym",
+    ops_version = "OPS-Version",
+    ops_code = "OPS-Kode",
+    ops_loc = "Lokalisation", # "" "B" "L" "R"
+    ops_date = "OPS-Datum"),
+  Pers_Fall_V2_pseudonym = c(
+    p_id = "PID Pseudonym",
+    sex = "GE", # "M" "W" "D"
+    yob = "Geburtsjahr",
+    age_adm = "Alter_Aufahme",
+    plz = "PLZ-3stellig",
+    addr_type = "ADRESSART", # "frühere Adresse" "Erstanschrift" "Rechnungsanschrift Ambu" "Zweitanschrift" "Ehemalige Erstanschrift" "Befundverschickung" "Rechnungsanschrift" "Info-Adresse"
+    case_id = "Fall_Pseudonym",
+    case_state = "FALLSTATUS", # "stationär" "ambulant" "teilstationär" "nachstationär"
+    adm_date = "AUFNDAT",
+    dis_date = "ENTLDAT",
+    adm_reason = "AUFNAHMEGRUND", # "KH-Behandlung, vollstat." "" "KH-Behandlung, teilstat." KH-Behandlung, vollstat. nach vorstat."
+    adm_type = "AUFNAHMEART", # "Notfall" "" "Normalfall"
+    stay_type = "AUFENTHALTSART", # 1 NA
+    dis_type = "ENTLASSART",
+    fa_icd = "ICD_FA"), # "Kinder- und Jugendpsychiatrie KIJUPSY" "PIA 92 - Kinder- und Jugendliche PIA KIJU" "Prof. Dr. Christine Freitag, Privatsprechstunde CA FREITAG" "HSA Psy. Kinder- und Jugendliche KIJU POLI"
+  Rezepte_Pack_Wirkstoff_V4_pseudonym = c(
+    case_id = "Fall_Pseudonym",
+    presc_date = "Rezept_Datum", # unify
+    presc_time = "Rezept_Zeit", # unify
+    presc_orderer = "Mediz_BST", # "PIA KIJU" "92-2" "CA FREITAG" "92-3" "92-1" "93-1" "KIJU POLI" "92-5" "92-4"
+    fa_presc = "Mediz_FA", # "KIJUPSY"
+    pres_package_info = "PackungInfo",
+    presc_drug = "WirkstoffBez")
+  )
 
 # unify/recode factor levels & labels
 # CAVE: order of names depends on used function: fct_recode needs new=old, fct_relabel needs old=new
@@ -177,16 +203,6 @@ case_state_lvls_rec <- c("ambulant" = "nachstationär")
 
 #TODO adm_reason_lvls_rec = ... # recode & separate reason + type
 #TODO add other codes from codebook (icd_type, fa_p21, adm_event, dis_reason, case_merge_reason, stay_type, +?)
-
-# data exclusion
-# ICD codes to be in-/excluded
-filter_icd <- "[^XVZ]" # regex as defined by stringi, matched only at start of string
-
-# icd_codes & ops_codes present in fewer than threshold proportion of cases will be lumped together as "Sonstige"
-# and excluded if applicable
-lump_threshold <- 0.0005
-other_name <- "Sonstige"
-other_exclude <- FALSE
 
 # ICD categories in 3 levels
 icd_cats_l3 <- exprs(
@@ -289,8 +305,9 @@ icd_cats_l1 = exprs(
 unify_per_case <- list(first = c("yob", "sex", "adm_date", "age_adm", "ik_insurer", "adm_event", "adm_reason",
                                  "ik_hospital", "case_merge", "case_merge_reason", "leave_days_psy", "case_state"),
                        last = c("dis_date", "dis_reason", "dis_type"))
+same_case_span <- weeks(3)
 
-#TODO implement list of treatment cats?
+#TODO list of treatment cats?
 
 
 # lockdown data --------------------------------------------------------------------------------------------------------
@@ -311,9 +328,9 @@ df_lockdown_periods <- df_lockdown_long %>%
   group_by(state, measure, status) %>%
   mutate(period_n = cumsum((date-lag(date, default = first(date))) != 1)) %>%
   group_by(period_n, .add = TRUE) %>%
-  summarise(date_start = min(date), date_end = max(date)) %>%
+  summarise(start_date = min(date), end_date = max(date)) %>%
   ungroup() %>%
-  mutate(date_period = interval(date_start, date_end))
+  mutate(date_period = interval(start_date, end_date))
 
 
 # read & tidy data -----------------------------------------------------------------------------------------------------
@@ -323,7 +340,7 @@ data_raw <- imap(data_fs, \(path, name) {
   read_delim(path, delim = ";", trim_ws = TRUE, col_types = col_formats[[name]],
              locale = locale(date_names = "de", date_format = "%d.%m.%Y", time_format = "%H:%M:%S",
                              decimal_mark =".", tz = "Europe/Berlin", encoding = encoding))
-})
+  })
 
 # CAVE: p_id in P21 data differs from Orbis. Recoding P21 IDs to Orbis IDs
 p21_p_id_lvls_rec <- data_raw$Pers_Fall_V2_pseudonym %>%
@@ -336,10 +353,6 @@ p21_p_id_lvls_rec <- data_raw$Pers_Fall_V2_pseudonym %>%
                distinct(),
              by = c("case_id"), suffix = c("_Orb", "_P21")) %>%
   mutate(across(where(is.factor), as.character)) %>%
-  # mutate(match_adm_date = adm_date_Orb == adm_date_P21,
-  #        match_dis_date = dis_date_Orb == dis_date_P21,
-  #        match_sex = sex_Orb == sex_P21,
-  #        match_yob = yob_Orb == yob_P21) %>%
   filter(yob_Orb == yob_P21 | is.na(yob_Orb) | is.na(yob_P21),
          sex_Orb == toupper(sex_P21) | is.na(sex_Orb) | is.na(sex_P21),
          adm_date_Orb == adm_date_P21 | is.na(adm_date_Orb) | is.na(adm_date_P21),
@@ -367,30 +380,30 @@ data_tidy <- data_raw %>%
                 across(any_of("p_id"), ~fct_expand(., p21_p_id_lvls_rec) %>% fct_recode(!!!p21_p_id_lvls_rec)),
 
                 # remove all occurences of "-" and "." to transfer icpm codes to ops codes
-                across(any_of("ops_code"), ~fct_relabel(., ~str_remove_all(., "[\\-\\.]"))),
-
-                # remove 2nd decimal place of diagnoses
-                #TODO: add setting if & where to cut
-                # across(any_of("icd_code"), ~fct_relabel(., ~str_sub(., end = 5))),
-
-                # drop/lump rare diagnoses/treatmens
-                #TODO: move to: after merging (proportions might shift)
-                # across(any_of(c("icd_code", "ops_code")), ~fct_lump_prop(., lump_threshold, other_level = other_name))
+                across(any_of("ops_code"), ~fct_relabel(., ~str_remove_all(., "[\\-\\.]")))
                 ) %>%
-         # exclude icd_code & ops_code lump category
-         { if(other_exclude) filter(., if_any(any_of(c("icd_code", "ops_code")), ~!str_detect(., other_name)))
+
+         # drop/lump rare diagnoses/treatmens
+         #TODO: do after merging (proportions might shift)?
+         { if(do_lump) mutate(across(any_of(c("icd_code", "ops_code")),
+                                     ~fct_lump_prop(., lump_threshold, other_level = other_name)))
            else . } %>%
+         # exclude icd_code & ops_code lump category
+         { if(do_other_exclude) filter(., if_any(any_of(c("icd_code", "ops_code")), ~!str_detect(., other_name)))
+           else . } %>%
+
          mutate(across(where(is.factor), fct_drop)) # drop unused factor levels after all exclusion steps
       )
 
 # union of factor levels of same variable across all data sources
-# data_tidy %<>%
-#   map(~mutate(., across(where(is.factor),
-#                         ~fct_expand(., map(data_tidy, ~levels(.[[cur_column()]])) %>% list_c() %>% unique()))))
+if(do_unify_factor_lvls) {
+  data_tidy %<>%
+    map(~mutate(., across(where(is.factor),
+                          ~fct_expand(., map(data_tidy, ~levels(.[[cur_column()]])) %>% list_c() %>% unique()))))
+}
 
 
 # expand data, merge cases, add new variables --------------------------------------------------------------------------
-
 # factor order of case_ids & dict to merge cases with <3 weeks between discharge and next admission
 case_merge_dict <-
   map(data_tidy[which(map_vec(data_tidy,
@@ -400,14 +413,14 @@ case_merge_dict <-
   distinct() %>%
   arrange(p_id, adm_date) %>%
   group_by(case_id_orig) %>%
-  mutate(dis_date = max(dis_date)) %>% # different dis_dates present between Orbis & P21
+  mutate(dis_date = max(dis_date)) %>% # solve different dis_dates present between Orbis & P21
   distinct() %>%
   group_by(p_id, .add = FALSE) %T>%
 
   # assign intermediate result: ordered case_id_orig factor levels
   {use_series(., case_id_orig) %>% fct_inorder() %>% head(0) %>% assign("case_id_orig_lvls_ordered", ., pos = 1) } %>%
 
-  mutate(case_id = cumsum(!replace_na(adm_date < (lag(dis_date, default = origin) + weeks(3)), FALSE))) %>%
+  mutate(case_id = cumsum(!replace_na(adm_date < (lag(dis_date, default = origin) + same_case_span), FALSE))) %>%
   group_by(case_id, .add = TRUE) %>%
   filter(n() > 1) %>%
   mutate(case_id = str_c(first(case_id_orig, na_rm = TRUE), "_m")) %>%
@@ -415,16 +428,15 @@ case_merge_dict <-
   select(case_id, case_id_orig) %>%
   mutate(case_id = as_factor(case_id)) %T>%
 
-  # assign intermediate result: case_id recode dict
+  # assign result: case_id recode dict
   { mutate(., across(everything(), as.character)) %>%
       deframe() %>%
       assign("case_id_lvls_rec", ., pos = 1) } %T>%
-  # assign intermediate result: case_id recode nested list
+  # assign result: case_id recode nested list
   { summarise(., val = list(fct_inorder(unique(case_id_orig))), .by = case_id) %>%
       deframe() %>%
       assign("case_id_lvls_by_new", ., pos = 1) }
 
-#TODO: can probably be done with mutate if_any named list names .fn
 data_exp <- data_tidy %>%
   map(~ # merge cases
         mutate(., case_id_orig = fct_c(case_id_orig_lvls_ordered, case_id),
@@ -438,14 +450,15 @@ data_exp <- data_tidy %>%
                       .names = '{str_remove(.col, "_orig")}'),
                across(any_of(str_c(unify_per_case$last, "_orig")), ~last(., na_rm = TRUE),
                       .names = '{str_remove(.col, "_orig")}'),
-               across(any_of("length_stay"), list(netto = ~(pick(case_id_orig, length_stay) %>%
-                                                              group_by(case_id_orig) %>%
-                                                              summarise(length_stay = first(length_stay)) %>%
-                                                              use_series(length_stay) %>%
-                                                              sum(na.rm = TRUE)),
-                                                  # technically, max()+min() should not be necessary as both dates are
-                                                  # recoded to last/first
-                                                  brutto = ~as.numeric(max(dis_date)-min(adm_date)))),
+               across(any_of("length_stay"),
+                      list(netto = ~(pick(case_id_orig, length_stay) %>%
+                                       group_by(case_id_orig) %>%
+                                       summarise(length_stay = first(length_stay, na_rm = TRUE)) %>%
+                                       use_series(length_stay) %>%
+                                       sum(na.rm = TRUE) %>%
+                                       na_if(0)),
+                           # technically, max()+min() should not be necessary as both dates are recoded to last/first
+                           brutto = ~as.numeric(max(dis_date)-min(adm_date)))),
                # keep only _orig values when differing from new versions
                across(any_of(str_c(list_c(unify_per_case), "_orig")),
                       ~if_else(. == get(str_remove(cur_column(), "_orig")), NA, .))
@@ -457,7 +470,7 @@ data_exp <- data_tidy %>%
 
         # add ICD categories
         { if("icd_code" %in% colnames(.)) {
-          mutate(., icd_cat_l3 = case_when(!!!icd_cats_l3, .default = "check_me"), #TODO check "check_me"
+          mutate(., icd_cat_l3 = case_when(!!!icd_cats_l3, .default = "check_me"), # "check_me" for not-captured cases
                  icd_cat_l2 = case_when(!!!icd_cats_l2, .default = icd_cat_l3),
                  icd_cat_l1 = case_when(!!!icd_cats_l1, .default = icd_cat_l2)) %>%
             mutate(across(starts_with("icd_cat_l"), as_factor))
@@ -472,33 +485,34 @@ data_exp <- data_tidy %>%
             left_join(df_lockdown_periods %>%
                         filter(state == "Hessen", measure == "school") %>%
                         select(lockdown_status = status, lockdown_period_n = period_n,
-                               lockdown_date_start = date_start, lockdown_date_end = date_end),
-                      by = join_by(between(adm_date, lockdown_date_start, lockdown_date_end))) %>%
-            # select(!c(lockdown_date_start, lockdown_date_end)) %>%
+                               lockdown_start_date = start_date, lockdown_end_date = end_date),
+                      by = join_by(between(adm_date, lockdown_start_date, lockdown_end_date))) %>%
+            # select(!c(lockdown_start_date, lockdown_end_date)) %>%
             mutate(lockdown_status = if_else(is.na(lockdown_status) & (adm_date %within% lockdown_data_period),
                                              0, lockdown_status))
-        } else . }
-  )
+        } else . } %>%
 
-# mutate(across(.cols = where(~ is.POSIXt(.) || is.Date(.)), .fns = isoweek, .names = "{.col}_KW")) %>% # Kalenderwoche
-
+        # add calendar week to all dates
+        mutate(across(where(~ is.POSIXt(.) || is.Date(.)),
+                      ~str_c(year(.), ".", week(.)) %>% fct_relevel(~str_sort(., numeric = TRUE)),
+                      .names = '{str_replace(.col, "_date", "_week")}'))
+      )
 
 # convert to DFs in global env if desired
-# for (x in names(data_tidy)) assign(x, data_tidy[[x]])
+# for (x in names(data_exp)) assign(x, data_exp[[x]])
 
 
-# merge data -----------------------------------------------------------------------------------------------------------
+# summarise data -------------------------------------------------------------------------------------------------------
 
-# select dataframes to merge
-# join_srcs <- c("P21_Fall_V1_pseudonym", "P21_ICD_V1_pseudonym")
-# join_srcs <- c("ICD_V2", "Pers_Fall_V2_pseudonym", "P21_Fall_V1_pseudonym", "P21_ICD_V1_pseudonym")
-join_srcs <- names(data_raw)
-# data_tidy[join_srcs] %<>% reduce(inner_join) # by = "P21_Fallnummer_Pseudonym"
+#TODO summarise diagnoses, treatments, medications
+
+# remove 2nd decimal place of diagnoses
+#TODO: add setting if & where to cut
+# across(any_of("icd_code"), ~fct_relabel(., ~str_sub(., end = 5))),
 
 
 # save objects ---------------------------------------------------------------------------------------------------------
-
-if(save_objects) {
+if(do_save_objects) {
   # R Data Structure
   write_rds(data_exp, file.path(outdir, str_glue("CoverCHILD_data_exp_{Sys.Date()}.rds")))
   # CSVs
