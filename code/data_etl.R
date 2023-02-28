@@ -11,10 +11,13 @@ load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "
 # set wd for VS Code (doesn't align automatically to .Rproj)
 old_wd <- set_wd() # function imported from functions.R
 if(is.null(old_wd)) rm(old_wd)
+
 outdir <- "output"
 dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 
 # settings -------------------------------------------------------------------------------------------------------------
+save_objects <- FALSE # save final dataframes in outdir
+
 covid_start <- ymd("2020-03-01")
 
 data_fs <- Sys.glob("data/*.csv")
@@ -158,21 +161,21 @@ col_names <- list(Ergebnis_V2_PLZ_PID_Fall_pseudonym = c(p_id = "Pseudonyme_PID"
 # unify/recode factor levels & labels
 # CAVE: order of names depends on used function: fct_recode needs new=old, fct_relabel needs old=new
 # relabel
-fa_lvls <- c("Kinder- und Jugendpsychiatrie KIJUPSY" = "KIJUPSY",
-               "PIA 92 - Kinder- und Jugendliche PIA KIJU" = "PIA KIJU",
-               "HSA Psy. Kinder- und Jugendliche KIJU POLI" = "KIJU POLI",
-               "Prof. Dr. Christine Freitag, Privatsprechstunde CA FREITAG" = "CA FREITAG") #,
-               # "HA3000" = ...,
-               # "HA0003" = ...,
-               # "HA0002" = ...,
-               # "HA0001" = ...,
-               # "HA2900" = ...)
-hn_lvls <- c("HD" = "H", "ND" = "N")
-sex_lvls <- c("m" = "M", "w" = "W", "d" = "D") # used right now is "toupper"
+fa_lvls_rec <- c("Kinder- und Jugendpsychiatrie KIJUPSY" = "KIJUPSY",
+                 "PIA 92 - Kinder- und Jugendliche PIA KIJU" = "PIA KIJU",
+                 "HSA Psy. Kinder- und Jugendliche KIJU POLI" = "KIJU POLI",
+                 "Prof. Dr. Christine Freitag, Privatsprechstunde CA FREITAG" = "CA FREITAG") #,
+                 # "HA3000" = ...,
+                 # "HA0003" = ...,
+                 # "HA0002" = ...,
+                 # "HA0001" = ...,
+                 # "HA2900" = ...)
+hn_lvls_rec <- c("HD" = "H", "ND" = "N")
+sex_lvls_rec <- c("m" = "M", "w" = "W", "d" = "D") # used right now is "toupper"
 # recode
-case_state_lvls <- c("ambulant" = "nachstationär")
+case_state_lvls_rec <- c("ambulant" = "nachstationär")
 
-#TODO adm_reason_lvls = ... # recode & separate reason + type
+#TODO adm_reason_lvls_rec = ... # recode & separate reason + type
 #TODO add other codes from codebook (icd_type, fa_p21, adm_event, dis_reason, case_merge_reason, stay_type, +?)
 
 # data exclusion
@@ -183,7 +186,7 @@ filter_icd <- "[^XVZ]" # regex as defined by stringi, matched only at start of s
 # and excluded if applicable
 lump_threshold <- 0.0005
 other_name <- "Sonstige"
-other_exclude <- TRUE
+other_exclude <- FALSE
 
 # ICD categories in 3 levels
 icd_cats_l3 <- exprs(
@@ -321,6 +324,33 @@ data_raw <- imap(data_fs, \(path, name) {
                              decimal_mark =".", tz = "Europe/Berlin", encoding = encoding))
 })
 
+# CAVE: p_id in P21 data differs from Orbis. Recoding P21 IDs to Orbis IDs
+p21_p_id_lvls_rec <- data_raw$Pers_Fall_V2_pseudonym %>%
+  select(p_id = `PID Pseudonym`, case_id = Fall_Pseudonym, adm_date = AUFNDAT, dis_date = ENTLDAT, sex = GE,
+         yob = Geburtsjahr) %>%
+  distinct() %>%
+  inner_join(data_raw$P21_Fall_V1_pseudonym %>%
+               select(p_id = P21_PID_Pseudonym, case_id = P21_Fallnummer_Pseudonym, adm_date = Aufnahmedatum,
+                      dis_date = Entlassungsdatum, sex = Geschlecht, yob = Geburtsjahr) %>%
+               distinct(),
+             by = c("case_id"), suffix = c("_Orb", "_P21")) %>%
+  mutate(across(where(is.factor), as.character)) %>%
+  # mutate(match_adm_date = adm_date_Orb == adm_date_P21,
+  #        match_dis_date = dis_date_Orb == dis_date_P21,
+  #        match_sex = sex_Orb == sex_P21,
+  #        match_yob = yob_Orb == yob_P21) %>%
+  filter(yob_Orb == yob_P21 | is.na(yob_Orb) | is.na(yob_P21),
+         sex_Orb == toupper(sex_P21) | is.na(sex_Orb) | is.na(sex_P21),
+         adm_date_Orb == adm_date_P21 | is.na(adm_date_Orb) | is.na(adm_date_P21),
+         p_id_Orb != p_id_P21) %>%
+  group_by(case_id) %>%
+  mutate(n_tot_case = n(), n_pid_Orb = n_distinct(p_id_Orb), n_pid_P21 = n_distinct(p_id_P21)) %>%
+  ungroup() %>%
+  filter(n_pid_Orb == 1 & n_pid_P21 == 1) %>%
+  select(p_id_Orb, p_id_P21) %>%
+  distinct() %>%
+  deframe()
+
 # tidy data
 data_tidy <- data_raw %>%
   imap(~distinct(.) %>% # remove duplicate rows
@@ -329,10 +359,11 @@ data_tidy <- data_raw %>%
 
          filter(if_any(any_of("icd_code"), ~str_starts(., filter_icd))) %>% # keep/remove selected ICD codes
          mutate(# recode factor levels
-                across(starts_with("fa_"), ~fct_relabel(., ~fa_lvls[.])),
-                across(ends_with("_hn"), ~fct_relabel(., ~hn_lvls[.])),
-                across(any_of("case_state"), ~fct_recode(., !!!case_state_lvls)),
+                across(starts_with("fa_"), ~fct_relabel(., ~fa_lvls_rec[.])),
+                across(ends_with("_hn"), ~fct_relabel(., ~hn_lvls_rec[.])),
+                across(any_of("case_state"), ~fct_recode(., !!!case_state_lvls_rec)),
                 across(any_of("sex"), ~fct_relabel(., toupper)),
+                across(any_of("p_id"), ~fct_expand(., p21_p_id_lvls_rec) %>% fct_recode(!!!p21_p_id_lvls_rec)),
 
                 # remove all occurences of "-" and "." to transfer icpm codes to ops codes
                 across(any_of("ops_code"), ~fct_relabel(., ~str_remove_all(., "[\\-\\.]"))),
@@ -383,7 +414,6 @@ data_exp <- data_tidy %>%
 
 # convert to DFs in global env if desired
 # for (x in names(data_tidy)) assign(x, data_tidy[[x]])
-# write_rds(data_tidy, file.path(outdir, "P21_Fall+ICD_sample_data.rds"))
 
 
 # merge data -----------------------------------------------------------------------------------------------------------
@@ -395,9 +425,12 @@ join_srcs <- names(data_raw)
 # data_tidy[join_srcs] %<>% reduce(inner_join) # by = "P21_Fallnummer_Pseudonym"
 
 
-# misc section - not needed atm ----------------------------------------------------------------------------------------
+# save objects ---------------------------------------------------------------------------------------------------------
 
-# save UTF-8 encoded
-# outdir <- file.path("output", "data_utf8")
-# dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
-# for (x in names(data_raw)) write_csv2(data_raw[[x]], file.path(outdir, str_c(x, "_utf8.csv")))
+if(save_objects) {
+  # R Data Structure
+  write_rds(data_exp, file.path(outdir, str_glue("CoverCHILD_data_exp_{Sys.Date()}.rds")))
+  # CSVs
+  dir.create(file.path(outdir, "data_exp"), recursive = TRUE, showWarnings = FALSE)
+  for (x in names(data_exp)) write_csv2(data_exp[[x]], file.path(outdir, "data_exp", str_c(x, "_exp.csv")))
+}
