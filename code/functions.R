@@ -27,8 +27,36 @@ set_wd <- function() {
 }
 
 
+## create codebook of input df #################################################
+create_codebook <- function(df, lvl_threshold=10) {
+  library("tidyverse")
+  summarise(df,
+            across(everything(),
+                   list(type = ~list(class(.)),
+                        n_unique = n_distinct,
+                        perc_NA = ~round(sum(is.na(.))/length(.)*100, 1),
+                        min = ~if(is.numeric(.) || is.POSIXt(.) || is.Date(.)) min(., na.rm = TRUE) else NA,
+                        max = ~if(is.numeric(.) || is.POSIXt(.) || is.Date(.)) max(., na.rm = TRUE) else NA,
+                        # range = ~if(is.numeric(.) || is.POSIXt(.) || is.Date(.)) list(range(., na.rm = TRUE)) else NA,
+                        levels = \(x) {
+                          if(is.factor(x)) lvls <- levels(x)
+                          else lvls <- sort(unique(na.omit(x)))
+                          if(length(lvls) > lvl_threshold) return(str_glue(">{lvl_threshold} unique vals."))
+                          else return(list(lvls))
+                        }),
+                   .names = "{.col}:::{.fn}")) %>%
+    pivot_longer(everything(),
+                 names_to = c("variable_name", ".value"),
+                 names_pattern = "(\\w+):::(\\w+)",
+                 values_transform = as.character) %>%
+    mutate(across(everything(), ~str_remove_all(., "c\\(|\\)")))
+}
+
+
 ## generate missingness report of input df #####################################
 descr_mis <- function(df) {
+  library("psych")
+  library("tidyverse")
   descr_mis_df <- df %>%
     describe(skew = FALSE) %>%
     select(-vars) %>%

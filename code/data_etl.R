@@ -494,7 +494,7 @@ data_exp <- data_tidy %>%
 
         # add calendar week to all dates
         mutate(across(where(~ is.POSIXt(.) || is.Date(.)),
-                      ~str_c(year(.), ".", week(.)) %>% fct_relevel(~str_sort(., numeric = TRUE)),
+                      ~str_c(year(.), ".", week(.)) %>% fct_relevel(~str_sort(., numeric = TRUE)) %>% as.ordered(),
                       .names = '{str_replace(.col, "_date", "_week")}'))
       )
 
@@ -511,11 +511,26 @@ data_exp <- data_tidy %>%
 # across(any_of("icd_code"), ~fct_relabel(., ~str_sub(., end = 5))),
 
 
+# create codebook ------------------------------------------------------------------------------------------------------
+codebook_data_exp <-
+  imap(data_exp,
+      ~ create_codebook(.) %>%
+        left_join(enframe(col_names[[.y]], name = "variable_name", value = "variable_original"),
+                  by = "variable_name") %>%
+        relocate(variable_original, .after = variable_name) %>%
+        arrange(fct_relevel(variable_original, col_names[[.y]]))
+      ) %>%
+  bind_rows(.id = "dataframe")
+
+
 # save objects ---------------------------------------------------------------------------------------------------------
 if(do_save_objects) {
   # R Data Structure
   write_rds(data_exp, file.path(outdir, str_glue("CoverCHILD_data_exp_{Sys.Date()}.rds")))
-  # CSVs
+  # dataframe CSVs
   dir.create(file.path(outdir, "data_exp"), recursive = TRUE, showWarnings = FALSE)
   for (x in names(data_exp)) write_csv2(data_exp[[x]], file.path(outdir, "data_exp", str_c(x, "_exp.csv")))
+  # codebook
+  write_csv2(codebook_data_exp, file.path(outdir, str_glue("CoverCHILD_codebook_{Sys.Date()}.csv")),
+             na = "")
 }
