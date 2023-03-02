@@ -15,6 +15,7 @@ if(is.null(old_wd)) rm(old_wd)
 outdir <- "output"
 dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 
+
 # settings -------------------------------------------------------------------------------------------------------------
 do_save_objects <- FALSE # save final dataframes in outdir
 
@@ -35,7 +36,7 @@ lump_threshold <- 0.0005
 other_name <- "Sonstige"
 do_other_exclude <- FALSE
 
-# Should factors contain union of factor levels of same variable across all data sources?
+# Should factors in untransformed dataframes contain union of factor levels of same variable across all data sources?
 do_unify_factor_lvls <- FALSE
 
 # column formats
@@ -125,8 +126,8 @@ col_names <- list(
   P21_FAB_V1_pseudonym = c(
     case_id = "P21_Fallnummer_Pseudonym",
     fa_p21 = "Fachabteilung", # "HA3000" "HA0003" "HA0002" "HA0001" "HA2900"
-    adm_date = "FAB-Aufnahmedatum",
-    dis_date = "FAB-Entlassungsdatum"),
+    adm_date_fab = "FAB-Aufnahmedatum",
+    dis_date_fab = "FAB-Entlassungsdatum"),
   P21_Fall_V1_pseudonym = c(
     case_id = "P21_Fallnummer_Pseudonym",
     p_id = "P21_PID_Pseudonym",
@@ -186,19 +187,18 @@ col_names <- list(
 
 # unify/recode factor levels & labels
 # CAVE: order of names depends on used function: fct_recode needs new=old, fct_relabel needs old=new
-# relabel
-fa_lvls_rec <- c("Kinder- und Jugendpsychiatrie KIJUPSY" = "KIJUPSY",
-                 "PIA 92 - Kinder- und Jugendliche PIA KIJU" = "PIA KIJU",
-                 "HSA Psy. Kinder- und Jugendliche KIJU POLI" = "KIJU POLI",
-                 "Prof. Dr. Christine Freitag, Privatsprechstunde CA FREITAG" = "CA FREITAG") #,
-                 # "HA3000" = ...,
-                 # "HA0003" = ...,
-                 # "HA0002" = ...,
-                 # "HA0001" = ...,
-                 # "HA2900" = ...)
-hn_lvls_rec <- c("HD" = "H", "ND" = "N")
-sex_lvls_rec <- c("m" = "M", "w" = "W", "d" = "D") # used right now is "toupper"
-# recode
+# all recode
+fa_lvls_rec <- c("KIJUPSY" = "Kinder- und Jugendpsychiatrie KIJUPSY",
+                 "PIA KIJU" = "PIA 92 - Kinder- und Jugendliche PIA KIJU",
+                 "KIJU POLI" = "HSA Psy. Kinder- und Jugendliche KIJU POLI",
+                 "CA FREITAG" = "Prof. Dr. Christine Freitag, Privatsprechstunde CA FREITAG",
+                 "Allg. Psychiatrie" = "HA2900",
+                 "KIJUPSY" = "HA3000",
+                 "Pseudo-FA: Rückverlegung" = "HA0001",
+                 "Pseudo-FA: Wiederaufnahme nach ext. Aufenthalt" = "HA0002",
+                 "Pseudo-FA: ext. Aufenthalt m. Abwesenheit über Mitternacht" = "HA0003")
+hn_lvls_rec <- c("H" = "HD", "N" = "ND")
+sex_lvls_rec <- c("M" = "m", "W" = "w", "D" = "d") # used right now is "toupper"
 case_state_lvls_rec <- c("ambulant" = "nachstationär")
 
 #TODO adm_reason_lvls_rec = ... # recode & separate reason + type
@@ -373,15 +373,19 @@ data_tidy <- data_raw %>%
 
          filter(if_any(any_of("icd_code"), ~str_starts(., filter_icd))) %>% # keep/remove selected ICD codes
          mutate(# recode factor levels
-                across(starts_with("fa_"), ~fct_relabel(., ~fa_lvls_rec[.])),
-                across(ends_with("_hn"), ~fct_relabel(., ~hn_lvls_rec[.])),
+                across(starts_with("fa_"), ~fct_expand(., fa_lvls_rec) %>% fct_recode(!!!fa_lvls_rec)),
+                across(ends_with("_hn"), ~fct_expand(., hn_lvls_rec) %>% fct_recode(!!!hn_lvls_rec)),
                 across(any_of("case_state"), ~fct_recode(., !!!case_state_lvls_rec)),
                 across(any_of("sex"), ~fct_relabel(., toupper)),
                 across(any_of("p_id"), ~fct_expand(., p21_p_id_lvls_rec) %>% fct_recode(!!!p21_p_id_lvls_rec)),
 
                 # remove all occurences of "-" and "." to transfer icpm codes to ops codes
-                across(any_of("ops_code"), ~fct_relabel(., ~str_remove_all(., "[\\-\\.]")))
+                across(any_of("ops_code"), ~fct_relabel(., ~str_remove_all(., "[\\-\\.]"))),
+
+                # unify prescription date+time column to datetime
+                across(any_of("presc_date"), ~(ymd(.) + hms(presc_time)))
                 ) %>%
+         select(-any_of("presc_time")) %>%
 
          # drop/lump rare diagnoses/treatmens
          #TODO: do after merging (proportions might shift)?

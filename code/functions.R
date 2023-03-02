@@ -26,6 +26,12 @@ set_wd <- function() {
   }
 }
 
+## show columns & groups with multiple values present in grouped DF ############
+find_mult <- . %>%
+  summarise(across(everything(), n_distinct)) %>%
+  select(group_cols(), where(~ is.numeric(.) && max(., na.rm = TRUE) > 1)) %>%
+  filter(if_any(where(is.numeric), ~ . > 1))
+
 
 ## create codebook of input df #################################################
 create_codebook <- function(df, lvl_threshold=10) {
