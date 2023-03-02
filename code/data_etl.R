@@ -65,7 +65,7 @@ col_names <- list(
   Ergebnis_V2_PLZ_PID_Fall_pseudonym = c(
     p_id = "Pseudonyme_PID",
     case_id = "Pseudonyme_Fälle",
-    case_state_id = "FALLSTATUSID", # 1 11 13 12
+    case_state_id = "FALLSTATUSID", # 1 (=ambulant), 11 (=stationär), 13 (=teilstationär), 12 (=nachstationär)
     case_state = "FALLSTATUS", # "ambulant" "stationär" "teilstationär" "nachstationär"
     plz = "PLZ_3stellig"),
   ICD_V2 = c(
@@ -95,7 +95,7 @@ col_names <- list(
     ops_date = "ICPM_DATUM",
     ops_code = "ICPM_CODE",
     ops_hn = "ICPM_HN", # "H" "N"
-    ops_loc = "LOKALISATION", # "" "B"
+    ops_loc = "LOKALISATION", # "B"
     ops_label = "ICPM_BEZ"),
   KIJUPSY_Med_Detail_V2_pseudonym = c(
     case_id = "Fall_Pseudonym",
@@ -132,32 +132,32 @@ col_names <- list(
     case_id = "P21_Fallnummer_Pseudonym",
     p_id = "P21_PID_Pseudonym",
     yob = "Geburtsjahr",
-    sex = "Geschlecht", # "m" "w" ""
+    sex = "Geschlecht", # "m" "w"
     ik_insurer = "IK-der-Krankenkasse",
     plz = "PLZ",
     adm_date = "Aufnahmedatum",
     adm_event = "Aufnahmeanlass", # "N" "E" "V" "B" "A"
-    adm_reason = "Aufnahmegrund", # "0107" "0301" "0101" "" "0307" "0201" "0407"
+    adm_reason_type = "Aufnahmegrund", # "0107" "0301" "0101" "0307" "0201" "0407"
     dis_date = "Entlassungsdatum",
-    dis_reason = "Entlassungsgrund", # "019" "012" "039" "229" "042" "011" "049" "029" "032" "022" "" "031" "179" "149" "069" "152" "041" "159" "089"
+    dis_reason_work = "Entlassungsgrund", # "019" "012" "039" "229" "042" "011" "049" "029" "032" "022" "031" "179" "149" "069" "152" "041" "159" "089"
     age_adm = "Alter-in-Jahren-am-Aufnahmetag",
     ik_hospital = "IK-Verlegungs-KH",
     case_merge = "Fallzusammenführung", # "N" "J"
-    case_merge_reason= "Fallzusammenführungsgrund", # "" "PW" "PR" "PM"
+    case_merge_reason= "Fallzusammenführungsgrund", # "PW" "PR" "PM"
     leave_days_psy = "Beurlaubungstage-PSY"),
   P21_ICD_V1_pseudonym = c(
     case_id = "P21_Fallnummer_Pseudonym",
     icd_hn = "Diagnoseart", # "HD" "ND"
     icd_version = "ICD-Version",
     icd_code = "ICD-Kode",
-    icd_loc = "Lokalisation...5", # "" "L" "R" "B"
+    icd_loc = "Lokalisation...5", # "L" "R" "B"
     icd_2_code = "Sekundär-Kode",
-    icd_2_loc = "Lokalisation...7"), # "" "L" "R" "B"
+    icd_2_loc = "Lokalisation...7"), # "L" "R" "B"
   P21_OPS_V1_pseudonym = c(
     case_id = "P21_Fallnummer_Pseudonym",
     ops_version = "OPS-Version",
     ops_code = "OPS-Kode",
-    ops_loc = "Lokalisation", # "" "B" "L" "R"
+    ops_loc = "Lokalisation", # "B" "L" "R"
     ops_date = "OPS-Datum"),
   Pers_Fall_V2_pseudonym = c(
     p_id = "PID Pseudonym",
@@ -170,15 +170,15 @@ col_names <- list(
     case_state = "FALLSTATUS", # "stationär" "ambulant" "teilstationär" "nachstationär"
     adm_date = "AUFNDAT",
     dis_date = "ENTLDAT",
-    adm_reason = "AUFNAHMEGRUND", # "KH-Behandlung, vollstat." "" "KH-Behandlung, teilstat." KH-Behandlung, vollstat. nach vorstat."
-    adm_type = "AUFNAHMEART", # "Notfall" "" "Normalfall"
+    adm_reason = "AUFNAHMEGRUND", # "KH-Behandlung, vollstat." "KH-Behandlung, teilstat." "KH-Behandlung, vollstat. nach vorstat."
+    adm_type = "AUFNAHMEART", # "Notfall" "Normalfall"
     stay_type = "AUFENTHALTSART", # 1 NA
-    dis_type = "ENTLASSART",
+    dis_reason = "ENTLASSART",
     fa_icd = "ICD_FA"), # "Kinder- und Jugendpsychiatrie KIJUPSY" "PIA 92 - Kinder- und Jugendliche PIA KIJU" "Prof. Dr. Christine Freitag, Privatsprechstunde CA FREITAG" "HSA Psy. Kinder- und Jugendliche KIJU POLI"
   Rezepte_Pack_Wirkstoff_V4_pseudonym = c(
     case_id = "Fall_Pseudonym",
-    presc_date = "Rezept_Datum", # unify
-    presc_time = "Rezept_Zeit", # unify
+    presc_date = "Rezept_Datum",
+    presc_time = "Rezept_Zeit",
     presc_orderer = "Mediz_BST", # "PIA KIJU" "92-2" "CA FREITAG" "92-3" "92-1" "93-1" "KIJU POLI" "92-5" "92-4"
     fa_presc = "Mediz_FA", # "KIJUPSY"
     pres_package_info = "PackungInfo",
@@ -200,6 +200,28 @@ fa_lvls_rec <- c("KIJUPSY" = "Kinder- und Jugendpsychiatrie KIJUPSY",
 hn_lvls_rec <- c("H" = "HD", "N" = "ND")
 sex_lvls_rec <- c("M" = "m", "W" = "w", "D" = "d") # used right now is "toupper"
 case_state_lvls_rec <- c("ambulant" = "nachstationär")
+adm_reason_lvls_rec <- c("KH-Behandlung, vollstat." = "01",
+                         "KH-Behandlung, vollstat. nach vorstat." = "02",
+                         "KH-Behandlung, teilstat." = "03",
+                         "Behandlung, vorst." = "04")
+adm_type_lvls_rec <- c("Normalfall" = "01",
+                       "Notfall" = "07")
+dis_reason_lvls_rec <-
+  c("Beh. regulär beendet" = "01",
+    "Beh. regulär beendet, nachstat. Beh. vorgesehen" = "02",
+    "Behand. aus sonst. Gründen beendet" = "03",
+    "Beh. gegen ärztl. Rat beendet" = "04",
+    "Verlegung in ein anderes KH" = "06",
+    "Verlegung in ein anderes KH (Zusammenarb. §14 A5 S2)" = "08",
+    "interne Verlegung zwischen den Geltungsbereichen" = "12",
+    "externe Verlegung zur psychiatrischen Behandlung" = "13",
+    "Beh. aus sonst. Gründen beendet, nachstat. Beh. vorgesehen" = "14",
+    "Beh. gegen ärztl. Rat beendet, nachstat. Beh. vorgesehen" = "15",
+    "interne Verlegung mit Wechsel zwischen den Entgeltbereichen" = "17",
+    "Fallabschluss (interne Verlegung) bei Wechsel zwischen voll- und teilstationärer Behandlung" = "22")
+dis_work_lvls_rec <- c("arbeitsfähig entlassen" = "1",
+                       "arbeitsunfähig entlassen" = "2",
+                       "keine Angabe" = "9")
 
 #TODO adm_reason_lvls_rec = ... # recode & separate reason + type
 #TODO add other codes from codebook (icd_type, fa_p21, adm_event, dis_reason, case_merge_reason, stay_type, +?)
@@ -371,6 +393,14 @@ data_tidy <- data_raw %>%
          select(where(~!all(is.na(.)))) %>% # remove empty cols
          rename(., any_of(col_names[[.y]])) %>% # unify variable names
 
+         { if("adm_reason_type" %in% colnames(.)) { # separate combined admission reason & workableness if present
+           separate_wider_position(., adm_reason_type, c(adm_reason = 2, adm_type = 2))
+         } else . } %>%
+
+         { if("dis_reason_work" %in% colnames(.)) { # separate combined discharge reason & workableness if present
+           separate_wider_position(., dis_reason_work, c(dis_reason = 2, dis_work = 1), too_few = "align_start")
+         } else . } %>%
+
          filter(if_any(any_of("icd_code"), ~str_starts(., filter_icd))) %>% # keep/remove selected ICD codes
          mutate(# recode factor levels
                 across(starts_with("fa_"), ~fct_expand(., fa_lvls_rec) %>% fct_recode(!!!fa_lvls_rec)),
@@ -378,6 +408,12 @@ data_tidy <- data_raw %>%
                 across(any_of("case_state"), ~fct_recode(., !!!case_state_lvls_rec)),
                 across(any_of("sex"), ~fct_relabel(., toupper)),
                 across(any_of("p_id"), ~fct_expand(., p21_p_id_lvls_rec) %>% fct_recode(!!!p21_p_id_lvls_rec)),
+                across(any_of("adm_reason"),
+                       ~fct_expand(., adm_reason_lvls_rec) %>% fct_recode(!!!adm_reason_lvls_rec)),
+                across(any_of("adm_type"), ~fct_expand(., adm_type_lvls_rec) %>% fct_recode(!!!adm_type_lvls_rec)),
+                across(any_of("dis_reason"),
+                       ~fct_expand(., dis_reason_lvls_rec) %>% fct_recode(!!!dis_reason_lvls_rec)),
+                across(any_of("dis_work"), ~fct_expand(., dis_work_lvls_rec) %>% fct_recode(!!!dis_work_lvls_rec)),
 
                 # remove all occurences of "-" and "." to transfer icpm codes to ops codes
                 across(any_of("ops_code"), ~fct_relabel(., ~str_remove_all(., "[\\-\\.]"))),
@@ -385,7 +421,7 @@ data_tidy <- data_raw %>%
                 # unify prescription date+time column to datetime
                 across(any_of("presc_date"), ~(ymd(.) + hms(presc_time)))
                 ) %>%
-         select(-any_of("presc_time")) %>%
+         select(-any_of(c("presc_time", "case_state_id"))) %>%
 
          # drop/lump rare diagnoses/treatmens
          #TODO: do after merging (proportions might shift)?
@@ -396,7 +432,7 @@ data_tidy <- data_raw %>%
          { if(do_other_exclude) filter(., if_any(any_of(c("icd_code", "ops_code")), ~!str_detect(., other_name)))
            else . } %>%
 
-         mutate(across(where(is.factor), fct_drop)) # drop unused factor levels after all exclusion steps
+         mutate(across(where(is.factor), fct_drop)) # drop unused factor levels after all recoding & exclusion steps
       )
 
 # union of factor levels of same variable across all data sources
