@@ -6,7 +6,7 @@
 
 # setup ------------------------------------------------------------------------
 source("code/functions.R")
-load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "psych", "rlang")
+load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "psych", "rlang", "glue")
 
 # set wd for VS Code (doesn't align automatically to .Rproj)
 old_wd <- set_wd() # function imported from functions.R
@@ -25,7 +25,7 @@ data_fs <- Sys.glob("data/*.csv")
 names(data_fs) <- basename(file_path_sans_ext(data_fs))
 lockdown_f <- "data/ext/ZPID_lockdown_measures_dataset-V6.0.csv"
 
-# sort data by descending trustworthiness of information
+# sort data sources by descending trustworthiness of information
 data_fs <- data_fs[c("Ergebnis_V2_PLZ_PID_Fall_pseudonym", "Pers_Fall_V2_pseudonym", "ICD_V2", "ICPM_V3",
                      "KIJUPSY_Med_Detail_V2_pseudonym", "Labordaten_V3", "Rezepte_Pack_Wirkstoff_V4_pseudonym",
                      "P21_Fall_V1_pseudonym", "P21_ICD_V1_pseudonym", "P21_OPS_V1_pseudonym", "P21_FAB_V1_pseudonym")]
@@ -209,7 +209,6 @@ vars_norm_dfs <- list(
   laboratory = c("fa_lab", "lab_prot_n", "lab_date", "lab_code", "lab_label", "lab_group", "lab_val", "lab_unit",
                  "lab_norm_val", "lab_abnorm_dir", "lab_val_text"),
   external_stays = c("fa_p21", "adm_date_fab", "dis_date_fab"))
-norm_dfs_sources <- lapply(vars_norm_dfs, find_dfs_with_col)
 
 # unify/recode factor levels & labels
 # CAVE: order of names depends on used function: fct_recode needs new=old, fct_relabel needs old=new
@@ -257,8 +256,7 @@ addr_type_lvls_rec <- c("prev" = "frühere Adresse",
                         "invoice" = "Rechnungsanschrift",
                         "info" = "Info-Adresse")
 
-#TODO adm_reason_lvls_rec = ... # recode & separate reason + type
-#TODO add other codes from codebook (icd_type, fa_p21, adm_event, dis_reason, case_merge_reason, stay_type, +?)
+#TODO add other codes from codebook (icd_type, fa_p21, adm_event, case_merge_reason, stay_type, +?)
 
 # ICD categories in 3 levels
 icd_cats_l3 <- exprs(
@@ -466,7 +464,8 @@ data_tidy <- data_raw %>%
                 ) %>%
          select(-any_of(c("presc_time", "case_state_id"))) %>% # drop redundant cols
 
-         mutate(across(where(is.factor), fct_drop)) # drop unused factor levels after all recoding & exclusion steps
+         # drop unused factor levels after all recoding & exclusion steps
+         mutate(across(where(is.factor), ~fct_drop(.) %>% fct_na_level_to_value()))
       )
 
 # union of factor levels of same variable across all data sources
@@ -478,13 +477,15 @@ if(do_unify_factor_lvls) {
 
 
 # transform to "normal form" database-like dataframes ------------------------------------------------------------------
+norm_dfs_sources <- lapply(vars_norm_dfs, find_dfs_with_col)
 data_norm <-
   imap(norm_dfs_sources, \(source_dfs, norm_name) {
     id_cols <- if(norm_name == "patient") "p_id" else "case_id"
     data_tidy[source_dfs] %>%
       imap(~select(., any_of(c(id_cols, vars_norm_dfs[[norm_name]]))) %>%
              distinct() %>%
-             mutate("source_{.y}" := .y)) %>%
+             mutate("source_{.y}" := .y)
+           ) %>%
       reduce(~ { full_join(.x, .y) %>%
           group_by(across(any_of(id_cols))) %>%
           mutate(across(everything(),
@@ -494,7 +495,8 @@ data_norm <-
           distinct()}) %>%
       unite(source_dfs, starts_with("source_"), sep = ", ", na.rm = TRUE) %>%
       mutate(source_dfs = as_factor(source_dfs)) %>%
-      distinct()
+      distinct() %>%
+      mutate(across(where(is.factor), ~fct_drop(.) %>% fct_na_level_to_value()))
   })
 #TODO Warning message:
 #   In full_join(.x, .y) :
@@ -616,7 +618,9 @@ data_exp <- data_norm %>%
         # add calendar week to all dates
         mutate(across(where(~ is.POSIXt(.) || is.Date(.)),
                       ~str_c(year(.), ".", week(.)) %>% fct_relevel(~str_sort(., numeric = TRUE)) %>% as.ordered(),
-                      .names = '{str_replace(.col, "_date", "_week")}'))
+                      .names = '{str_replace(.col, "_date", "_week")}')) %>%
+
+        mutate(across(where(is.factor), ~fct_drop(.) %>% fct_na_level_to_value()))
       )
 
 # convert to DFs in global env if desired
@@ -624,8 +628,37 @@ data_exp <- data_norm %>%
 
 
 # summarise data -------------------------------------------------------------------------------------------------------
+# data_exp_sum <-
+#   map(data_exp[!names(data_exp) %in% c("patient", "case")],
+#       ~summarise(., across(everything(), first), .by = case_id) %>%
+#         mutate(across(where(is.factor), ~fct_drop(.) %>% fct_na_level_to_value()))
+#       )
 
-#TODO summarise !(patient, case)
+data_exp_sum <- list()
+data_exp_sum$diagnosis <- data_exp$diagnosis %>%
+  #TODO instead of filtering only Entlassdiagnosen, code as ordered factor and take slice_max(icd_type),
+  #     and add option to switch between the 2
+  filter(icd_type == "Entl.") %>%
+  group_by(case_id, icd_code) %>%
+  slice_max(icd_date) %>%
+  group_by(case_id) %>%
+  summarise(n_icd_f = sum(str_starts(unique(na.omit(icd_code)), "F")),
+            n_icd_other = sum(str_starts(unique(na.omit(icd_code)), "[^F]")),
+            across(c(icd_code, icd_date, starts_with("icd_cat_")),
+                   list(n = ~n_distinct(.x, na.rm = TRUE)), .names = "{.fn}_{.col}"),
+            across(c(icd_date, icd_week), list(first = min, last = max)),
+            across(c(fa_icd, icd_hn, icd_version, case_id_orig, starts_with("icd_cat_")),
+                   ~glue_collapse(unique(.), sep = ", "))
+            ) %>%
+  ungroup()
+
+data_exp_sum$treatment <- data_exp$treatment %>%
+  summarise(across(c(age_treat), min),
+            across(c(ops_date, ops_week), list(first = min, last = max)),
+            across(c(fa_ops, ops_version, case_id_orig), ~glue_collapse(unique(.), sep = ", ")),
+            #TODO treatment intensity & volume
+            .by = case_id
+            )
 
 # remove 2nd decimal place of diagnoses
 #TODO: add setting if & where to cut
