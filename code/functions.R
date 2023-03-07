@@ -1,6 +1,6 @@
-# helper functions -------------------------------------------------------------
+# helper functions -----------------------------------------------------------------------------------------------------
 
-## package installation & loading ##############################################
+## package installation & loading ######################################################################################
 load_inst_pkgs <- function(..., silent = FALSE){
   pkgs <- list(...) # arguments must be of type char
   for (pkg in pkgs){
@@ -15,7 +15,7 @@ load_inst_pkgs <- function(..., silent = FALSE){
   if (!silent) cat("Done: Load libraries\n")
 }
 
-## set correct working dir if not working with RStudio #########################
+## set correct working dir if not working with RStudio #################################################################
 set_wd <- function() {
   if (basename(getwd()) != "CoverCHILD") {
     old_wd <- getwd()
@@ -26,14 +26,9 @@ set_wd <- function() {
   }
 }
 
-## show columns & groups with multiple values present in grouped DF ############
-find_mult <- . %>%
-  summarise(across(everything(), n_distinct)) %>%
-  select(group_cols(), where(~ is.numeric(.) && max(., na.rm = TRUE) > 1)) %>%
-  filter(if_any(where(is.numeric), ~ . > 1))
+## DataFrame inspection helper functions ###############################################################################
 
-
-## create codebook of input df #################################################
+# create codebook of input df
 create_codebook <- function(df, lvl_threshold=10) {
   library("tidyverse")
   summarise(df,
@@ -58,8 +53,7 @@ create_codebook <- function(df, lvl_threshold=10) {
     mutate(across(everything(), ~str_remove_all(., "c\\(|\\)")))
 }
 
-
-## generate missingness report of input df #####################################
+# generate missingness report of input df
 descr_mis <- function(df) {
   library("psych")
   library("tidyverse")
@@ -83,4 +77,29 @@ descr_mis <- function(df) {
     left_join(descr_mis_df, by = "variable") %>%
     arrange(n)
   return(descr_mis_df)
+}
+
+# show columns & groups with multiple values present in grouped DF
+find_mult_per <- function(df, group_vars) {
+  library("tidyverse")
+  print(str_glue("DF: {df}"))
+  df %>%
+    group_by({{group_vars}}) %>%
+    summarise(across(everything(), n_distinct)) %>%
+    select({{group_vars}}, where(~ is.numeric(.) && max(., na.rm = TRUE) > 1)) %>%
+    ungroup() %>%
+    filter(if_any(where(is.numeric), ~ . > 1))
+}
+
+# find DFs which have the respective column
+find_dfs_with_col <- function(var_names, df_list = data_tidy, all_any = any) {
+  names(which(sapply(names(df_list), \(x) all_any(var_names %in% names(df_list[[x]])))))
+}
+
+# filter rows in all DFs which have the column of interest
+filter_dfs_with_col <- function(..., var_names, df_list = data_tidy) {
+  imap(df_list, \(df, df_name) {
+    if(all(var_names %in% names(df_list[[df_name]]))) filter(df, ...) %T>%
+      {cat(df_name, "\n"); print(glimpse(.)); cat("\n")}
+  })
 }

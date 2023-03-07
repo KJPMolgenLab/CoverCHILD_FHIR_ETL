@@ -25,6 +25,11 @@ data_fs <- Sys.glob("data/*.csv")
 names(data_fs) <- basename(file_path_sans_ext(data_fs))
 lockdown_f <- "data/ext/ZPID_lockdown_measures_dataset-V6.0.csv"
 
+# sort data by descending trustworthiness of information
+data_fs <- data_fs[c("Ergebnis_V2_PLZ_PID_Fall_pseudonym", "Pers_Fall_V2_pseudonym", "ICD_V2", "ICPM_V3",
+                     "KIJUPSY_Med_Detail_V2_pseudonym", "Labordaten_V3", "Rezepte_Pack_Wirkstoff_V4_pseudonym",
+                     "P21_Fall_V1_pseudonym", "P21_ICD_V1_pseudonym", "P21_OPS_V1_pseudonym", "P21_FAB_V1_pseudonym")]
+
 # data exclusion
 # ICD codes to be in-/excluded
 filter_icd <- "[^XVZ]" # regex as defined by stringi, matched only at start of string
@@ -67,7 +72,7 @@ col_names <- list(
     case_id = "Pseudonyme_Fälle",
     case_state_id = "FALLSTATUSID", # 1 (=ambulant), 11 (=stationär), 13 (=teilstationär), 12 (=nachstationär)
     case_state = "FALLSTATUS", # "ambulant" "stationär" "teilstationär" "nachstationär"
-    plz = "PLZ_3stellig"),
+    plz_main = "PLZ_3stellig"),
   ICD_V2 = c(
     case_id = "Fall_Pseudonym",
     p_id = "PID Pseudonym",
@@ -134,7 +139,7 @@ col_names <- list(
     yob = "Geburtsjahr",
     sex = "Geschlecht", # "m" "w"
     ik_insurer = "IK-der-Krankenkasse",
-    plz = "PLZ",
+    plz_main = "PLZ",
     adm_date = "Aufnahmedatum",
     adm_event = "Aufnahmeanlass", # "N" "E" "V" "B" "A"
     adm_reason_type = "Aufnahmegrund", # "0107" "0301" "0101" "0307" "0201" "0407"
@@ -181,9 +186,30 @@ col_names <- list(
     presc_time = "Rezept_Zeit",
     presc_orderer = "Mediz_BST", # "PIA KIJU" "92-2" "CA FREITAG" "92-3" "92-1" "93-1" "KIJU POLI" "92-5" "92-4"
     fa_presc = "Mediz_FA", # "KIJUPSY"
-    pres_package_info = "PackungInfo",
+    presc_package_info = "PackungInfo",
     presc_drug = "WirkstoffBez")
   )
+
+# define normal form target DF variable assignment
+vars_norm_dfs <- list(
+  # 1 per patient
+  patient = c("sex", "yob"),
+  # 1 per case
+  case = c("p_id", "case_state", "plz_prev", "plz_main", "plz_invoice_amb", "plz_second", "plz_prev_main",
+           "plz_reports", "plz_invoice", "plz_info","adm_date", "dis_date", "length_stay", "age_adm", "ik_insurer",
+           "adm_event", "adm_reason", "dis_reason", "dis_work", "ik_hospital", "leave_days_psy", "adm_type",
+           "stay_type", "case_merge", "case_merge_reason", "addr_type"),
+  # n per case
+  diagnosis = c("fa_icd", "icd_date", "icd_code", "icd_type", "icd_hn", "icd_label", "icd_2_code", "icd_2_label",
+                "icd_version", "icd_loc", "icd_2_loc"), # maybe exclude Pers_Fall
+  treatment = c("age_treat", "fa_ops", "ops_date", "ops_code", "ops_hn", "ops_loc", "ops_label", "ops_version"),
+  prescription = c("presc_date", "presc_orderer", "fa_presc", "presc_package_info", "presc_drug"),
+  medication = c("fa_med", "med_start_date", "med_end_date", "med_nvl", "med_unit", "med_admin_weekly",
+                 "med_admin_daily", "med_cbx_req"),
+  laboratory = c("fa_lab", "lab_prot_n", "lab_date", "lab_code", "lab_label", "lab_group", "lab_val", "lab_unit",
+                 "lab_norm_val", "lab_abnorm_dir", "lab_val_text"),
+  external_stays = c("fa_p21", "adm_date_fab", "dis_date_fab"))
+norm_dfs_sources <- lapply(vars_norm_dfs, find_dfs_with_col)
 
 # unify/recode factor levels & labels
 # CAVE: order of names depends on used function: fct_recode needs new=old, fct_relabel needs old=new
@@ -222,6 +248,14 @@ dis_reason_lvls_rec <-
 dis_work_lvls_rec <- c("arbeitsfähig entlassen" = "1",
                        "arbeitsunfähig entlassen" = "2",
                        "keine Angabe" = "9")
+addr_type_lvls_rec <- c("prev" = "frühere Adresse",
+                        "main" = "Erstanschrift",
+                        "invoice_amb" = "Rechnungsanschrift Ambu",
+                        "second" = "Zweitanschrift",
+                        "prev_main" = "Ehemalige Erstanschrift",
+                        "reports" = "Befundverschickung",
+                        "invoice" = "Rechnungsanschrift",
+                        "info" = "Info-Adresse")
 
 #TODO adm_reason_lvls_rec = ... # recode & separate reason + type
 #TODO add other codes from codebook (icd_type, fa_p21, adm_event, dis_reason, case_merge_reason, stay_type, +?)
@@ -360,6 +394,7 @@ data_raw <- imap(data_fs, \(path, name) {
   encoding <- try(guess_encoding(path)$encoding[[1]])
   if(inherits(encoding, "try-error")) encoding <- "ISO-8859-1"
   read_delim(path, delim = ";", trim_ws = TRUE, col_types = col_formats[[name]],
+             na = c("", "NA", "na", "NaN", "-/-", "#NV", " "),
              locale = locale(date_names = "de", date_format = "%d.%m.%Y", time_format = "%H:%M:%S",
                              decimal_mark =".", tz = "Europe/Berlin", encoding = encoding))
   })
@@ -401,6 +436,14 @@ data_tidy <- data_raw %>%
            separate_wider_position(., dis_reason_work, c(dis_reason = 2, dis_work = 1), too_few = "align_start")
          } else . } %>%
 
+         { if(all(c("plz", "addr_type") %in% colnames(.))) { # widen plz+addr_type to plz_* cols
+           select(., -any_of("fa_icd")) %>%
+             distinct() %>%
+             mutate(across(any_of("addr_type"), ~fct_recode(., !!!addr_type_lvls_rec))) %>%
+             pivot_wider(names_from = addr_type, values_from = plz, names_prefix = "plz_", values_fn = first) %>%
+             select(where(~!all(is.na(.))))
+         } else . } %>%
+
          filter(if_any(any_of("icd_code"), ~str_starts(., filter_icd))) %>% # keep/remove selected ICD codes
          mutate(# recode factor levels
                 across(starts_with("fa_"), ~fct_expand(., fa_lvls_rec) %>% fct_recode(!!!fa_lvls_rec)),
@@ -413,7 +456,7 @@ data_tidy <- data_raw %>%
                 across(any_of("adm_type"), ~fct_expand(., adm_type_lvls_rec) %>% fct_recode(!!!adm_type_lvls_rec)),
                 across(any_of("dis_reason"),
                        ~fct_expand(., dis_reason_lvls_rec) %>% fct_recode(!!!dis_reason_lvls_rec)),
-                across(any_of("dis_work"), ~fct_expand(., dis_work_lvls_rec) %>% fct_recode(!!!dis_work_lvls_rec)),
+                across(any_of("dis_work"), ~fct_recode(., !!!dis_work_lvls_rec)),
 
                 # remove all occurences of "-" and "." to transfer icpm codes to ops codes
                 across(any_of("ops_code"), ~fct_relabel(., ~str_remove_all(., "[\\-\\.]"))),
@@ -421,16 +464,7 @@ data_tidy <- data_raw %>%
                 # unify prescription date+time column to datetime
                 across(any_of("presc_date"), ~(ymd(.) + hms(presc_time)))
                 ) %>%
-         select(-any_of(c("presc_time", "case_state_id"))) %>%
-
-         # drop/lump rare diagnoses/treatmens
-         #TODO: do after merging (proportions might shift)?
-         { if(do_lump) mutate(across(any_of(c("icd_code", "ops_code")),
-                                     ~fct_lump_prop(., lump_threshold, other_level = other_name)))
-           else . } %>%
-         # exclude icd_code & ops_code lump category
-         { if(do_other_exclude) filter(., if_any(any_of(c("icd_code", "ops_code")), ~!str_detect(., other_name)))
-           else . } %>%
+         select(-any_of(c("presc_time", "case_state_id"))) %>% # drop redundant cols
 
          mutate(across(where(is.factor), fct_drop)) # drop unused factor levels after all recoding & exclusion steps
       )
@@ -443,19 +477,53 @@ if(do_unify_factor_lvls) {
 }
 
 
+# transform to "normal form" database-like dataframes ------------------------------------------------------------------
+data_norm <-
+  imap(norm_dfs_sources, \(source_dfs, norm_name) {
+    id_cols <- if(norm_name == "patient") "p_id" else "case_id"
+    data_tidy[source_dfs] %>%
+      imap(~select(., any_of(c(id_cols, vars_norm_dfs[[norm_name]]))) %>%
+             distinct() %>%
+             mutate("source_{.y}" := .y)) %>%
+      reduce(~ { full_join(.x, .y) %>%
+          group_by(across(any_of(id_cols))) %>%
+          mutate(across(everything(),
+                        \(x) if(n_distinct(x, na.rm = TRUE) == 1) first(x, na_rm = TRUE) else x
+          )) %>%
+          ungroup() %>%
+          distinct()}) %>%
+      unite(source_dfs, starts_with("source_"), sep = ", ", na.rm = TRUE) %>%
+      mutate(source_dfs = as_factor(source_dfs)) %>%
+      distinct()
+  })
+#TODO Warning message:
+#   In full_join(.x, .y) :
+#   Each row in `x` is expected to match at most 1 row in `y`.
+# ℹ Row 21034 of `x` matches multiple rows.
+# ℹ If multiple matches are expected, set `multiple = "all"` to silence this warning.
+
+# case has multiple plz_main, dis_date, dis_reason after merge, stemming from conflicting info between Orbis & P21.
+# Selecting first entry to prioritize Orbis over P21.
+#TODO: save conflicts
+data_norm$case %<>%
+  arrange(p_id, case_id) %>%
+  group_by(case_id) %>%
+  slice_max(dis_date) %>%
+  slice_head(n = 1) %>%
+  ungroup()
+
+norm_dfs_merge_success <-
+  imap(data_norm, ~fct_count(.x$source_dfs, sort = TRUE, prop = TRUE) %T>% {cat(.y, "\n"); print(.); cat("\n")})
+#TODO look into rows that are only in a single df, find pattern
+
+
 # expand data, merge cases, add new variables --------------------------------------------------------------------------
 # factor order of case_ids & dict to merge cases with <3 weeks between discharge and next admission
-case_merge_dict <-
-  map(data_tidy[which(map_vec(data_tidy,
-                              ~ length(intersect(c("p_id", "case_id", "adm_date", "dis_date"), names(.))) == 4))],
-      ~select(., p_id, adm_date, dis_date, case_id_orig = case_id) %>% distinct()) %>%
-  reduce(bind_rows) %>%
+case_merge_dict <- data_norm$case %>%
+  select(p_id, adm_date, dis_date, case_id_orig = case_id) %>%
   distinct() %>%
   arrange(p_id, adm_date) %>%
-  group_by(case_id_orig) %>%
-  mutate(dis_date = max(dis_date)) %>% # solve different dis_dates present between Orbis & P21
-  distinct() %>%
-  group_by(p_id, .add = FALSE) %T>%
+  group_by(p_id) %T>%
 
   # assign intermediate result: ordered case_id_orig factor levels
   {use_series(., case_id_orig) %>% fct_inorder() %>% head(0) %>% assign("case_id_orig_lvls_ordered", ., pos = 1) } %>%
@@ -477,36 +545,49 @@ case_merge_dict <-
       deframe() %>%
       assign("case_id_lvls_by_new", ., pos = 1) }
 
-data_exp <- data_tidy %>%
-  map(~ # merge cases
-        mutate(., case_id_orig = fct_c(case_id_orig_lvls_ordered, case_id),
-               case_id = fct_recode(case_id_orig, !!!case_id_lvls_rec)) %>%
-        arrange(across(any_of(c("p_id", "case_id", "case_id_orig", "adm_date", "icd_date", "ops_date",
-                                "med_start_date", "med_end_date", "lab_date", "dis_date")))) %>%
-        rename_with(~str_c(., "_orig"), any_of(list_c(unify_per_case))) %>%
-        group_by(case_id) %>%
-        # unify selected variables per case
-        mutate(across(any_of(str_c(unify_per_case$first, "_orig")), ~first(., na_rm = TRUE),
-                      .names = '{str_remove(.col, "_orig")}'),
-               across(any_of(str_c(unify_per_case$last, "_orig")), ~last(., na_rm = TRUE),
-                      .names = '{str_remove(.col, "_orig")}'),
-               across(any_of("length_stay"),
-                      list(netto = ~(pick(case_id_orig, length_stay) %>%
-                                       group_by(case_id_orig) %>%
-                                       summarise(length_stay = first(length_stay, na_rm = TRUE)) %>%
-                                       use_series(length_stay) %>%
-                                       sum(na.rm = TRUE) %>%
-                                       na_if(0)),
-                           # technically, max()+min() should not be necessary as both dates are recoded to last/first
-                           brutto = ~as.numeric(max(dis_date)-min(adm_date)))),
-               # keep only _orig values when differing from new versions
-               across(any_of(str_c(list_c(unify_per_case), "_orig")),
-                      ~if_else(. == get(str_remove(cur_column(), "_orig")), NA, .))
-               ) %>%
-        ungroup() %>%
-        select(!any_of("age_adm_orig")) %>% # remove age_adm_orig, since it can be reconstructed well enough from yob
-        select(where(~!all(is.na(.)))) %>% # remove empty cols
-        mutate(across(where(is.factor), fct_drop)) %>% # drop unused factor levels
+data_exp <- data_norm %>%
+  map(~ # fill in length_stay where missing and both dates present
+        mutate(., across(any_of("length_stay"), ~coalesce(., as.numeric(dis_date-adm_date)))) %>%
+
+        { if("case_id" %in% colnames(.)) { # merge cases
+          mutate(., case_id_orig = fct_c(case_id_orig_lvls_ordered, case_id),
+                 case_id = fct_recode(case_id_orig, !!!case_id_lvls_rec)) %>%
+            arrange(across(any_of(c("p_id", "case_id", "case_id_orig", "adm_date", "icd_date", "ops_date",
+                                    "med_start_date", "med_end_date", "lab_date", "dis_date")))) %>%
+            rename_with(~str_c(., "_orig"), any_of(list_c(unify_per_case))) %>%
+            group_by(case_id) %>%
+            # unify selected variables per case
+            mutate(across(any_of(str_c(unify_per_case$first, "_orig")), ~first(., na_rm = TRUE),
+                          .names = '{str_remove(.col, "_orig")}'),
+                   across(any_of(str_c(unify_per_case$last, "_orig")), ~last(., na_rm = TRUE),
+                          .names = '{str_remove(.col, "_orig")}'),
+                   across(any_of("length_stay"),
+                          list(netto = ~(pick(case_id_orig, length_stay) %>%
+                                           group_by(case_id_orig) %>%
+                                           summarise(length_stay = first(length_stay, na_rm = TRUE)) %>%
+                                           use_series(length_stay) %>%
+                                           sum(na.rm = TRUE) %>%
+                                           na_if(0)),
+                               # technically, max()+min() should not be necessary as both dates are recoded to last/first
+                               brutto = ~as.numeric(max(dis_date)-min(adm_date)))),
+                   # keep only _orig values when differing from new versions
+                   across(any_of(str_c(list_c(unify_per_case), "_orig")),
+                          ~if_else(. == get(str_remove(cur_column(), "_orig")), NA, .))
+            ) %>%
+            ungroup() %>%
+            select(!any_of("age_adm_orig")) %>% # remove age_adm_orig, since it can be reconstructed well enough from yob
+            select(where(~!all(is.na(.)))) %>% # remove empty cols
+            mutate(across(where(is.factor), fct_drop)) # drop unused factor levels
+        } else . } %>%
+
+        # drop/lump rare diagnoses/treatmens
+        #TODO: do after merging as proportions might shift
+        { if(do_lump) mutate(across(any_of(c("icd_code", "ops_code")),
+                                    ~fct_lump_prop(., lump_threshold, other_level = other_name)))
+          else . } %>%
+        # exclude icd_code & ops_code lump category
+        { if(do_other_exclude) filter(., if_any(any_of(c("icd_code", "ops_code")), ~!str_detect(., other_name)))
+          else . } %>%
 
         # add ICD categories
         { if("icd_code" %in% colnames(.)) {
@@ -544,7 +625,7 @@ data_exp <- data_tidy %>%
 
 # summarise data -------------------------------------------------------------------------------------------------------
 
-#TODO summarise diagnoses, treatments, medications
+#TODO summarise !(patient, case)
 
 # remove 2nd decimal place of diagnoses
 #TODO: add setting if & where to cut
@@ -554,11 +635,13 @@ data_exp <- data_tidy %>%
 # create codebook ------------------------------------------------------------------------------------------------------
 codebook_data_exp <-
   imap(data_exp,
-      ~ create_codebook(.) %>%
-        left_join(enframe(col_names[[.y]], name = "variable_name", value = "variable_original"),
-                  by = "variable_name") %>%
-        relocate(variable_original, .after = variable_name) %>%
-        arrange(fct_relevel(variable_original, col_names[[.y]]))
+      ~ create_codebook(.) #%>%
+      #TODO add respective original variable names
+      #TODO add respective variable source dataframes
+        # left_join(enframe(col_names[[.y]], name = "variable_name", value = "variable_original"),
+        #           by = "variable_name") %>%
+        # relocate(variable_original, .after = variable_name) %>%
+        # arrange(fct_relevel(variable_original, col_names[[.y]]))
       ) %>%
   bind_rows(.id = "dataframe")
 
