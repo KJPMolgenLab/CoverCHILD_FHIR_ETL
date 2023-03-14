@@ -357,34 +357,12 @@ icd_cats_l1 = exprs(
 
 # Vars that should be uniform per case
 unify_per_case <- list(first = c("yob", "sex", "adm_date", "age_adm", "ik_insurer", "adm_event", "adm_reason",
-                                 "ik_hospital", "case_merge", "case_merge_reason", "leave_days_psy", "case_state"),
-                       last = c("dis_date", "dis_reason", "dis_type"))
+                                 "ik_hospital", "case_merge", "case_merge_reason", "leave_days_psy", "case_state",
+                                 "plz_main", "plz_prev", "adm_type", "stay_type"),
+                       last = c("dis_date", "dis_reason", "dis_type", "dis_work"))
 same_case_span <- weeks(3)
 
 #TODO list of treatment cats?
-
-
-# lockdown data --------------------------------------------------------------------------------------------------------
-df_lockdown_long <- read_csv(lockdown_f, col_types = cols("f", "f", "f", .default = "i")) %>%
-  rename(state_id = ...1) %>%
-  rename_with(tolower) %>%
-  filter(!is.na(state), !is.na(measure)) %>%
-  pivot_longer(cols = !c(state_id, state, measure), names_to = "date", values_to = "status") %>%
-  mutate(date = as_date(date, format = "%Y-%m-%d"))
-
-df_lockdown_days <- df_lockdown_long %>%
-  pivot_wider(names_from = "measure", values_from = "status")
-
-lockdown_data_period <- df_lockdown_days$date %>% {interval(min(.), max(.))}
-
-df_lockdown_periods <- df_lockdown_long %>%
-  filter(status != 0) %>%
-  group_by(state, measure, status) %>%
-  mutate(period_n = cumsum((date-lag(date, default = first(date))) != 1)) %>%
-  group_by(period_n, .add = TRUE) %>%
-  summarise(start_date = min(date), end_date = max(date)) %>%
-  ungroup() %>%
-  mutate(date_period = interval(start_date, end_date))
 
 
 # read & tidy data -----------------------------------------------------------------------------------------------------
@@ -442,7 +420,6 @@ data_tidy <- data_raw %>%
              select(where(~!all(is.na(.))))
          } else . } %>%
 
-         filter(if_any(any_of("icd_code"), ~str_starts(., filter_icd))) %>% # keep/remove selected ICD codes
          mutate(# recode factor levels
                 across(starts_with("fa_"), ~fct_expand(., fa_lvls_rec) %>% fct_recode(!!!fa_lvls_rec)),
                 across(ends_with("_hn"), ~fct_expand(., hn_lvls_rec) %>% fct_recode(!!!hn_lvls_rec)),
@@ -460,12 +437,16 @@ data_tidy <- data_raw %>%
                 across(any_of("ops_code"), ~fct_relabel(., ~str_remove_all(., "[\\-\\.]"))),
 
                 # unify prescription date+time column to datetime
-                across(any_of("presc_date"), ~(ymd(.) + hms(presc_time)))
+                across(any_of("presc_date"), ~(ymd(.) + hms(presc_time))),
+
+                # fill in length_stay where missing and both dates present
+                across(any_of("length_stay"), ~coalesce(., as.numeric(dis_date-adm_date)))
                 ) %>%
          select(-any_of(c("presc_time", "case_state_id"))) %>% # drop redundant cols
 
          # drop unused factor levels after all recoding & exclusion steps
-         mutate(across(where(is.factor), ~fct_drop(.) %>% fct_na_level_to_value()))
+         mutate(across(where(is.factor), ~fct_drop(.) %>% fct_na_level_to_value())) %>%
+         distinct() # remove duplicate vars
       )
 
 # union of factor levels of same variable across all data sources
@@ -519,7 +500,7 @@ norm_dfs_merge_success <-
 #TODO look into rows that are only in a single df, find pattern
 
 
-# expand data, merge cases, add new variables --------------------------------------------------------------------------
+# merge cases ----------------------------------------------------------------------------------------------------------
 # factor order of case_ids & dict to merge cases with <3 weeks between discharge and next admission
 case_merge_dict <- data_norm$case %>%
   select(p_id, adm_date, dis_date, case_id_orig = case_id) %>%
@@ -547,11 +528,8 @@ case_merge_dict <- data_norm$case %>%
       deframe() %>%
       assign("case_id_lvls_by_new", ., pos = 1) }
 
-data_exp <- data_norm %>%
-  map(~ # fill in length_stay where missing and both dates present
-        mutate(., across(any_of("length_stay"), ~coalesce(., as.numeric(dis_date-adm_date)))) %>%
-
-        { if("case_id" %in% colnames(.)) { # merge cases
+data_norm_merged <- data_norm %>%
+  map(~ { if("case_id" %in% colnames(.)) { # merge cases
           mutate(., case_id_orig = fct_c(case_id_orig_lvls_ordered, case_id),
                  case_id = fct_recode(case_id_orig, !!!case_id_lvls_rec)) %>%
             arrange(across(any_of(c("p_id", "case_id", "case_id_orig", "adm_date", "icd_date", "ops_date",
@@ -570,30 +548,66 @@ data_exp <- data_norm %>%
                                            use_series(length_stay) %>%
                                            sum(na.rm = TRUE) %>%
                                            na_if(0)),
-                               # technically, max()+min() should not be necessary as both dates are recoded to last/first
+                               # technically, max+min should not be necessary as both dates are recoded to last/first
                                brutto = ~as.numeric(max(dis_date)-min(adm_date)))),
+                   across(any_of("source_dfs"),
+                          ~str_split(., ", ") %>% list_c() %>% unique() %>% glue_collapse(sep = ", ")),
                    # keep only _orig values when differing from new versions
-                   across(any_of(str_c(list_c(unify_per_case), "_orig")),
-                          ~if_else(. == get(str_remove(cur_column(), "_orig")), NA, .))
-            ) %>%
+                   across(ends_with("_orig"),
+                          \(x) na_if(as.character(x), as.character(get(str_remove(cur_column(), "_orig")))) %>%
+                            na.omit() %>%
+                            {if(length(.) == 0) NA else glue_collapse(unique(.), sep = ", ")}),
+                   across(any_of("length_stay"),
+                          ~na.omit(.) %>% {if(length(.) == 0) NA else glue_collapse(unique(.), sep = ", ")})
+                   ) %>%
             ungroup() %>%
-            select(!any_of("age_adm_orig")) %>% # remove age_adm_orig, since it can be reconstructed well enough from yob
+            distinct() %>%
             select(where(~!all(is.na(.)))) %>% # remove empty cols
-            mutate(across(where(is.factor), fct_drop)) # drop unused factor levels
-        } else . } %>%
+            mutate(across(where(is.factor), fct_drop)) %>%  # drop unused factor levels
+            relocate(ends_with("_orig"), .after = last_col()) # move "_orig" variables to back
+        } else . }
+      )
 
-        # drop/lump rare diagnoses/treatmens
-        #TODO: do after merging as proportions might shift
-        { if(do_lump) mutate(across(any_of(c("icd_code", "ops_code")),
-                                    ~fct_lump_prop(., lump_threshold, other_level = other_name)))
+
+# filter & expand data, merge cases, add new variables -----------------------------------------------------------------
+# lockdown data
+df_lockdown_long <- read_csv(lockdown_f, col_types = cols("f", "f", "f", .default = "i")) %>%
+  rename(state_id = ...1) %>%
+  rename_with(tolower) %>%
+  filter(!is.na(state), !is.na(measure)) %>%
+  pivot_longer(cols = !c(state_id, state, measure), names_to = "date", values_to = "status") %>%
+  mutate(date = as_date(date, format = "%Y-%m-%d"))
+
+df_lockdown_days <- df_lockdown_long %>%
+  pivot_wider(names_from = "measure", values_from = "status")
+
+lockdown_data_period <- df_lockdown_days$date %>% {interval(min(.), max(.))}
+
+df_lockdown_periods <- df_lockdown_long %>%
+  filter(status != 0) %>%
+  group_by(state, measure, status) %>%
+  mutate(period_n = cumsum((date-lag(date, default = first(date))) != 1)) %>%
+  group_by(period_n, .add = TRUE) %>%
+  summarise(start_date = min(date), end_date = max(date)) %>%
+  ungroup() %>%
+  mutate(date_period = interval(start_date, end_date),
+         across(c(start_date, end_date),
+                ~str_c(year(.), ".", week(.)) %>% fct_relevel(~str_sort(., numeric = TRUE)) %>% as.ordered(),
+                .names = '{str_replace(.col, "_date", "_week")}'))
+
+data_exp <- data_norm_merged %>%
+  map(~ # drop/lump rare diagnoses/treatmens
+        { if(do_lump) mutate(., across(any_of(c("icd_code", "ops_code")),
+                                       ~fct_lump_prop(., lump_threshold, other_level = other_name)))
           else . } %>%
         # exclude icd_code & ops_code lump category
         { if(do_other_exclude) filter(., if_any(any_of(c("icd_code", "ops_code")), ~!str_detect(., other_name)))
           else . } %>%
 
-        # add ICD categories
+        # filter selected ICD codes and add ICD categories
         { if("icd_code" %in% colnames(.)) {
-          mutate(., icd_cat_l3 = case_when(!!!icd_cats_l3, .default = "check_me"), # "check_me" for not-captured cases
+          filter(., str_starts(icd_code, filter_icd)) %>% # keep/remove selected ICD codes
+          mutate(icd_cat_l3 = case_when(!!!icd_cats_l3, .default = "check_me"), # "check_me" for not-captured cases
                  icd_cat_l2 = case_when(!!!icd_cats_l2, .default = icd_cat_l3),
                  icd_cat_l1 = case_when(!!!icd_cats_l1, .default = icd_cat_l2)) %>%
             mutate(across(starts_with("icd_cat_l"), as_factor))
@@ -634,6 +648,7 @@ data_exp <- data_norm %>%
 #         mutate(across(where(is.factor), ~fct_drop(.) %>% fct_na_level_to_value()))
 #       )
 
+# data_exp$case can have multiple rows per case after merging cases.
 data_exp_sum <- list()
 data_exp_sum$diagnosis <- data_exp$diagnosis %>%
   #TODO instead of filtering only Entlassdiagnosen, code as ordered factor and take slice_max(icd_type),
@@ -648,14 +663,14 @@ data_exp_sum$diagnosis <- data_exp$diagnosis %>%
                    list(n = ~n_distinct(.x, na.rm = TRUE)), .names = "{.fn}_{.col}"),
             across(c(icd_date, icd_week), list(first = min, last = max)),
             across(c(fa_icd, icd_hn, icd_version, case_id_orig, starts_with("icd_cat_")),
-                   ~glue_collapse(unique(.), sep = ", "))
+                   ~glue_collapse(unique(na.omit(.)), sep = ", "))
             ) %>%
   ungroup()
 
 data_exp_sum$treatment <- data_exp$treatment %>%
   summarise(across(c(age_treat), min),
             across(c(ops_date, ops_week), list(first = min, last = max)),
-            across(c(fa_ops, ops_version, case_id_orig), ~glue_collapse(unique(.), sep = ", ")),
+            across(c(fa_ops, ops_version, case_id_orig), ~glue_collapse(unique(na.omit(.)), sep = ", ")),
             #TODO treatment intensity & volume
             .by = case_id
             )
@@ -666,23 +681,26 @@ data_exp_sum$treatment <- data_exp$treatment %>%
 
 
 # create codebook ------------------------------------------------------------------------------------------------------
-codebook_data_exp <-
-  imap(data_exp,
-      ~ create_codebook(.) #%>%
-      #TODO add respective original variable names
-      #TODO add respective variable source dataframes
-        # left_join(enframe(col_names[[.y]], name = "variable_name", value = "variable_original"),
-        #           by = "variable_name") %>%
-        # relocate(variable_original, .after = variable_name) %>%
-        # arrange(fct_relevel(variable_original, col_names[[.y]]))
-      ) %>%
-  bind_rows(.id = "dataframe")
+codebook_data_exp <- imap(data_exp, ~ create_codebook(.)) %>%
+  bind_rows(.id = "dataframe") %>%
+  mutate(across(dataframe, as_factor)) %>%
+  # add respective original variable names
+  left_join(list_c(col_names) %>%
+              enframe(name = "variable_name", value = "variable_names_original") %>%
+              summarise(variable_names_original = glue_collapse(unique(variable_names_original), ", "),
+                        .by = variable_name),
+            by = "variable_name") %>%
+  # add respective variable source dataframes
+  mutate(data_sources = glue_collapse(find_dfs_with_col(variable_name), ", ")) %>%
+  relocate(variable_names_original, .after = variable_name) %>%
+  arrange(dataframe, variable_name)
 
 
 # save objects ---------------------------------------------------------------------------------------------------------
 if(do_save_objects) {
   # R Data Structure
   write_rds(data_exp, file.path(outdir, str_glue("CoverCHILD_data_exp_{Sys.Date()}.rds")))
+  write_rds(data_exp_sum, file.path(outdir, str_glue("CoverCHILD_data_exp_sum_{Sys.Date()}.rds")))
   # dataframe CSVs
   dir.create(file.path(outdir, "data_exp"), recursive = TRUE, showWarnings = FALSE)
   for (x in names(data_exp)) write_csv2(data_exp[[x]], file.path(outdir, "data_exp", str_c(x, "_exp.csv")))

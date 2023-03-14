@@ -82,7 +82,6 @@ descr_mis <- function(df) {
 # show columns & groups with multiple values present in grouped DF
 find_mult_per <- function(df, group_vars) {
   library("tidyverse")
-  print(str_glue("DF: {df}"))
   df %>%
     group_by({{group_vars}}) %>%
     summarise(across(everything(), n_distinct)) %>%
