@@ -11,9 +11,14 @@ editor_options:
 CoverCHILD KGU data analysis repo.
 
 [Visualisation of extreme/edge cases in KGU data.](01_vis_data_edge_cases.html)
+
 [Eating disorder descriptive stats in KGU data.](03_eating_disorder_stats.html)
 
+
 Also see notes/documentation on elab:
+
 [data analysis plan](https://elab.chiocchettilab.uni-frankfurt.de/experiments.php?mode=view&id=160)
+
 [ETL steps](https://elab.chiocchettilab.uni-frankfurt.de/experiments.php?mode=view&id=159)
+
 [notes](https://elab.chiocchettilab.uni-frankfurt.de/experiments.php?mode=view&id=140)

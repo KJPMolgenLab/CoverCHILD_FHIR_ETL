@@ -5,7 +5,18 @@
 # @date: 2023-02-09
 
 # setup ----------------------------------------------------------------------------------------------------------------
-source("code/data_etl.R") # provides "data_exp" & "data_exp_sum"
+if(!exists("do_source_data_creation")) do_source_data_creation <- FALSE
+if(do_source_data_creation) {
+  source("code/data_etl.R") # creates "data_exp" & "data_exp_sum" from scratch from raw data
+} else {
+  source("code/functions.R")
+  load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "psych", "rlang", "glue")
+  outdir <- "output"
+  do_save_objects <- FALSE # save final dataframes in outdir
+  covid_start <- ymd("2020-03-01")
+  data_exp <- read_rds(file.path(outdir, "CoverCHILD_data_exp_2023-03-10.rds"))
+  data_exp_sum <- read_rds(file.path(outdir, "CoverCHILD_data_exp_sum_2023-03-10.rds"))
+}
 
 study_start <- ymd("2016-01-01") # start of available data
 study_end <- ymd("2022-02-28") # until start of Ukraine war
@@ -46,3 +57,4 @@ df_ed <-
 pre_cov_dur <- min(df_ed$adm_date) %--% covid_start %>% as.numeric("years")
 cov_dur <- covid_start %--% max(df_ed$adm_date) %>% as.numeric("years")
 
+if(do_save_objects) saveRDS(df_ed, str_glue("output/CoverCHILD_data+EDvars_{Sys.Date()}.rds"))

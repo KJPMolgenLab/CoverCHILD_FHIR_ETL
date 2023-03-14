@@ -8,6 +8,8 @@ output:
     fig_width: 11
     fig_height: 8
     fig_caption: yes
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -16,6 +18,7 @@ knitr::opts_chunk$set(warning = FALSE, echo = FALSE)
 ```
 
 ```{r libs, include=FALSE}
+do_source_data_creation <- TRUE
 source("code/eating_disorder_data_proc.R")
 load_inst_pkgs("tidyverse", "psych", "janitor", "knitr")
 ```
@@ -26,13 +29,14 @@ load_inst_pkgs("tidyverse", "psych", "janitor", "knitr")
 
 
 # sample characteristics
+## number of diagnosis per case
 ```{r}
 df_diag %>%
   summarise(n = n_distinct(icd_code), .by = case_id) %>%
   ggplot(aes(x = n)) + geom_bar() + ggtitle("number of diagnoses per case")
 ```
 
-## cases per year pre/during covid
+## number of cases per year pre/during covid
 ```{r}
 df_ed %>% 
   group_by(covid_pan) %>%
