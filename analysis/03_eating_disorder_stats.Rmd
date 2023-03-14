@@ -48,12 +48,13 @@ df_ed %>%
          n_patients_year = n_patients/years)
 ```
 
-## mean & sd
+## mean & sd by ED & Covid_pan
 ```{r}
 summarise_mean_sd <- function(df) {
   summarise(df, 
             # across(where(~is.numeric(.x) | is.POSIXct(.x)), list(mean = ~mean(., na.rm = FALSE), sd = SD)), 
-            across(c(age_adm, length_stay), list(mean = ~mean(., na.rm = TRUE), sd = SD)), 
+            across(c(age_adm, length_stay_brutto, n_icd_f, n_icd_other),
+                   list(mean = ~mean(., na.rm = TRUE), sd = SD)), 
             across(sex, list(mean = ~mean(as.numeric(.)-1, na.rm = TRUE), sd = ~SD(as.numeric(.)-1))),
             n_cases = n())
 }
@@ -73,35 +74,87 @@ df_ed_stats
 ```
 
 ## trend of ED diagnosis proportion
+### full study period
 ```{r}
-df_ed %>% 
+df_ed_share_month <- df_ed %>% 
   arrange(adm_date) %>% 
-  mutate(adm_month = as_factor(str_c(year(adm_date), month(adm_date), sep = ".")),
-         adm_quarter = as_factor(quarter(adm_date, type = "year.quarter"))) %>%
+  mutate(adm_month = str_c(year(adm_date), ".", month(adm_date)) %>%
+           fct_relevel(~str_sort(., numeric = TRUE)) %>%
+           as.ordered()
+         # adm_quarter = ordered(quarter(adm_date, type = "year.quarter"))
+         ) %>%
   group_by(adm_month) %>% 
   summarise(#F50_prop = sum(icd_f50 == "F50+")/n()*100, 
             AN_prop = sum(f50_type == "Anorexie")/n()*100,
             BN_prop = sum(f50_type == "Bulimie")/n()*100,
             ED_sonst_prop = sum(f50_type == "Essstörung Sonst.")/n()*100) %>% 
-  pivot_longer(ends_with("_prop"), names_to = "f50_prop_type", values_to = "f50_props") %>% 
+  pivot_longer(ends_with("_prop"), names_to = "f50_prop_type", values_to = "f50_props")
+
+df_ed_share_month %>% 
   ggplot(aes(x = adm_month, y = f50_props, group = f50_prop_type)) + 
   geom_col(aes(fill = f50_prop_type)) +
+  scale_fill_discrete(name = "ES Diagnose", labels = c("AN", "BN", "aES")) +
   # geom_line(aes(colour = f50_prop_type)) +
   guides(x = guide_axis(angle = -90)) + 
   geom_vline(aes(xintercept = "2020.3"), show.legend = FALSE) +
-  labs(title = "Proportion of cases with F50.* diagnoses per month", 
-       x = "Year.Month", y = "cases with F50.* diagnosis [%]")
+  # labs(title = "Proportion of cases with F50.* diagnoses per month", 
+  #      x = "Year.Month", y = "cases with F50.* diagnosis [%]") +
+  labs(title = "Prozentualer Anteil an Fällen mit Essstörungs-Diagnose pro Monat", 
+       x = "Jahr.Monat", y = "Anteil der Fälle mit ES-Diagnose [%]") +
+  geom_text(aes(x = "2020.3", y = 30, label = "Beginn\nCorona-\nPandemie", hjust = "left", vjust = "top"),
+            nudge_x = 0.3, nudge_y = 0.5) +
+  theme_classic()
+```
+
+### lockdown periods within covid pandemic
+```{r}
+df_ed_share_week <- df_ed %>% 
+  arrange(adm_date) %>% 
+  group_by(adm_week) %>% 
+  summarise(#F50_prop = sum(icd_f50 == "F50+")/n()*100, 
+            AN_prop = sum(f50_type == "Anorexie")/n()*100,
+            BN_prop = sum(f50_type == "Bulimie")/n()*100,
+            ED_sonst_prop = sum(f50_type == "Essstörung Sonst.")/n()*100) %>% 
+  pivot_longer(ends_with("_prop"), names_to = "f50_prop_type", values_to = "f50_props") %>% 
+  filter(adm_week >= "2020.10")
+
+df_ed_share_week %>% 
+  ggplot(aes(x = adm_week, y = f50_props, group = f50_prop_type)) + 
+  geom_col() +
+  geom_rect(data = df_lockdown_periods %>% filter(state == "Hessen", measure == "school"),
+            mapping = aes(xmin = start_week, xmax = end_week, group = period_n),
+            ymin = 0, ymax = 100, fill = scales::alpha("black", 0.2), inherit.aes = FALSE) +
+  geom_col(aes(fill = f50_prop_type)) +
+  scale_fill_discrete(name = "ES Diagnose", labels = c("AN", "BN", "aES")) +
+  scale_x_discrete(breaks = levels(df_ed_share_week$adm_week)[seq(1, length(levels(df_ed_share_week$adm_week)), 2)],
+                   guide = guide_axis(angle = -90)) +
+  # guides(x = guide_axis(angle = -90)) + 
+  labs(title = "Anteil an Fällen mit Essstörungs-Diagnose während Covid-Pandemie pro Woche", 
+       x = "Jahr.Woche", y = "Anteil der Fälle mit ES-Diagnose [%]") +
+  geom_text(aes(x = "2020.11", y = 95, label = "1. Schulschließung", hjust = "left", vjust = "top"),
+            nudge_x = 1, nudge_y = 0.5) +
+  geom_text(aes(x = "2021.2", y = 95, label = "2. Schulschließung", hjust = "left", vjust = "top"),
+            nudge_x = 1, nudge_y = 0.5) +
+  theme_classic()
 ```
 
 ## periods of cases per patient
+! WIP, not finalised
 ```{r}
+# downsample F50- to match number of patients with ED. Proportion of F50- to F50+:
+prop_f50min_to_plus <- 1.5
+
 df_ed %>% 
   group_by(p_id) %>%
   mutate(n_cases = n()) %>%
   filter(n_cases > 1) %>%
   # filter(case_id != first(case_id)) %>% 
-  ungroup() %>%
-  # slice_head(n = 500) %>%
+  ungroup() %>% 
+  
+  {filter(., icd_f50 == "F50+" | p_id %in% 
+            sample(unique(.[.$icd_f50 == "F50-",]$p_id), 
+                   round(length(unique(.[.$icd_f50 == "F50+",]$p_id))*prop_f50min_to_plus)))} %>%
+  
   ggplot(aes(x = adm_date, xend = dis_date,
              y = fct_reorder(p_id, adm_date, first), yend = p_id,
              group = case_id, colour = f50_type)) +
@@ -112,7 +165,7 @@ df_ed %>%
   # scale_colour_viridis_d() + 
   geom_vline(aes(xintercept = as.POSIXct(covid_start)), show.legend = FALSE) + 
   theme(axis.text.y = element_blank(), axis.ticks.y = element_blank()) + 
-  labs(title = "periods of treatments per patient (excl. first visit)", 
+  labs(title = "periods of treatments per patient", 
        x = "time", y = "patients", colour = "ED diag")
 ```
 
@@ -133,9 +186,115 @@ df_ed %>% gen_tabyl(icd_f50, sex)
 df_ed %>% gen_tabyl(icd_f50, sex, covid_pan)
 ```
 
-## counts & proportions for ED subcategories
+### counts & proportions for ED subcategories
 ```{r}
 df_ed %>% gen_tabyl(covid_pan, f50_type)
 df_ed %>% gen_tabyl(f50_type, sex)
 df_ed %>% gen_tabyl(f50_type, sex, covid_pan)
+```
+
+### counts & proportions for lockdowns
+```{r}
+df_ed %>% gen_tabyl(covid_lockd, icd_f50)
+df_ed %>% gen_tabyl(icd_f50, sex, covid_lockd)
+```
+
+### counts & proportions for lockdowns & ED subcategories
+```{r}
+df_ed %>% gen_tabyl(covid_lockd, f50_type)
+df_ed %>% tabyl(covid_lockd, f50_type) %>% chisq.test()
+
+df_ed %>% gen_tabyl(f50_type, sex, covid_lockd)
+```
+
+
+# Modelling
+```{r echo=TRUE}
+n_tests <- 9
+```
+
+## Essstörungen während Pandemie
+### Fälle mit ED-Diagnose
+```{r echo=TRUE}
+mod_ed_pan <- kruskal.test(icd_f50 ~ covid_pan, df_ed)
+# mod_ed_pan <- tabyl(df_ed, icd_f50, covid_pan) %>% chisq.test()
+mod_ed_pan
+```
+Corrected p-value for multiple testing is: `r format(mod_ed_pan[["p.value"]]*n_tests, scientific = FALSE)`
+
+### ED-Subgruppe Anorexie
+```{r echo=TRUE}
+mod_an_pan <- kruskal.test(f50_type == "Anorexie" ~ covid_pan, df_ed)
+mod_an_pan
+```
+Corrected p-value for multiple testing is: `r format(mod_an_pan[["p.value"]]*n_tests, scientific = FALSE)`
+
+### ED-Subgruppe Bulimie
+```{r echo=TRUE}
+mod_bu_pan <- kruskal.test(f50_type == "Bulimie" ~ covid_pan, df_ed)
+mod_bu_pan
+```
+Corrected p-value for multiple testing is: `r format(mod_bu_pan[["p.value"]]*n_tests, scientific = FALSE)`
+
+### ED-Subgruppe sonstige Esstörungen
+```{r echo=TRUE}
+mod_edsonst_pan <- kruskal.test(f50_type == "Essstörung Sonst." ~ covid_pan, df_ed)
+mod_edsonst_pan
+```
+Corrected p-value for multiple testing is: `r format(mod_edsonst_pan[["p.value"]]*n_tests, scientific = FALSE)`
+
+
+## klinische Präsentation während Pandemie
+### jüngeres Alter
+```{r echo=TRUE}
+# kruskal.test(age_adm ~ covid_pan, df_ed)
+mod_age_pan <- oneway.test(age_adm ~ covid_pan, df_ed)
+mod_age_pan
+```
+Corrected p-value for multiple testing is: `r format(mod_age_pan[["p.value"]]*n_tests, scientific = FALSE)`
+
+### Geschlecht
+```{r echo=TRUE}
+# kruskal.test(age_adm ~ covid_pan, df_ed)
+mod_sex_pan <- kruskal.test(sex ~ covid_pan, df_ed)
+mod_sex_pan
+```
+Corrected p-value for multiple testing is: `r format(mod_sex_pan[["p.value"]]*n_tests, scientific = FALSE)`
+
+### Zunahme Komorbiditäten - F
+```{r echo=TRUE}
+mod_como_f_pan <- oneway.test(n_icd_f ~ covid_pan, df_ed)
+mod_como_f_pan
+```
+Corrected p-value for multiple testing is: `r format(mod_como_f_pan[["p.value"]]*n_tests, scientific = FALSE)`
+
+### Zunahme Komorbiditäten - !F
+```{r echo=TRUE}
+mod_como_other_pan <- oneway.test(n_icd_other ~ covid_pan, df_ed)
+mod_como_other_pan
+```
+Corrected p-value for multiple testing is: `r format(mod_como_other_pan[["p.value"]]*n_tests, scientific = FALSE)`
+
+### Abnahme (!) Behandlungsdauer
+```{r echo=TRUE}
+mod_los_pan <- oneway.test(length_stay_netto ~ covid_pan, df_ed)
+mod_los_pan
+```
+Corrected p-value for multiple testing is: `r format(mod_los_pan[["p.value"]]*n_tests, scientific = FALSE)`
+
+
+## GLM
+! WIP, not finalised
+```{r echo=TRUE}
+# predicting ED
+tmp <- glm(icd_f50 ~ covid_lockd + sex + age_adm + n_icd_f + n_icd_other + length_stay_brutto,
+           family = binomial,
+           data = df_ed)
+summary(tmp)
+# sex
+# age_adm
+
+# f50_type
+# length_stay_netto/brutto
+# n_icd_f/other/code
 ```
