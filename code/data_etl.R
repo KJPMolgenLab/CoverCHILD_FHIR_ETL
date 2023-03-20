@@ -4,7 +4,7 @@
 # @author: SP
 # @date: 2022-11-04
 
-# setup ------------------------------------------------------------------------
+# setup ----------------------------------------------------------------------------------------------------------------
 source("code/functions.R")
 load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "psych", "rlang", "glue")
 
@@ -17,6 +17,7 @@ dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 
 
 # settings -------------------------------------------------------------------------------------------------------------
+## general ----
 do_save_objects <- FALSE # save final dataframes in outdir
 
 covid_start <- ymd("2020-03-01")
@@ -29,6 +30,14 @@ lockdown_f <- "data/ext/ZPID_lockdown_measures_dataset-V6.0.csv"
 data_fs <- data_fs[c("Ergebnis_V2_PLZ_PID_Fall_pseudonym", "Pers_Fall_V2_pseudonym", "ICD_V2", "ICPM_V3",
                      "KIJUPSY_Med_Detail_V2_pseudonym", "Labordaten_V3", "Rezepte_Pack_Wirkstoff_V4_pseudonym",
                      "P21_Fall_V1_pseudonym", "P21_ICD_V1_pseudonym", "P21_OPS_V1_pseudonym", "P21_FAB_V1_pseudonym")]
+
+# minimal period between discharge and next admission for cases to be regarded as separate
+same_case_span <- weeks(3)
+
+# period between discharge and next admission for cases to be counted as a rapid readmission
+# CAVE: specifying duration in months disables automatic rollover. Switch to weeks/days for precise interval
+#       (see https://lubridate.tidyverse.org/reference/mplus.html)
+re_adm_span <- months(6)
 
 # data exclusion
 # ICD codes to be in-/excluded
@@ -44,7 +53,7 @@ do_other_exclude <- FALSE
 # Should factors in untransformed dataframes contain union of factor levels of same variable across all data sources?
 do_unify_factor_lvls <- FALSE
 
-# column formats
+## column formats ----
 # different date/time formats in the data sources:
 dt_forms <- list(dt1 = col_datetime("%d.%m.%Y %H:%M"), # e.g. "02.01.2016 01:48"
                  dt2 = col_datetime("%Y%m%d%H%M")) # e.g. "201601020148"
@@ -65,7 +74,7 @@ col_formats <- list(
     cols("f", "f", "i", "d", "f", "f", "f", "f", dt_forms$dt1, dt_forms$dt1, "f", "f", "i", "f", "f"),
   Rezepte_Pack_Wirkstoff_V4_pseudonym = cols("f", "D", "t", "f", "f", "f", "f"))
 
-# unify column names
+## unify column names ----
 col_names <- list(
   Ergebnis_V2_PLZ_PID_Fall_pseudonym = c(
     p_id = "Pseudonyme_PID",
@@ -190,7 +199,7 @@ col_names <- list(
     presc_drug = "WirkstoffBez")
   )
 
-# define normal form target DF variable assignment
+## normal form target DF variable assignment ----
 vars_norm_dfs <- list(
   # 1 per patient
   patient = c("sex", "yob"),
@@ -210,7 +219,13 @@ vars_norm_dfs <- list(
                  "lab_norm_val", "lab_abnorm_dir", "lab_val_text"),
   external_stays = c("fa_p21", "adm_date_fab", "dis_date_fab"))
 
-# unify/recode factor levels & labels
+# Vars that should be uniform per case
+unify_per_case <- list(first = c("yob", "sex", "adm_date", "age_adm", "ik_insurer", "adm_event", "adm_reason",
+                                 "ik_hospital", "case_merge", "case_merge_reason", "leave_days_psy", "case_state",
+                                 "plz_main", "plz_prev", "adm_type", "stay_type"),
+                       last = c("dis_date", "dis_reason", "dis_type", "dis_work"))
+
+## unify/recode factor levels & labels ----
 # CAVE: order of names depends on used function: fct_recode needs new=old, fct_relabel needs old=new
 # all recode
 fa_lvls_rec <- c("KIJUPSY" = "Kinder- und Jugendpsychiatrie KIJUPSY",
@@ -258,7 +273,7 @@ addr_type_lvls_rec <- c("prev" = "frühere Adresse",
 
 #TODO add other codes from codebook (icd_type, fa_p21, adm_event, case_merge_reason, stay_type, +?)
 
-# ICD categories in 3 levels
+## ICD categories in 3 levels ----
 icd_cats_l3 <- exprs(
   # Neuronale Entwicklungsstörungen
   str_starts(icd_code, "F0") ~ "Organische Störung",
@@ -320,7 +335,7 @@ icd_cats_l3 <- exprs(
   str_starts(icd_code, "F20\\.[01235689]F2[234589]") ~ "Psychotische Störung",
 
   # andere Kategorien
-  str_starts(icd_code, "F") ~ "F Sonst.", #TODO inspect!
+  str_starts(icd_code, "F") ~ "F Sonst.",
   str_starts(icd_code, "[^F]") ~ str_c(str_sub(icd_code, end = 2), " Gruppe")
   )
 
@@ -355,17 +370,11 @@ icd_cats_l1 = exprs(
   # defaults to icd_cat_l2 value if not specified
   )
 
-# Vars that should be uniform per case
-unify_per_case <- list(first = c("yob", "sex", "adm_date", "age_adm", "ik_insurer", "adm_event", "adm_reason",
-                                 "ik_hospital", "case_merge", "case_merge_reason", "leave_days_psy", "case_state",
-                                 "plz_main", "plz_prev", "adm_type", "stay_type"),
-                       last = c("dis_date", "dis_reason", "dis_type", "dis_work"))
-same_case_span <- weeks(3)
-
 #TODO list of treatment cats?
 
 
 # read & tidy data -----------------------------------------------------------------------------------------------------
+## read raw data ----
 data_raw <- imap(data_fs, \(path, name) {
   encoding <- try(guess_encoding(path)$encoding[[1]])
   if(inherits(encoding, "try-error")) encoding <- "ISO-8859-1"
@@ -375,6 +384,7 @@ data_raw <- imap(data_fs, \(path, name) {
                              decimal_mark =".", tz = "Europe/Berlin", encoding = encoding))
   })
 
+## recode p_ids in P21 data ----
 # CAVE: p_id in P21 data differs from Orbis. Recoding P21 IDs to Orbis IDs
 p21_p_id_lvls_rec <- data_raw$Pers_Fall_V2_pseudonym %>%
   select(p_id = `PID Pseudonym`, case_id = Fall_Pseudonym, adm_date = AUFNDAT, dis_date = ENTLDAT, sex = GE,
@@ -398,7 +408,7 @@ p21_p_id_lvls_rec <- data_raw$Pers_Fall_V2_pseudonym %>%
   distinct() %>%
   deframe()
 
-# tidy data
+## tidy data ----
 data_tidy <- data_raw %>%
   imap(~distinct(.) %>% # remove duplicate rows
          select(where(~!all(is.na(.)))) %>% # remove empty cols
@@ -501,6 +511,7 @@ norm_dfs_merge_success <-
 
 
 # merge cases ----------------------------------------------------------------------------------------------------------
+## create merge dict ----
 # factor order of case_ids & dict to merge cases with <3 weeks between discharge and next admission
 case_merge_dict <- data_norm$case %>%
   select(p_id, adm_date, dis_date, case_id_orig = case_id) %>%
@@ -509,9 +520,11 @@ case_merge_dict <- data_norm$case %>%
   group_by(p_id) %T>%
 
   # assign intermediate result: ordered case_id_orig factor levels
-  {use_series(., case_id_orig) %>% fct_inorder() %>% head(0) %>% assign("case_id_orig_lvls_ordered", ., pos = 1) } %>%
+  {use_series(., case_id_orig) %>% fct_inorder() %>% head(0) %>% assign("case_id_orig_lvls_ordered", ., pos = 1)} %>%
 
-  mutate(case_id = cumsum(!replace_na(adm_date < (lag(dis_date, default = origin) + same_case_span), FALSE))) %>%
+  # If previous dis_date is missing, fall back on prev adm_date to compute at least an upper limit of time between
+  # 2 adjacent cases
+  mutate(case_id = cumsum(!replace_na((adm_date-same_case_span) < coalesce(lag(dis_date), lag(adm_date)), FALSE))) %>%
   group_by(case_id, .add = TRUE) %>%
   filter(n() > 1) %>%
   mutate(case_id = str_c(first(case_id_orig, na_rm = TRUE), "_m")) %>%
@@ -524,10 +537,11 @@ case_merge_dict <- data_norm$case %>%
       deframe() %>%
       assign("case_id_lvls_rec", ., pos = 1) } %T>%
   # assign result: case_id recode nested list
-  { summarise(., val = list(fct_inorder(unique(case_id_orig))), .by = case_id) %>%
+  { summarise(., val = unique(case_id_orig) %>% fct_inorder() %>% fct_drop() %>% list(), .by = case_id) %>%
       deframe() %>%
       assign("case_id_lvls_by_new", ., pos = 1) }
 
+## merge cases ----
 data_norm_merged <- data_norm %>%
   map(~ { if("case_id" %in% colnames(.)) { # merge cases
           mutate(., case_id_orig = fct_c(case_id_orig_lvls_ordered, case_id),
@@ -570,7 +584,7 @@ data_norm_merged <- data_norm %>%
 
 
 # filter & expand data, merge cases, add new variables -----------------------------------------------------------------
-# lockdown data
+## lockdown data ----
 df_lockdown_long <- read_csv(lockdown_f, col_types = cols("f", "f", "f", .default = "i")) %>%
   rename(state_id = ...1) %>%
   rename_with(tolower) %>%
@@ -595,6 +609,7 @@ df_lockdown_periods <- df_lockdown_long %>%
                 ~str_c(year(.), ".", week(.)) %>% fct_relevel(~str_sort(., numeric = TRUE)) %>% as.ordered(),
                 .names = '{str_replace(.col, "_date", "_week")}'))
 
+## expand norm data ----
 data_exp <- data_norm_merged %>%
   map(~ # drop/lump rare diagnoses/treatmens
         { if(do_lump) mutate(., across(any_of(c("icd_code", "ops_code")),
@@ -611,6 +626,15 @@ data_exp <- data_norm_merged %>%
                  icd_cat_l2 = case_when(!!!icd_cats_l2, .default = icd_cat_l3),
                  icd_cat_l1 = case_when(!!!icd_cats_l1, .default = icd_cat_l2)) %>%
             mutate(across(starts_with("icd_cat_l"), as_factor))
+        } else . } %>%
+
+        # add patient/case readmission lag and status
+        { if(all(c("p_id", "case_id", "adm_date", "dis_date") %in% colnames(.))) {
+          group_by(., p_id) %>%
+            arrange(adm_date) %>%
+            mutate(re_adm_lag = difftime(adm_date, coalesce(lag(dis_date), lag(adm_date)), units = "days"),
+                   re_adm_soon = re_adm_lag < re_adm_span) %>%
+            ungroup()
         } else . } %>%
 
         # add statuses based on case admission date
@@ -698,10 +722,13 @@ codebook_data_exp <- imap(data_exp, ~ create_codebook(.)) %>%
 
 # save objects ---------------------------------------------------------------------------------------------------------
 if(do_save_objects) {
-  # R Data Structure
+  # Complete workspace
+  save.image(file.path(outdir, str_glue("CoverCHILD_data_ETL_{Sys.Date()}.RData")))
+  save.image(file.path(outdir, str_glue("CoverCHILD_data_ETL_{Sys.Date()}.RData.xz")), compress = "xz")
+  # Dataframes to R Data Structure
   write_rds(data_exp, file.path(outdir, str_glue("CoverCHILD_data_exp_{Sys.Date()}.rds")))
   write_rds(data_exp_sum, file.path(outdir, str_glue("CoverCHILD_data_exp_sum_{Sys.Date()}.rds")))
-  # dataframe CSVs
+  # Dataframes to CSV
   dir.create(file.path(outdir, "data_exp"), recursive = TRUE, showWarnings = FALSE)
   for (x in names(data_exp)) write_csv2(data_exp[[x]], file.path(outdir, "data_exp", str_c(x, "_exp.csv")))
   # codebook
