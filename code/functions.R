@@ -102,3 +102,17 @@ filter_dfs_with_col <- function(..., var_names, df_list = data_tidy) {
       {cat(df_name, "\n"); print(glimpse(.)); cat("\n")}
   })
 }
+
+## misc ################################################################################################################
+
+# generate a prettier tabyl
+gen_tabyl <- function(df, ...){
+  library(janitor)
+  df %>%
+    tabyl(..., show_missing_levels = FALSE) %>%
+    adorn_totals(c("row", "col")) %>%
+    adorn_percentages("row") %>%
+    adorn_pct_formatting(digits = 1) %>%
+    adorn_ns() %>%
+    adorn_title("combined")
+}
