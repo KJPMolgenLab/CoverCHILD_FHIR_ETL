@@ -9,13 +9,8 @@ if(!exists("do_source_data_creation")) do_source_data_creation <- FALSE
 if(do_source_data_creation) {
   source("code/data_etl.R") # creates "data_exp" & "data_exp_sum" from scratch from raw data
 } else {
-  source("code/functions.R")
-  load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "psych", "rlang", "glue")
-  outdir <- "output"
-  do_save_objects <- FALSE # save final dataframes in outdir
-  covid_start <- ymd("2020-03-01")
-  data_exp <- read_rds(file.path(outdir, "CoverCHILD_data_exp_2023-03-10.rds"))
-  data_exp_sum <- read_rds(file.path(outdir, "CoverCHILD_data_exp_sum_2023-03-10.rds"))
+  load("output/CoverCHILD_data_ETL_2023-03-22.RData.xz")
+  load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "psych", "rlang", "glue", "janitor")
 }
 
 study_start <- ymd("2016-01-01") # start of available data
@@ -25,6 +20,10 @@ study_end <- ymd("2022-02-28") # until start of Ukraine war
 # l3: "Anorexie", "Bulimie", "Essstörung Sonst." -> l1: "Essstörung"
 
 df_diag <- data_exp$diagnosis %>%
+  filter(icd_type == "Entl.") %>%
+  group_by(case_id, icd_code) %>%
+  slice_max(icd_date, with_ties = FALSE) %>%
+  ungroup() %>%
   mutate(icd_f50 = factor(if_else(icd_cat_l1 == "Essstörung", "F50+", "F50-"),
                           levels = c("F50-", "F50+"), ordered = TRUE),
          f50_type = factor(if_else(icd_cat_l1 == "Essstörung", icd_cat_l3, "F50-"),

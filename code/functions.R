@@ -80,12 +80,12 @@ descr_mis <- function(df) {
 }
 
 # show columns & groups with multiple values present in grouped DF
-find_mult_per <- function(df, group_vars) {
+find_mult_per <- function(df, ...) {
   library("tidyverse")
   df %>%
-    group_by({{group_vars}}) %>%
+    group_by(...) %>%
     summarise(across(everything(), n_distinct)) %>%
-    select({{group_vars}}, where(~ is.numeric(.) && max(., na.rm = TRUE) > 1)) %>%
+    select(..., where(~ is.numeric(.) && max(., na.rm = TRUE) > 1)) %>%
     ungroup() %>%
     filter(if_any(where(is.numeric), ~ . > 1))
 }

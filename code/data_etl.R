@@ -6,7 +6,7 @@
 
 # setup ----------------------------------------------------------------------------------------------------------------
 source("code/functions.R")
-load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "psych", "rlang", "glue")
+load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "psych", "rlang", "glue", "janitor")
 
 # set wd for VS Code (doesn't align automatically to .Rproj)
 old_wd <- set_wd() # function imported from functions.R
@@ -401,7 +401,9 @@ p21_p_id_lvls_rec <- data_raw$Pers_Fall_V2_pseudonym %>%
          adm_date_Orb == adm_date_P21 | is.na(adm_date_Orb) | is.na(adm_date_P21),
          p_id_Orb != p_id_P21) %>%
   group_by(case_id) %>%
-  mutate(n_tot_case = n(), n_pid_Orb = n_distinct(p_id_Orb), n_pid_P21 = n_distinct(p_id_P21)) %>%
+  mutate(n_tot_case = n(),
+         n_pid_Orb = n_distinct(p_id_Orb, na.rm = TRUE),
+         n_pid_P21 = n_distinct(p_id_P21, na.rm = TRUE)) %>%
   ungroup() %>%
   filter(n_pid_Orb == 1 & n_pid_P21 == 1) %>%
   select(p_id_Orb, p_id_P21) %>%
@@ -426,7 +428,8 @@ data_tidy <- data_raw %>%
            select(., -any_of("fa_icd")) %>%
              distinct() %>%
              mutate(across(any_of("addr_type"), ~fct_recode(., !!!addr_type_lvls_rec))) %>%
-             pivot_wider(names_from = addr_type, values_from = plz, names_prefix = "plz_", values_fn = first) %>%
+             pivot_wider(names_from = addr_type, values_from = plz,
+                         names_prefix = "plz_", values_fn = \(x) first(x, na_rm = TRUE)) %>%
              select(where(~!all(is.na(.))))
          } else . } %>%
 
@@ -491,9 +494,8 @@ data_norm <-
   })
 #TODO Warning message:
 #   In full_join(.x, .y) :
-#   Each row in `x` is expected to match at most 1 row in `y`.
-# ℹ Row 21034 of `x` matches multiple rows.
-# ℹ If multiple matches are expected, set `multiple = "all"` to silence this warning.
+# Each row in `x` is expected to match at most 1 row in `y`.
+# ℹ Row 21055 of `x` matches multiple rows.
 
 # case has multiple plz_main, dis_date, dis_reason after merge, stemming from conflicting info between Orbis & P21.
 # Selecting first entry to prioritize Orbis over P21.
@@ -563,16 +565,18 @@ data_norm_merged <- data_norm %>%
                                            sum(na.rm = TRUE) %>%
                                            na_if(0)),
                                # technically, max+min should not be necessary as both dates are recoded to last/first
-                               brutto = ~as.numeric(max(dis_date)-min(adm_date)))),
+                               brutto =
+                                 ~na_if(as.numeric(max(dis_date, na.rm = TRUE) - min(adm_date, na.rm = TRUE)), -Inf))),
                    across(any_of("source_dfs"),
-                          ~str_split(., ", ") %>% list_c() %>% unique() %>% glue_collapse(sep = ", ")),
+                          \(x) str_split(x, ", ") %>% list_c() %>%
+                            {if(length(.) == 0) NA else glue_collapse(unique(.), sep = ", ")}),
                    # keep only _orig values when differing from new versions
                    across(ends_with("_orig"),
                           \(x) na_if(as.character(x), as.character(get(str_remove(cur_column(), "_orig")))) %>%
                             na.omit() %>%
                             {if(length(.) == 0) NA else glue_collapse(unique(.), sep = ", ")}),
                    across(any_of("length_stay"),
-                          ~na.omit(.) %>% {if(length(.) == 0) NA else glue_collapse(unique(.), sep = ", ")})
+                          \(x) na.omit(x) %>% {if(length(.) == 0) NA else glue_collapse(unique(.), sep = ", ")})
                    ) %>%
             ungroup() %>%
             distinct() %>%
@@ -595,21 +599,21 @@ df_lockdown_long <- read_csv(lockdown_f, col_types = cols("f", "f", "f", .defaul
 df_lockdown_days <- df_lockdown_long %>%
   pivot_wider(names_from = "measure", values_from = "status")
 
-lockdown_data_period <- df_lockdown_days$date %>% {interval(min(.), max(.))}
+lockdown_data_period <- df_lockdown_days$date %>% {interval(min(., na.rm = TRUE), max(., na.rm = TRUE))}
 
 df_lockdown_periods <- df_lockdown_long %>%
   filter(status != 0) %>%
   group_by(state, measure, status) %>%
-  mutate(period_n = cumsum((date-lag(date, default = first(date))) != 1)) %>%
+  mutate(period_n = cumsum((date-lag(date, default = first(date, na_rm = TRUE))) != 1)) %>%
   group_by(period_n, .add = TRUE) %>%
-  summarise(start_date = min(date), end_date = max(date)) %>%
+  summarise(start_date = min(date, na.rm = TRUE), end_date = max(date, na.rm = TRUE)) %>%
   ungroup() %>%
   mutate(date_period = interval(start_date, end_date),
          across(c(start_date, end_date),
                 ~str_c(year(.), ".", week(.)) %>% fct_relevel(~str_sort(., numeric = TRUE)) %>% as.ordered(),
                 .names = '{str_replace(.col, "_date", "_week")}'))
 
-## expand norm data ----
+## filter & expand normalized data ----
 data_exp <- data_norm_merged %>%
   map(~ # drop/lump rare diagnoses/treatmens
         { if(do_lump) mutate(., across(any_of(c("icd_code", "ops_code")),
@@ -679,22 +683,32 @@ data_exp_sum$diagnosis <- data_exp$diagnosis %>%
   #     and add option to switch between the 2
   filter(icd_type == "Entl.") %>%
   group_by(case_id, icd_code) %>%
-  slice_max(icd_date) %>%
+  slice_max(icd_date, with_ties = FALSE) %T>%
+
+  # inspect if there are duplicated diagnoses per case
+  {find_mult_per(., case_id, icd_code) %>%
+      { if(ncol(.)>2) {
+        assign("mult_diag_per_date_cases", ., pos = 1)
+        warning("The diagnosis data contains duplicated icd codes with the same date. ",
+                "Diagnosis summary statistics this will be biased. ",
+                "Please check 'mult_diag_per_date_cases' for affected cases and varying columns.") }}} %>%
+
   group_by(case_id) %>%
   summarise(n_icd_f = sum(str_starts(unique(na.omit(icd_code)), "F")),
             n_icd_other = sum(str_starts(unique(na.omit(icd_code)), "[^F]")),
             across(c(icd_code, icd_date, starts_with("icd_cat_")),
                    list(n = ~n_distinct(.x, na.rm = TRUE)), .names = "{.fn}_{.col}"),
-            across(c(icd_date, icd_week), list(first = min, last = max)),
+            across(c(icd_date, icd_week), list(first = ~min(., na.rm = TRUE), last = ~max(., na.rm = TRUE))),
             across(c(fa_icd, icd_hn, icd_version, case_id_orig, starts_with("icd_cat_")),
-                   ~glue_collapse(unique(na.omit(.)), sep = ", "))
+                   \(x) na.omit(x) %>% {if(length(.) == 0) NA else glue_collapse(unique(.), sep = ", ")})
             ) %>%
   ungroup()
 
 data_exp_sum$treatment <- data_exp$treatment %>%
-  summarise(across(c(age_treat), min),
-            across(c(ops_date, ops_week), list(first = min, last = max)),
-            across(c(fa_ops, ops_version, case_id_orig), ~glue_collapse(unique(na.omit(.)), sep = ", ")),
+  summarise(across(c(age_treat), ~min(., na.rm = TRUE)),
+            across(c(ops_date, ops_week), list(first = ~min(., na.rm = TRUE), last = ~max(., na.rm = TRUE))),
+            across(c(fa_ops, ops_version, case_id_orig),
+                   \(x) na.omit(x) %>% {if(length(.) == 0) NA else glue_collapse(unique(.), sep = ", ")}),
             #TODO treatment intensity & volume
             .by = case_id
             )
@@ -715,7 +729,8 @@ codebook_data_exp <- imap(data_exp, ~ create_codebook(.)) %>%
                         .by = variable_name),
             by = "variable_name") %>%
   # add respective variable source dataframes
-  mutate(data_sources = glue_collapse(find_dfs_with_col(variable_name), ", ")) %>%
+  mutate(data_sources = find_dfs_with_col(variable_name) %>%
+           {if(length(.) == 0) NA else glue_collapse(., sep = ", ")}) %>%
   relocate(variable_names_original, .after = variable_name) %>%
   arrange(dataframe, variable_name)
 
