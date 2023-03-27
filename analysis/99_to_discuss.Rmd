@@ -18,12 +18,8 @@ editor_options:
 ---
 
 ```{r libs, include=FALSE}
-do_source_data_creation <- FALSE
-if(do_source_data_creation) {
-  source("code/data_etl.R") # creates "data_exp" & "data_exp_sum" from scratch from raw data
-} else {
-  load("output/CoverCHILD_data_ETL_2023-03-22.RData.xz")
-}
+do_source_data_creation <- FALSE # creates "data_exp" & "data_exp_sum" from scratch from raw data
+source("code/eating_disorder_data_proc.R") 
 load_inst_pkgs("tidyverse", "magrittr", "psych", "janitor", "knitr", "kableExtra")
 ```
 
@@ -88,11 +84,19 @@ data_exp$diagnosis %>% filter(!is.na(icd_code)) %>% use_series(case_id) %>% n_di
 * when splitting into pre_cov/dur_cov, where to count patients with discharge pre_cov and readmission dur_cov? Options: exclude / assign to pre_cov / **assign to dur_cov**
 * results could be skewed since dur_cov has variance restriction - should the pre_cov period be restricted for this stat?
 
+# ED Fälle in Tagesklinik?
+* Maybe this is an artifact of merging cases. Should we change case_state merging strategy from first() to max(stationär > teilstationär > ambulant)?
+```{r}
+df_ed %>% tabyl(case_state, icd_f50)
+```
+
+
+
 ***
 Notes
 ```{r}
 # non-F
-# Diabetes, Asthma, Adipositas, Epilepsy, Schädel-Hirn-Trauma
+# Diabetes, Asthma, Adipositas, Epilepsie, Schädel-Hirn-Trauma
 
 # Self-Harm
 # X60-84
