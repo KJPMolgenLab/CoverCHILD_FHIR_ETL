@@ -41,7 +41,7 @@ re_adm_span <- months(6)
 
 # data exclusion
 # ICD codes to be in-/excluded
-filter_icd <- "[^XVZ]" # regex as defined by stringi, matched only at start of string
+filter_icd <- "[^UVXZ]" # regex as defined by stringi, matched only at start of string
 
 # icd_codes & ops_codes present in fewer than threshold proportion of cases will be lumped together as "Sonstige"
 # and excluded if applicable
@@ -636,7 +636,8 @@ data_exp <- data_norm_merged %>%
         { if(all(c("p_id", "case_id", "adm_date", "dis_date") %in% colnames(.))) {
           group_by(., p_id) %>%
             arrange(adm_date) %>%
-            mutate(re_adm_lag = difftime(adm_date, coalesce(lag(dis_date), lag(adm_date)), units = "days"),
+            mutate(is_first_case = case_id == first(case_id),
+                   re_adm_lag = difftime(adm_date, coalesce(lag(dis_date), lag(adm_date)), units = "days"),
                    re_adm_soon = re_adm_lag < re_adm_span) %>%
             ungroup()
         } else . } %>%
