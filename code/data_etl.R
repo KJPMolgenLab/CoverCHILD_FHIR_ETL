@@ -220,12 +220,14 @@ vars_norm_dfs <- list(
   external_stays = c("fa_p21", "adm_date_fab", "dis_date_fab"))
 
 # Vars that should be uniform per case
-unify_per_case <- list(first = c("yob", "sex", "adm_date", "age_adm", "ik_insurer", "adm_event", "adm_reason",
-                                 "ik_hospital", "case_merge", "case_merge_reason", "leave_days_psy", "case_state",
-                                 "plz_main", "plz_prev", "adm_type", "stay_type"),
-                       last = c("dis_date", "dis_reason", "dis_type", "dis_work"))
+unify_per_case <- list(first = c("yob", "sex", "ik_insurer", "adm_event", "adm_reason", "ik_hospital", "case_merge",
+                                 "case_merge_reason", "leave_days_psy", "plz_main", "plz_prev","adm_type", "stay_type"),
+                       last = c("dis_date", "dis_reason", "dis_type", "dis_work"),
+                       min = c("adm_date", "age_adm"),
+                       max = "case_state")
 
-## unify/recode factor levels & labels ----
+## adjust factors ----
+### unify/recode factor levels & labels ----
 # CAVE: order of names depends on used function: fct_recode needs new=old, fct_relabel needs old=new
 # all recode
 fa_lvls_rec <- c("KIJUPSY" = "Kinder- und Jugendpsychiatrie KIJUPSY",
@@ -273,23 +275,28 @@ addr_type_lvls_rec <- c("prev" = "frühere Adresse",
 
 #TODO add other codes from codebook (icd_type, fa_p21, adm_event, case_merge_reason, stay_type, +?)
 
+### order factor levels ----
+case_state_order <- c("ambulant", "teilstationär", "nachstationär", "stationär")
+icd_type_order <- c("Einw.", "Aufn.", "Beh.", "FA En", "Abr", "Entl.")
+addr_type_order <- c("prev", "prev_main", "second", "invoice_amb", "info", "reports", "invoice", "main")
+
 ## ICD categories in 3 levels ----
 icd_cats_l3 <- exprs(
   # Neuronale Entwicklungsstörungen
   str_starts(icd_code, "F0") ~ "Organische Störung",
   str_starts(icd_code, "F84\\.[015]") ~ "Autismus-Spektrum-Störung",
   str_starts(icd_code, "F84\\.[2389]") ~ "Andere tiefgreifende Entwicklungsstörung",
-  str_sub(icd_code, end = 6) %in% c("F80.1", "F80.2", "F80.28", "F80.9") ~ "Sprachstörung",
+  str_starts(icd_code, "F80\\.[129]") ~ "Sprachstörung",
   str_starts(icd_code, "F81\\.[01]")  ~ "Lese-Rechtschreibstörung",
   str_starts(icd_code, "F81\\.2") ~ "Dyskalkulie",
   str_starts(icd_code, "F81\\.3") ~ "Kombinierte Störung schulischer Fertigkeiten",
   str_starts(icd_code, "F82") ~ "Motorische Störung",
-  str_starts(icd_code, "F7") ~ "Intelligenz-assoziierte Störung",
-  str_starts(icd_code, "F90|F98\\.8") ~ "Hyperkinetische Störung",
+  str_starts(icd_code, "F7|F84\\.4") ~ "Intelligenz-assoziierte Störung",
+  str_starts(icd_code, "F90|F98\\.[89]") ~ "Hyperkinetische Störung",
   str_starts(icd_code, "F98\\.[56]|F80\\.[08]") ~ "Sprechstörung",
   str_starts(icd_code, "F98\\.[01]|R32|R39\\.4[0128]") ~ "Ausscheidungsstörung",
 
-  str_starts(icd_code, "F40|F41\\.[12389]|F93\\.[01289]|F94\\.0") ~ "Angststörung",
+  str_starts(icd_code, "F40|F41|F93\\.[01289]|F94\\.0") ~ "Angststörung",
 
   str_starts(icd_code, "F42|F63\\.3|F45\\.2") ~ "Zwangsstörung",
 
@@ -304,8 +311,8 @@ icd_cats_l3 <- exprs(
   str_starts(icd_code, "F94\\.[1289]") ~ "Bindungsstörung",
 
   # Affektive Störungen
-  str_starts(icd_code, "F3[23]|F34\\.[189]|F41\\.2|F48\\.[089]|F92\\.0") ~ "Depression",
-  str_starts(icd_code, "F31|F30\\.[1289]|F34\\.0") ~ "Bipolare Störung / Manie",
+  str_starts(icd_code, "F3[23]|F34\\.[189]|F38\\.1|F39|F41\\.2|F48\\.0|F92\\.0") ~ "Depression",
+  str_starts(icd_code, "F3[01]|F34\\.0") ~ "Bipolare Störung / Manie",
 
   # Substanzbezogene Störungen
   str_starts(icd_code, "F10\\.0") ~ "Alkohol Intoxikation",
@@ -326,13 +333,13 @@ icd_cats_l3 <- exprs(
   str_starts(icd_code, "F6[456]") ~ "Störung i. Zsh. m. Sexualerleben",
 
   # Essstörungen
-  icd_code %in% c("F50.0", "F50.00", "F50.01", "F50.1") ~ "Anorexie",
+  str_starts(icd_code, "F50\\.[01]") ~ "Anorexie", # icd_code %in% c("F50.0", "F50.00", "F50.01", "F50.1")
   str_starts(icd_code, "F50\\.[23]") ~ "Bulimie",
-  str_starts(icd_code, "F50\\.[4589]|F98\\.2") ~ "Essstörung Sonst.",
+  str_starts(icd_code, "F50\\.[4589]|F98\\.[23]") ~ "Essstörung Sonst.",
 
-  str_starts(icd_code, "F6[012]|F21") ~ "Persönlichkeitsstörung",
+  str_starts(icd_code, "F6[012]|F21|F68\\.[18]") ~ "Persönlichkeitsstörung",
 
-  str_starts(icd_code, "F20\\.[01235689]F2[234589]") ~ "Psychotische Störung",
+  str_starts(icd_code, "F20\\.[01235689]|F2[234589]") ~ "Psychotische Störung",
 
   # andere Kategorien
   str_starts(icd_code, "F") ~ "F Sonst.",
@@ -433,10 +440,11 @@ data_tidy <- data_raw %>%
              select(where(~!all(is.na(.))))
          } else . } %>%
 
-         mutate(# recode factor levels
+         mutate(# recode & reorder factor levels
                 across(starts_with("fa_"), ~fct_expand(., fa_lvls_rec) %>% fct_recode(!!!fa_lvls_rec)),
                 across(ends_with("_hn"), ~fct_expand(., hn_lvls_rec) %>% fct_recode(!!!hn_lvls_rec)),
-                across(any_of("case_state"), ~fct_recode(., !!!case_state_lvls_rec)),
+                across(any_of("case_state"),
+                       ~fct_recode(., !!!case_state_lvls_rec) %>% ordered(levels = case_state_order)),
                 across(any_of("sex"), ~fct_relabel(., toupper)),
                 across(any_of("p_id"), ~fct_expand(., p21_p_id_lvls_rec) %>% fct_recode(!!!p21_p_id_lvls_rec)),
                 across(any_of("adm_reason"),
@@ -445,6 +453,7 @@ data_tidy <- data_raw %>%
                 across(any_of("dis_reason"),
                        ~fct_expand(., dis_reason_lvls_rec) %>% fct_recode(!!!dis_reason_lvls_rec)),
                 across(any_of("dis_work"), ~fct_recode(., !!!dis_work_lvls_rec)),
+                across(any_of("icd_type"), ~ordered(., levels = icd_type_order)),
 
                 # remove all occurences of "-" and "." to transfer icpm codes to ops codes
                 across(any_of("ops_code"), ~fct_relabel(., ~str_remove_all(., "[\\-\\.]"))),
@@ -471,7 +480,7 @@ if(do_unify_factor_lvls) {
 
 
 # transform to "normal form" database-like dataframes ------------------------------------------------------------------
-norm_dfs_sources <- lapply(vars_norm_dfs, find_dfs_with_col)
+norm_dfs_sources <- lapply(vars_norm_dfs, \(x) find_dfs_with_col(x, df_list = data_tidy))
 data_norm <-
   imap(norm_dfs_sources, \(source_dfs, norm_name) {
     id_cols <- if(norm_name == "patient") "p_id" else "case_id"
@@ -496,6 +505,8 @@ data_norm <-
 #   In full_join(.x, .y) :
 # Each row in `x` is expected to match at most 1 row in `y`.
 # ℹ Row 21055 of `x` matches multiple rows.
+# ℹ Row 1 of `y` matches multiple rows in `x`.
+# ℹ If a many-to-many relationship is expected, set `relationship = "many-to-many"` to silence this warning.
 
 # case has multiple plz_main, dis_date, dis_reason after merge, stemming from conflicting info between Orbis & P21.
 # Selecting first entry to prioritize Orbis over P21.
@@ -553,10 +564,14 @@ data_norm_merged <- data_norm %>%
             rename_with(~str_c(., "_orig"), any_of(list_c(unify_per_case))) %>%
             group_by(case_id) %>%
             # unify selected variables per case
+            # (Although we want to get down to 1 row per case, we use mutate+distinct instead of summarise to be able
+            #  to look for and catch errors in the data)
             mutate(across(any_of(str_c(unify_per_case$first, "_orig")), ~first(., na_rm = TRUE),
                           .names = '{str_remove(.col, "_orig")}'),
                    across(any_of(str_c(unify_per_case$last, "_orig")), ~last(., na_rm = TRUE),
                           .names = '{str_remove(.col, "_orig")}'),
+                   across(any_of(str_c(unify_per_case$min, "_orig")), min_na, .names = '{str_remove(.col, "_orig")}'),
+                   across(any_of(str_c(unify_per_case$max, "_orig")), max_na, .names = '{str_remove(.col, "_orig")}'),
                    across(any_of("length_stay"),
                           list(netto = ~(pick(case_id_orig, length_stay) %>%
                                            group_by(case_id_orig) %>%
@@ -565,18 +580,13 @@ data_norm_merged <- data_norm %>%
                                            sum(na.rm = TRUE) %>%
                                            na_if(0)),
                                # technically, max+min should not be necessary as both dates are recoded to last/first
-                               brutto =
-                                 ~na_if(as.numeric(max(dis_date, na.rm = TRUE) - min(adm_date, na.rm = TRUE)), -Inf))),
-                   across(any_of("source_dfs"),
-                          \(x) str_split(x, ", ") %>% list_c() %>%
-                            {if(length(.) == 0) NA else glue_collapse(unique(.), sep = ", ")}),
+                               brutto = ~as.numeric(max_na(dis_date) - min_na(adm_date)))),
+                   across(any_of("source_dfs"), ~str_split(., ", ") %>% list_c() %>% collapse_na()),
                    # keep only _orig values when differing from new versions
                    across(ends_with("_orig"),
-                          \(x) na_if(as.character(x), as.character(get(str_remove(cur_column(), "_orig")))) %>%
-                            na.omit() %>%
-                            {if(length(.) == 0) NA else glue_collapse(unique(.), sep = ", ")}),
-                   across(any_of("length_stay"),
-                          \(x) na.omit(x) %>% {if(length(.) == 0) NA else glue_collapse(unique(.), sep = ", ")})
+                          ~na_if(as.character(.), as.character(get(str_remove(cur_column(), "_orig")))) %>%
+                            collapse_na()),
+                   across(any_of("length_stay"), collapse_na)
                    ) %>%
             ungroup() %>%
             distinct() %>%
@@ -599,14 +609,14 @@ df_lockdown_long <- read_csv(lockdown_f, col_types = cols("f", "f", "f", .defaul
 df_lockdown_days <- df_lockdown_long %>%
   pivot_wider(names_from = "measure", values_from = "status")
 
-lockdown_data_period <- df_lockdown_days$date %>% {interval(min(., na.rm = TRUE), max(., na.rm = TRUE))}
+lockdown_data_period <- df_lockdown_days$date %>% {interval(min_na(.), max_na(.))}
 
 df_lockdown_periods <- df_lockdown_long %>%
   filter(status != 0) %>%
   group_by(state, measure, status) %>%
   mutate(period_n = cumsum((date-lag(date, default = first(date, na_rm = TRUE))) != 1)) %>%
   group_by(period_n, .add = TRUE) %>%
-  summarise(start_date = min(date, na.rm = TRUE), end_date = max(date, na.rm = TRUE)) %>%
+  summarise(start_date = min_na(date), end_date = max_na(date)) %>%
   ungroup() %>%
   mutate(date_period = interval(start_date, end_date),
          across(c(start_date, end_date),
@@ -636,7 +646,7 @@ data_exp <- data_norm_merged %>%
         { if(all(c("p_id", "case_id", "adm_date", "dis_date") %in% colnames(.))) {
           group_by(., p_id) %>%
             arrange(adm_date) %>%
-            mutate(is_first_case = case_id == first(case_id),
+            mutate(is_first_case = case_id == first(case_id, na_rm = TRUE),
                    re_adm_lag = difftime(adm_date, coalesce(lag(dis_date), lag(adm_date)), units = "days"),
                    re_adm_soon = re_adm_lag < re_adm_span) %>%
             ungroup()
@@ -697,19 +707,17 @@ data_exp_sum$diagnosis <- data_exp$diagnosis %>%
   group_by(case_id) %>%
   summarise(n_icd_f = sum(str_starts(unique(na.omit(icd_code)), "F")),
             n_icd_other = sum(str_starts(unique(na.omit(icd_code)), "[^F]")),
-            across(c(icd_code, icd_date, starts_with("icd_cat_")),
-                   list(n = ~n_distinct(.x, na.rm = TRUE)), .names = "{.fn}_{.col}"),
-            across(c(icd_date, icd_week), list(first = ~min(., na.rm = TRUE), last = ~max(., na.rm = TRUE))),
-            across(c(fa_icd, icd_hn, icd_version, case_id_orig, starts_with("icd_cat_")),
-                   \(x) na.omit(x) %>% {if(length(.) == 0) NA else glue_collapse(unique(.), sep = ", ")})
+            across(c(icd_code, icd_date, starts_with("icd_cat_")), list(n = ~n_distinct(.x, na.rm = TRUE)),
+                   .names = "{.fn}_{.col}"),
+            across(c(icd_date, icd_week), list(first = min_na, last = max_na)),
+            across(c(fa_icd, icd_hn, icd_version, case_id_orig, starts_with("icd_cat_")), collapse_na)
             ) %>%
   ungroup()
 
 data_exp_sum$treatment <- data_exp$treatment %>%
-  summarise(across(c(age_treat), ~min(., na.rm = TRUE)),
-            across(c(ops_date, ops_week), list(first = ~min(., na.rm = TRUE), last = ~max(., na.rm = TRUE))),
-            across(c(fa_ops, ops_version, case_id_orig),
-                   \(x) na.omit(x) %>% {if(length(.) == 0) NA else glue_collapse(unique(.), sep = ", ")}),
+  summarise(across(c(age_treat), min_na),
+            across(c(ops_date, ops_week), list(first = min_na, last = max_na)),
+            across(c(fa_ops, ops_version, case_id_orig), collapse_na),
             #TODO treatment intensity & volume
             .by = case_id
             )
@@ -726,12 +734,10 @@ codebook_data_exp <- imap(data_exp, ~ create_codebook(.)) %>%
   # add respective original variable names
   left_join(list_c(col_names) %>%
               enframe(name = "variable_name", value = "variable_names_original") %>%
-              summarise(variable_names_original = glue_collapse(unique(variable_names_original), ", "),
-                        .by = variable_name),
+              summarise(variable_names_original = collapse_na(variable_names_original), .by = variable_name),
             by = "variable_name") %>%
   # add respective variable source dataframes
-  mutate(data_sources = find_dfs_with_col(variable_name) %>%
-           {if(length(.) == 0) NA else glue_collapse(., sep = ", ")}) %>%
+  mutate(data_sources = find_dfs_with_col(variable_name, df_list = data_tidy) %>% collapse_na()) %>%
   relocate(variable_names_original, .after = variable_name) %>%
   arrange(dataframe, variable_name)
 

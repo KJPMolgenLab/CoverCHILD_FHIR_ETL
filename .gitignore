@@ -1,3 +1,5 @@
+.bashrc
+.nuvolos/*
 .Rproj.user
 .Rhistory
 .RData
@@ -12,5 +14,6 @@ analysis/*png
 analysis/*html
 analysis/*_cache
 analysis/site_libs
+archive/*
 data/*
 output/*

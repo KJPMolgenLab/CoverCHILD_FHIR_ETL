@@ -27,7 +27,6 @@ set_wd <- function() {
 }
 
 ## DataFrame inspection helper functions ###############################################################################
-
 # create codebook of input df
 create_codebook <- function(df, lvl_threshold=10) {
   library("tidyverse")
@@ -104,6 +103,12 @@ filter_dfs_with_col <- function(..., var_names, df_list = data_tidy) {
 }
 
 ## misc ################################################################################################################
+# min & max with na.rm=T, which return NA instead of (-)Inf, if all values are NA
+min_na <- function(x) min(x, na.rm = TRUE) %>% {if_else(is.infinite(.), NA, .)}
+max_na <- function(x) max(x, na.rm = TRUE) %>% {if_else(is.infinite(.), NA, .)}
+
+# glue_collapse returning na if empty
+collapse_na <- function(x) na.omit(x) %>% {if(length(.) == 0) NA else glue_collapse(unique(.), sep = ", ")}
 
 # generate a prettier tabyl
 gen_tabyl <- function(df, ...){
