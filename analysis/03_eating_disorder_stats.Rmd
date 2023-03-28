@@ -205,6 +205,31 @@ df_ed %>% gen_tabyl(f50_type, sex, covid_lockd)
 ```
 
 
+# Lists for AN
+## AN non-psychiatric comorbidities
+```{r}
+df_diag %>% 
+  select(case_id, icd_code, icd_label, icd_cat_l1, f50_type) %>% 
+  filter("Anorexie" %in% f50_type, icd_cat_l1 == "somatische Diag.", .by = case_id) %>% 
+  use_series(icd_code) %>%
+  unique() %>% as.character() %>% sort() %T>% 
+  write_lines(file.path(outdir, "AN_somatische_Komorbiditäten.txt"))
+```
+
+## Medications in last week of stay
+```{r}
+data_exp$medication %>%
+  select(case_id, med_start_date, med_end_date, med_nvl) %>% 
+  inner_join(df_ed %>% filter(f50_type == "Anorexie") %>% select(case_id, dis_date)) %>% 
+  # filter last week per case: med_end_date > dis_date-1week OR if NA med_start_date > dis_date-1week
+  mutate(in_last_week = coalesce(med_end_date>(dis_date-weeks(1)), med_start_date>(dis_date-weeks(1)))) %>%
+  filter(in_last_week) %>% 
+  use_series(med_nvl) %>% 
+  unique() %>% as.character() %>% sort() %T>%
+  write_lines(file.path(outdir, "AN_Medikation_letzte_Woche.txt"))
+```
+
+
 # Modelling
 ```{r echo=TRUE}
 n_tests <- 9

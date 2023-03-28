@@ -9,7 +9,7 @@ if(!exists("do_source_data_creation")) do_source_data_creation <- FALSE
 if(do_source_data_creation) {
   source("code/data_etl.R") # creates "data_exp" & "data_exp_sum" from scratch from raw data
 } else {
-  load("output/CoverCHILD_data_ETL_2023-03-22.RData.xz")
+  load("output/CoverCHILD_data_ETL_2023-03-28.RData.xz")
   load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "psych", "rlang", "glue", "janitor")
 }
 
@@ -33,7 +33,8 @@ df_ed <-
   # case
   data_exp$case %>%
   select(-source_dfs) %>%
-  filter(between(adm_date, study_start, study_end)) %>%
+  filter(between(adm_date, study_start, study_end),
+         case_state != "ambulant") %>%
   # patient
   left_join(data_exp$patient %>% select(-source_dfs), by = "p_id") %>%
   # diagnosis
