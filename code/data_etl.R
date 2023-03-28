@@ -226,6 +226,9 @@ unify_per_case <- list(first = c("yob", "sex", "ik_insurer", "adm_event", "adm_r
                        min = c("adm_date", "age_adm"),
                        max = "case_state")
 
+# how to collapse multiple values to a single entity
+collapse_to <- "glue" # "glue" for string concatenation, "list" for a list
+
 ## adjust factors ----
 ### unify/recode factor levels & labels ----
 # CAVE: order of names depends on used function: fct_recode needs new=old, fct_relabel needs old=new
@@ -581,12 +584,13 @@ data_norm_merged <- data_norm %>%
                                            na_if(0)),
                                # technically, max+min should not be necessary as both dates are recoded to last/first
                                brutto = ~as.numeric(max_na(dis_date) - min_na(adm_date)))),
-                   across(any_of("source_dfs"), ~str_split(., ", ") %>% list_c() %>% collapse_na()),
+                   across(any_of("source_dfs"),
+                          ~str_split(., ", ") %>% list_c() %>% collapse_na(sum_fun = collapse_to)),
                    # keep only _orig values when differing from new versions
                    across(ends_with("_orig"),
                           ~na_if(as.character(.), as.character(get(str_remove(cur_column(), "_orig")))) %>%
-                            collapse_na()),
-                   across(any_of("length_stay"), collapse_na)
+                            collapse_na(sum_fun = collapse_to)),
+                   across(any_of("length_stay"), ~collapse_na(., sum_fun = collapse_to))
                    ) %>%
             ungroup() %>%
             distinct() %>%
@@ -710,14 +714,15 @@ data_exp_sum$diagnosis <- data_exp$diagnosis %>%
             across(c(icd_code, icd_date, starts_with("icd_cat_")), list(n = ~n_distinct(.x, na.rm = TRUE)),
                    .names = "{.fn}_{.col}"),
             across(c(icd_date, icd_week), list(first = min_na, last = max_na)),
-            across(c(fa_icd, icd_hn, icd_version, case_id_orig, starts_with("icd_cat_")), collapse_na)
+            across(c(fa_icd, icd_hn, icd_version, case_id_orig, starts_with("icd_cat_")),
+                   ~collapse_na(., sum_fun = collapse_to))
             ) %>%
   ungroup()
 
 data_exp_sum$treatment <- data_exp$treatment %>%
   summarise(across(c(age_treat), min_na),
             across(c(ops_date, ops_week), list(first = min_na, last = max_na)),
-            across(c(fa_ops, ops_version, case_id_orig), collapse_na),
+            across(c(fa_ops, ops_version, case_id_orig), ~collapse_na(., sum_fun = collapse_to)),
             #TODO treatment intensity & volume
             .by = case_id
             )
@@ -734,10 +739,12 @@ codebook_data_exp <- imap(data_exp, ~ create_codebook(.)) %>%
   # add respective original variable names
   left_join(list_c(col_names) %>%
               enframe(name = "variable_name", value = "variable_names_original") %>%
-              summarise(variable_names_original = collapse_na(variable_names_original), .by = variable_name),
+              summarise(variable_names_original = collapse_na(variable_names_original, sum_fun = collapse_to),
+                        .by = variable_name),
             by = "variable_name") %>%
   # add respective variable source dataframes
-  mutate(data_sources = find_dfs_with_col(variable_name, df_list = data_tidy) %>% collapse_na()) %>%
+  mutate(
+    data_sources = find_dfs_with_col(variable_name, df_list = data_tidy) %>% collapse_na(sum_fun = collapse_to)) %>%
   relocate(variable_names_original, .after = variable_name) %>%
   arrange(dataframe, variable_name)
 

@@ -107,8 +107,13 @@ filter_dfs_with_col <- function(..., var_names, df_list = data_tidy) {
 min_na <- function(x) min(x, na.rm = TRUE) %>% {if_else(is.infinite(.), NA, .)}
 max_na <- function(x) max(x, na.rm = TRUE) %>% {if_else(is.infinite(.), NA, .)}
 
-# glue_collapse returning na if empty
-collapse_na <- function(x) na.omit(x) %>% {if(length(.) == 0) NA else glue_collapse(unique(.), sep = ", ")}
+# collapse multiple values to list or string, returning NA if empty
+collapse_na <- function(x, sum_fun = "glue", ...) {
+  if(sum_fun == "glue") sum_fun <-
+      function(x, sep = ", ", width = Inf, last = "") glue_collapse(x, sep = sep, width = width, last = last)
+  else if(sum_fun == "list") sum_fun <- list
+  na.omit(x) %>% {if(length(.) == 0) NA else sum_fun(unique(.), ...)}
+}
 
 # generate a prettier tabyl
 gen_tabyl <- function(df, ...){
