@@ -129,8 +129,10 @@ df_ed_share_week %>%
   ggplot(aes(x = adm_week, y = f50_props, group = f50_prop_type)) + 
   geom_col() +
   geom_rect(data = df_lockdown_periods %>% filter(state == "Hessen", measure == "school"),
-            mapping = aes(xmin = start_week, xmax = end_week, group = period_n),
+            mapping = aes(xmin = start_week, xmax = end_week, group = subperiod_i, alpha = ordered(status)),
             ymin = 0, ymax = 100, fill = scales::alpha("black", 0.2), inherit.aes = FALSE) +
+  scale_alpha_ordinal(range = c(0.2, 0.5),
+                      name = "Lockdown status", labels = c("1" = "partial", "2" = "full (incl. holidays)")) +
   geom_col(aes(fill = f50_prop_type)) +
   scale_fill_discrete(name = "ES Diagnose", labels = c("AN", "BN", "aES")) +
   scale_x_discrete(breaks = levels(df_ed_share_week$adm_week)[seq(1, length(levels(df_ed_share_week$adm_week)), 2)],
@@ -138,10 +140,10 @@ df_ed_share_week %>%
   # guides(x = guide_axis(angle = -90)) + 
   labs(title = "Anteil an Fällen mit Essstörungs-Diagnose während Covid-Pandemie pro Woche", 
        x = "Jahr.Woche", y = "Anteil der Fälle mit ES-Diagnose [%]") +
-  geom_text(aes(x = "2020.11", y = 95, label = "1. Schulschließung", hjust = "left", vjust = "top"),
-            nudge_x = 1, nudge_y = 0.5) +
-  geom_text(aes(x = "2021.2", y = 95, label = "2. Schulschließung", hjust = "left", vjust = "top"),
-            nudge_x = 1, nudge_y = 0.5) +
+  # geom_text(aes(x = "2020.11", y = 95, label = "1. Schulschließung", hjust = "left", vjust = "top"),
+  #           nudge_x = 1, nudge_y = 0.5) +
+  # geom_text(aes(x = "2021.2", y = 95, label = "2. Schulschließung", hjust = "left", vjust = "top"),
+  #           nudge_x = 1, nudge_y = 0.5) +
   theme_classic()
 ```
 
