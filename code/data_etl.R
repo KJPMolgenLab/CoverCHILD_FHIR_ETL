@@ -381,7 +381,11 @@ icd_cats_l1 = exprs(
   # defaults to icd_cat_l2 value if not specified
   )
 
-#TODO list of treatment cats?
+## treatment intensity/volume ----
+ops_treat_intensity_cats <- exprs(str_starts(ops_code, "967") ~ "int_treat_ordered",
+                                  str_starts(ops_code, "9693") ~ "int_treat_applied")
+ops_treat_prof_vol_regex <- "(?<=9696)(?<prof>[13])(?<vol>[0-9a-g])"
+ops_treat_prof_cats <- exprs(prof == "1" ~ "physician", prof == "3" ~ "psychologist")
 
 
 # read & tidy data -----------------------------------------------------------------------------------------------------
@@ -669,6 +673,16 @@ data_exp <- data_norm_merged %>%
                  icd_cat_l2 = case_when(!!!icd_cats_l2, .default = icd_cat_l3),
                  icd_cat_l1 = case_when(!!!icd_cats_l1, .default = icd_cat_l2)) %>%
             mutate(across(starts_with("icd_cat_l"), as_factor))
+        } else . } %>%
+
+        # add treatment intensity and volume coding
+        { if("ops_code" %in% colnames(.)) {
+          mutate(., str_match(ops_code, ops_treat_prof_vol_regex)[, c("prof", "vol")] %>%
+                   as_tibble() %>%
+                   mutate(treat_prof = case_when(!!!ops_treat_prof_cats) %>% as_factor(),
+                          treat_vol = strtoi(vol, 17L)+1,
+                          .keep = "none"),
+                 treat_int = case_when(!!!ops_treat_intensity_cats) %>% as_factor())
         } else . } %>%
 
         # add patient/case readmission lag and status
