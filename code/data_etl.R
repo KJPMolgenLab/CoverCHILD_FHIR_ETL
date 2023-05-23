@@ -332,18 +332,18 @@ icd_cats_l3 <- exprs(
 
   str_starts(icd_code, "F43|F62") ~ "Stress-assoziierte Störung",
 
-  str_starts(icd_code, "F45\\.[013489]|F44|F48\\.[189]|F5[12]") ~ "Störung mit körperlicher Symptomatik",
+  str_starts(icd_code, "F45\\.[013489]|F44|F48\\.1|F5[12]") ~ "Störung mit körperlicher Symptomatik",
 
   str_starts(icd_code, "F6[456]") ~ "Störung i. Zsh. m. Sexualerleben",
 
   # Essstörungen
-  str_starts(icd_code, "F50\\.[01]") ~ "Anorexie", # icd_code %in% c("F50.0", "F50.00", "F50.01", "F50.1")
+  str_starts(icd_code, "F50\\.[01]") ~ "Anorexie",
   str_starts(icd_code, "F50\\.[23]") ~ "Bulimie",
   str_starts(icd_code, "F50\\.[4589]|F98\\.[23]") ~ "Essstörung Sonst.",
 
   str_starts(icd_code, "F6[012]|F21|F68\\.[18]") ~ "Persönlichkeitsstörung",
 
-  str_starts(icd_code, "F20\\.[01235689]|F2[234589]") ~ "Psychotische Störung",
+  str_starts(icd_code, "F2[0234589]") ~ "Psychotische Störung",
 
   # andere Kategorien
   str_starts(icd_code, "F") ~ "F Sonst.",
