@@ -61,11 +61,11 @@ df_ed <-
              by = "case_id") %>%
   inner_join(data_exp_sum$diagnosis %>% select(-case_id_orig), by = "case_id") %>%
   # unify covid_pan+lockdown
-  mutate(covid_lockd = if_else(covid_pan == "pre_covid", as.character(covid_pan), as.character(lockdown_status)) %>%
+  mutate(covid_lockd = if_else(covid_pan == "pre_covid", as.character(covid_pan), as.character(lockd_status)) %>%
            replace_na("0") %>%
-           ordered(levels = c("pre_covid", "0", "1")) %>%
-           fct_recode(covid_open = "0", lockd = "1"),
-         covid_lockd_i = if_else(covid_pan == "pre_covid", as.character(covid_pan), as.character(lockdown_period_i)) %>%
+           ordered(levels = c("pre_covid", "0", "1", "2")) %>%
+           fct_recode(covid_open = "0", lockd_part = "1", lockd_full = "2"),
+         covid_lockd_i = if_else(covid_pan == "pre_covid", as.character(covid_pan), as.character(lockd_period_i)) %>%
            replace_na("0") %>%
            ordered(levels = c("pre_covid", "0", "1", "2")) %>%
            fct_recode(covid_open = "0", lockd_1 = "1", lockd_2 = "2"))

@@ -703,12 +703,12 @@ data_exp <- data_norm_merged %>%
             # lockdown / school closure status
             left_join(df_lockdown_periods %>%
                         filter(state == "Hessen", measure == "school") %>%
-                        select(lockdown_status = status, lockdown_period_i = period_i,
-                               lockdown_start_date = start_date, lockdown_end_date = end_date),
-                      by = join_by(between(adm_date, lockdown_start_date, lockdown_end_date))) %>%
+                        select(-c(state, measure, date_period)) %>%
+                        rename_with(\(x) str_c("lockd_", x)),
+                      by = join_by(between(adm_date, lockd_start_date, lockd_end_date))) %>%
             # select(!c(lockdown_start_date, lockdown_end_date)) %>%
-            mutate(lockdown_status = if_else(is.na(lockdown_status) & (adm_date %within% lockdown_data_period),
-                                             0, lockdown_status))
+            mutate(lockd_status = if_else(is.na(lockd_status) & (adm_date %within% lockdown_data_period),
+                                             0, lockd_status))
         } else . } %>%
 
         # add calendar week to all dates
