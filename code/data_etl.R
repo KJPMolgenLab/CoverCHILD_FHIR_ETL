@@ -315,7 +315,7 @@ icd_cats_l3 <- exprs(
   str_starts(icd_code, "F94\\.[1289]") ~ "Bindungsstörung",
 
   # Affektive Störungen
-  str_starts(icd_code, "F3[23]|F34\\.[189]|F38\\.1|F39|F41\\.2|F48\\.0|F92\\.0") ~ "Depression",
+  str_starts(icd_code, "F3[23]|F34\\.[189]|F38\\.1|F41\\.2|F48\\.0|F92\\.0") ~ "Depression",
   str_starts(icd_code, "F3[01]|F34\\.0") ~ "Bipolare Störung / Manie",
 
   # Substanzbezogene Störungen
