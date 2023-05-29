@@ -585,7 +585,7 @@ data_norm_merged <- data_norm %>%
                                            group_by(case_id_orig) %>%
                                            summarise(length_stay = first(length_stay, na_rm = TRUE)) %>%
                                            use_series(length_stay) %>%
-                                           sum(na.rm = TRUE) %>%
+                                           sum_na() %>%
                                            na_if(0)),
                                # technically, max+min should not be necessary as both dates are recoded to last/first
                                brutto = ~as.numeric(max_na(dis_date) - min_na(adm_date)))),
@@ -729,9 +729,11 @@ data_exp <- data_norm_merged %>%
 #       ~summarise(., across(everything(), first), .by = case_id) %>%
 #         mutate(across(where(is.factor), ~fct_drop(.) %>% fct_na_level_to_value()))
 #       )
-
 # data_exp$case can have multiple rows per case after merging cases.
+
 data_exp_sum <- list()
+
+## diagnosis ----
 data_exp_sum$diagnosis <- data_exp$diagnosis %>%
   #TODO instead of filtering only Entlassdiagnosen, code as ordered factor and take slice_max(icd_type),
   #     and add option to switch between the 2
@@ -758,20 +760,28 @@ data_exp_sum$diagnosis <- data_exp$diagnosis %>%
             ) %>%
   ungroup()
 
+## treatment ----
 data_exp_sum$treatment <- data_exp$treatment %>%
   summarise(across(c(age_treat), min_na),
             across(c(ops_date, ops_week), list(first = min_na, last = max_na)),
             across(c(fa_ops, ops_version, case_id_orig), ~collapse_na(., sum_fun = collapse_to)),
-            #TODO treatment intensity & volume
+            # treatment intensity & volume
+            n_int_treat_ord = sum_na(treat_int == "int_treat_ordered"),
+            n_int_treat_app = sum_na(treat_int == "int_treat_applied"),
+            n_treat_weekly_by_psy_max = "...", # "highest weekly treatment volume by psychologists"
+            n_treat_weekly_by_med_max = "...", # ""highest weekly treatment volume by physician"
+            n_treat_weekly_max = "...", # ""highest weekly treatment volume combined"
+            n_treat_weekly_by_psy_mean = "...", # ""mean weekly treatment volume by psychologists"
+            n_treat_weekly_by_med_mean = "...", # ""mean weekly treatment volume by physician"
+            n_treat_weekly_mean = "...", # ""mean weekly treatment volume combined"
+            n_treat_by_psy_sum = "...", # ""absolute treatment volume by psychologists"
+            n_treat_by_med_sum = "...", # ""absolute treatment volume by physician"
+            n_treat_sum = "...", # ""absolute treatment volume combined"
             .by = case_id
             )
 
-# remove 2nd decimal place of diagnoses
-#TODO: add setting if & where to cut
-# across(any_of("icd_code"), ~fct_relabel(., ~str_sub(., end = 5))),
 
-
-# create codebook ------------------------------------------------------------------------------------------------------
+# create codebooks -----------------------------------------------------------------------------------------------------
 codebook_data_exp <- imap(data_exp, ~ create_codebook(.)) %>%
   bind_rows(.id = "dataframe") %>%
   mutate(across(dataframe, as_factor)) %>%
@@ -787,6 +797,10 @@ codebook_data_exp <- imap(data_exp, ~ create_codebook(.)) %>%
   relocate(variable_names_original, .after = variable_name) %>%
   arrange(dataframe, variable_name)
 
+codebook_data_exp_sum <- imap(data_exp_sum, ~ create_codebook(.)) %>%
+  bind_rows(.id = "dataframe") %>%
+  mutate(across(dataframe, as_factor))
+
 
 # save objects ---------------------------------------------------------------------------------------------------------
 if(do_save_objects) {
@@ -799,7 +813,9 @@ if(do_save_objects) {
   # Dataframes to CSV
   dir.create(file.path(outdir, "data_exp"), recursive = TRUE, showWarnings = FALSE)
   for (x in names(data_exp)) write_csv2(data_exp[[x]], file.path(outdir, "data_exp", str_c(x, "_exp.csv")))
-  # codebook
+  # codebooks
   write_csv2(codebook_data_exp, file.path(outdir, str_glue("CoverCHILD_codebook_{Sys.Date()}.csv")),
+             na = "")
+  write_csv2(codebook_data_exp_sum, file.path(outdir, str_glue("CoverCHILD_codebook_sum_{Sys.Date()}.csv")),
              na = "")
 }

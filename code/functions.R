@@ -106,6 +106,7 @@ filter_dfs_with_col <- function(..., var_names, df_list = data_tidy) {
 # min & max with na.rm=T, which return NA instead of (-)Inf, if all values are NA
 min_na <- function(x) min(x, na.rm = TRUE) %>% {if_else(is.infinite(.), NA, .)}
 max_na <- function(x) max(x, na.rm = TRUE) %>% {if_else(is.infinite(.), NA, .)}
+sum_na <- function(x) sum(x, na.rm = TRUE)
 
 # collapse multiple values to list or string, returning NA if empty
 collapse_na <- function(x, sum_fun = "glue", ...) {
