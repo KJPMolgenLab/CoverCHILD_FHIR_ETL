@@ -28,6 +28,10 @@ an_comorb_cats <- exprs(
                              "T14\\.1", "T43\\.[26]", "T45\\.4", sep = "|")) ~ "Non_AN_effect"
   )
 
+psych_med_regex <- str_c("Chlorprothixen", "Circadin", "Equasym", "Escitalopram", "Fluoxetin", "Lorazepam", "Medikinet",
+                         "Melatonin", "Melperon", "Midazolam", "Mirtazapin", "Pipamperon", "Quetiapin", "Risperidon",
+                         "Sertralin", "Venlafaxin", sep = "|")
+
 
 # create data ----------------------------------------------------------------------------------------------------------
 # Esstörungskategorien
@@ -42,6 +46,17 @@ df_diag <- data_exp$diagnosis %>%
          f50_type = factor(if_else(icd_cat_l1 == "Essstörung", icd_cat_l3, "F50-"),
                            levels = c("F50-", "Essstörung Sonst.", "Bulimie", "Anorexie"), ordered = TRUE),
          an_comorb_type = case_when(!!!an_comorb_cats) %>% as_factor())
+
+# Entlassmedikation
+df_med <- data_exp$medication %>%
+  select(case_id, med_start_date, med_end_date, med_nvl) %>%
+  inner_join(data_exp$case %>% select(case_id, dis_date)) %>%
+  # filter last week per case: med_end_date > dis_date-1week OR if NA med_start_date > dis_date-1week
+  mutate(in_last_week = coalesce(med_end_date > (dis_date - weeks(1)), med_start_date > (dis_date - weeks(1)))) %>%
+  filter(in_last_week) %>%
+  mutate(psych_med = str_detect(med_nvl, psych_med_regex)) %>%
+  summarise(psych_med = any(psych_med),
+            .by = case_id)
 
 df_ed <-
   # case
@@ -60,6 +75,8 @@ df_ed <-
                          .by = case_id),
              by = "case_id") %>%
   inner_join(data_exp_sum$diagnosis %>% select(-case_id_orig), by = "case_id") %>%
+  # medication
+  left_join(df_med, by = "case_id") %>%
   # unify covid_pan+lockdown
   mutate(covid_lockd = if_else(covid_pan == "pre_covid", as.character(covid_pan), as.character(lockd_status)) %>%
            replace_na("0") %>%
