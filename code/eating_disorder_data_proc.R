@@ -68,10 +68,13 @@ df_ed <-
   left_join(data_exp$patient %>% select(-source_dfs), by = "p_id") %>%
   # diagnosis
   inner_join(df_diag %>%
-               summarise(icd_f50 = max(icd_f50, na.rm = TRUE),
-                         f50_type = max(f50_type, na.rm = TRUE),
-                         an_comorbs_an_effect = sum(an_comorb_type == "AN_effect", na.rm =  TRUE),
-                         an_comorbs_non_an_effect = sum(an_comorb_type == "Non_AN_effect", na.rm =  TRUE),
+               summarise(icd_f50 = max_na(icd_f50),
+                         f50_type = max_na(f50_type),
+                         icd_dd = "Depression" %in% icd_cat_l3,
+                         icd_ad = "Angststörung" %in% icd_cat_l3,
+                         icd_f50_dd_ad = (icd_f50 == "F50+" & icd_dd & icd_ad),
+                         an_comorbs_an_effect = sum_na(an_comorb_type == "AN_effect"),
+                         an_comorbs_non_an_effect = sum_na(an_comorb_type == "Non_AN_effect"),
                          .by = case_id),
              by = "case_id") %>%
   inner_join(data_exp_sum$diagnosis %>% select(-case_id_orig), by = "case_id") %>%
