@@ -80,6 +80,14 @@ df_ed_stats <-
 df_ed_stats
 ```
 
+## age range
+```{r}
+df_ed %>%
+  group_by(icd_f50) %>%
+  summarise(min_age = min_na(age_adm),
+            max_age = max_na(age_adm))
+```
+
 ## trend of ED diagnosis proportion
 ### full study period
 ```{r}
@@ -206,6 +214,35 @@ df_ed %>% tabyl(covid_lockd, f50_type) %>% chisq.test()
 df_ed %>% gen_tabyl(f50_type, sex, covid_lockd)
 ```
 
+### co-occuring depression & anxiety
+#### DD
+```{r}
+df_ed %>% gen_tabyl(covid_pan, icd_dd)
+df_ed %>% gen_tabyl(covid_pan, icd_dd, icd_f50)
+```
+#### AD
+```{r}
+df_ed %>% gen_tabyl(covid_pan, icd_ad)
+df_ed %>% gen_tabyl(covid_pan, icd_ad, icd_f50)
+```
+#### F50+DD+AD
+```{r}
+df_ed %>% gen_tabyl(covid_pan, icd_f50_dd_ad)
+df_ed %>% gen_tabyl(covid_lockd, icd_f50_dd_ad)
+```
+#### LOS
+```{r}
+df_ed %>%
+  group_by(covid_pan, icd_f50_dd_ad) %>%
+  summarise(los_mean = mean(length_stay_brutto), los_sd = SD(length_stay_brutto)) # %>% View()
+```
+
+### psychotropic medication
+```{r}
+df_ed %>% filter(!is.na(psych_med)) %>% gen_tabyl(covid_pan, psych_med)
+df_ed %>% filter(!is.na(psych_med)) %>% gen_tabyl(icd_f50, psych_med, covid_pan)
+```
+
 
 # Lists for AN
 ## AN non-psychiatric comorbidities
@@ -301,7 +338,7 @@ Corrected p-value for multiple testing is: `r format(mod_como_other_pan[["p.valu
 
 ### Abnahme (!) Behandlungsdauer
 ```{r echo=TRUE}
-mod_los_pan <- oneway.test(length_stay_netto ~ covid_pan, df_ed)
+mod_los_pan <- oneway.test(length_stay_brutto ~ covid_pan, df_ed)
 mod_los_pan
 ```
 Corrected p-value for multiple testing is: `r format(mod_los_pan[["p.value"]]*n_tests, scientific = FALSE)`
