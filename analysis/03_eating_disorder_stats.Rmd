@@ -398,6 +398,21 @@ mod_los_pan
 ```
 Corrected p-value for multiple testing is: `r format(mod_los_pan[["p.value"]]*n_tests, scientific = FALSE)`
 
+## Lockdowns
+```{r}
+df_ed_covid <- df_ed %>%
+  filter(covid_lockd != "pre_covid") %>%
+  mutate(across(where(is.factor) & contains("covid"), fct_drop))
+
+kruskal.test(icd_f50 ~ covid_lockd, df_ed_covid)
+# kruskal.test(f50_type ~ covid_lockd, df_ed_covid)
+kruskal.test(f50_type == "Anorexie" ~ covid_lockd, df_ed_covid)
+kruskal.test(f50_type == "Bulimie" ~ covid_lockd, df_ed_covid)
+kruskal.test(f50_type == "Essstörung Sonst." ~ covid_lockd, df_ed_covid)
+
+kruskal.test(icd_f50_dd_ad ~ covid_lockd, df_ed_covid)
+```
+
 
 ## GLM
 ! WIP, not finalised
