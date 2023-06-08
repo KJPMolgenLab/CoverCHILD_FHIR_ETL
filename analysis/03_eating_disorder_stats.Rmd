@@ -244,6 +244,61 @@ df_ed %>% filter(!is.na(psych_med)) %>% gen_tabyl(icd_f50, psych_med, covid_pan)
 ```
 
 
+## re-admissions / first presentations
+
+### within 6 months
+```{r}
+df_ed %>%
+  mutate(re_adm_soon = replace_na(re_adm_soon, FALSE)) %>%
+  gen_tabyl(icd_f50, re_adm_soon, covid_pan)
+```
+
+### 2-year baseline comparison
+```{r}
+df_ed_re <- df_ed %>%
+  mutate(re_adm_period = if_else(covid_pan == "pre_covid",
+                                 if_else(adm_date < ymd("2018-03-01"), "pre", "baseline"),
+                                 covid_pan)) %>%
+  filter(adm_date >= ymd("2016-03-01"))
+```
+
+#### v1: 2y baseline vs 2y covid, 2y lookback each
+```{r}
+df_ed_re %>%
+  filter(re_adm_period != "dur_covid") %>%
+  group_by(p_id) %>%
+  arrange(adm_date) %>%
+  mutate(is_first_case = case_id == first(case_id, na_rm = TRUE),
+         re_adm_lag = difftime(adm_date, coalesce(lag(dis_date), lag(adm_date)), units = "days"),
+         re_adm_soon = re_adm_lag < re_adm_span) %>%
+  ungroup() %>%
+  filter(re_adm_period == "baseline") %>%
+  gen_tabyl(icd_f50, is_first_case)
+
+df_ed_re %>%
+  filter(re_adm_period != "pre") %>%
+  group_by(p_id) %>%
+  arrange(adm_date) %>%
+  mutate(is_first_case = case_id == first(case_id, na_rm = TRUE),
+         re_adm_lag = difftime(adm_date, coalesce(lag(dis_date), lag(adm_date)), units = "days"),
+         re_adm_soon = re_adm_lag < re_adm_span) %>%
+  ungroup() %>%
+  filter(re_adm_period == "dur_covid") %>%
+  gen_tabyl(icd_f50, is_first_case)
+```
+
+#### v2: 2y baseline vs 2y covid, no lookback #TODO
+```{r}
+# df_ed %>%
+#   group_by(p_id, covid_pan) %>%
+#   arrange(adm_date) %>%
+#   mutate(is_first_case_by_covid = case_id == first(case_id, na_rm = TRUE),
+#          re_adm_lag_by_covid = difftime(adm_date, coalesce(lag(dis_date), lag(adm_date)), units = "days"),
+#          re_adm_soon_by_covid = re_adm_lag_by_covid < re_adm_span) %>%
+#   ungroup()
+```
+
+
 # Lists for AN
 ## AN non-psychiatric comorbidities
 ```{r}
