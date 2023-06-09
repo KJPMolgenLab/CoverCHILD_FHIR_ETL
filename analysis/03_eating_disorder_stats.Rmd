@@ -25,7 +25,7 @@ knitr::opts_chunk$set(warning = FALSE, echo = FALSE)
 ```{r libs, include=FALSE}
 do_source_data_creation <- FALSE
 source("code/eating_disorder_data_proc.R")
-load_inst_pkgs("tidyverse", "psych", "janitor", "knitr")
+load_inst_pkgs("tidyverse", "psych", "DescTools", "janitor", "knitr")
 ```
 
 # Sample periods
@@ -58,11 +58,11 @@ df_ed %>%
 summarise_mean_sd <- function(df) {
   summarise(df, 
             # across(where(~is.numeric(.x) | is.POSIXct(.x)), list(mean = ~mean(., na.rm = FALSE), sd = SD)), 
-            across(c(age_adm, length_stay_brutto, n_icd_f, n_icd_other, re_adm_lag),
-                   list(mean = ~mean(., na.rm = TRUE), sd = SD)), 
-            across(sex, list(mean = ~mean(as.numeric(.)-1, na.rm = TRUE), sd = ~SD(as.numeric(.)-1))),
-            across(re_adm_soon, list(mean = ~mean(as.numeric(replace_na(., FALSE))),
-                                     sd = ~SD(as.numeric(replace_na(., FALSE))))),
+            across(c(age_adm, length_stay_brutto, n_icd_code, n_icd_f, n_icd_other, re_adm_lag),
+                   list(mean = ~mean(., na.rm = TRUE), sd = ~DescTools::SD(., na.rm = TRUE))), 
+            # across(sex, list(mean = ~mean(as.numeric(.)-1, na.rm = TRUE), sd = ~SD(as.numeric(.)-1))),
+            # across(re_adm_soon, list(mean = ~mean(as.numeric(replace_na(., FALSE))),
+            #                          sd = ~SD(as.numeric(replace_na(., FALSE))))),
             n_cases = n())
 }
 
@@ -186,32 +186,39 @@ df_ed %>%
        x = "time", y = "patients", colour = "ED diag")
 ```
 
-## sex counts & proportions {.tabset .tabset-pills}
+## ED counts & proportions by covid {.tabset .tabset-pills}
 ```{r}
 df_ed %>% gen_tabyl(covid_pan, icd_f50)
-df_ed %>% gen_tabyl(icd_f50, sex)
-df_ed %>% gen_tabyl(icd_f50, sex, covid_pan)
+df_ed %>% gen_tabyl(covid_pan, f50_type)
 ```
 
-### sex counts & proportions for ED subcategories
+### sex counts & proportions by ED
 ```{r}
-df_ed %>% gen_tabyl(covid_pan, f50_type)
+df_ed %>% gen_tabyl(covid_pan, sex)
+df_ed %>% gen_tabyl(icd_f50, sex)
 df_ed %>% gen_tabyl(f50_type, sex)
+```
+
+### ED + sex counts & proportions by covid
+```{r}
+df_ed %>% gen_tabyl(icd_f50, sex, covid_pan)
 df_ed %>% gen_tabyl(f50_type, sex, covid_pan)
 ```
 
 ### sex counts & proportions for lockdowns
 ```{r}
+#TODO include above
 df_ed %>% gen_tabyl(covid_lockd, icd_f50)
 df_ed %>% gen_tabyl(icd_f50, sex, covid_lockd)
 ```
-
 ### sex counts & proportions for lockdowns & ED subcategories
 ```{r}
 df_ed %>% gen_tabyl(covid_lockd, f50_type)
 df_ed %>% tabyl(covid_lockd, f50_type) %>% chisq.test()
 
 df_ed %>% gen_tabyl(f50_type, sex, covid_lockd)
+
+df_ed %>% gen_tabyl(covid_lockd_i, f50_type)
 ```
 
 ### co-occuring depression & anxiety
@@ -397,6 +404,90 @@ mod_los_pan <- oneway.test(length_stay_brutto ~ covid_pan, df_ed)
 mod_los_pan
 ```
 Corrected p-value for multiple testing is: `r format(mod_los_pan[["p.value"]]*n_tests, scientific = FALSE)`
+
+### re-admissions (v1)
+```{r}
+# non-ED
+chisq.test(matrix(c(226, 225, 575, 576), nrow = 2))
+# ED
+chisq.test(matrix(c(39, 63, 54, 98), nrow = 2))
+# combined
+chisq.test(matrix(c(226+39, 225+63, 575+54, 576+98), nrow = 2))
+```
+
+### re-adm 6 months
+```{r}
+kruskal.test(re_adm_soon ~ covid_pan, df_ed %>% mutate(re_adm_soon = replace_na(re_adm_soon, FALSE)))
+kruskal.test(re_adm_soon ~ covid_pan,
+             df_ed %>% mutate(re_adm_soon = replace_na(re_adm_soon, FALSE)) %>% filter(icd_f50 == "F50+"))
+kruskal.test(re_adm_soon ~ covid_pan,
+             df_ed %>% mutate(re_adm_soon = replace_na(re_adm_soon, FALSE)) %>% filter(icd_f50 == "F50-"))
+```
+
+### age
+```{r}
+oneway.test(age_adm ~ covid_pan, df_ed %>% filter(icd_f50 == "F50+"))
+oneway.test(age_adm ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
+```
+
+### sex
+```{r}
+kruskal.test(sex ~ covid_pan, df_ed %>% filter(icd_f50 == "F50+"))
+kruskal.test(sex ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
+```
+
+### n diagnoses
+```{r}
+oneway.test(n_icd_code ~ covid_pan, df_ed)
+oneway.test(n_icd_code ~ covid_pan, df_ed %>% filter(icd_f50 == "F50+"))
+oneway.test(n_icd_code ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
+```
+
+### somatic comorbidities
+```{r}
+oneway.test(n_icd_other ~ covid_pan, df_ed %>% filter(icd_f50 == "F50+"))
+oneway.test(n_icd_other ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
+```
+
+### psychiatric comorbidities
+```{r}
+oneway.test(n_icd_f ~ covid_pan, df_ed %>% filter(icd_f50 == "F50+"))
+oneway.test(n_icd_f ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
+```
+
+### LOS
+```{r}
+oneway.test(length_stay_brutto ~ covid_pan, df_ed %>% filter(icd_f50 == "F50+"))
+oneway.test(length_stay_brutto ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
+oneway.test(length_stay_brutto ~ covid_pan, df_ed %>% filter(icd_f50_dd_ad))
+```
+
+### DD
+```{r}
+kruskal.test(icd_dd ~ covid_pan, df_ed)
+kruskal.test(icd_dd ~ covid_pan, df_ed %>% filter(icd_f50 == "F50+"))
+kruskal.test(icd_dd ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
+```
+
+### AD
+```{r}
+kruskal.test(icd_ad ~ covid_pan, df_ed)
+kruskal.test(icd_ad ~ covid_pan, df_ed %>% filter(icd_f50 == "F50+"))
+kruskal.test(icd_ad ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
+```
+
+### F50+DD+AD
+```{r}
+kruskal.test(icd_f50_dd_ad ~ covid_pan, df_ed)
+```
+
+### psychotropic discharge medication
+```{r}
+kruskal.test(psych_med ~ covid_pan, df_ed)
+kruskal.test(psych_med ~ covid_pan, df_ed %>% filter(icd_f50 == "F50+"))
+kruskal.test(psych_med ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
+```
+
 
 ## Lockdowns
 ```{r}
