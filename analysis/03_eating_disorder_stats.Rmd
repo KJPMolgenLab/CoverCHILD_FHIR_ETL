@@ -93,20 +93,26 @@ df_ed %>%
 ```{r}
 df_ed_share_month <- df_ed %>% 
   arrange(adm_date) %>% 
-  mutate(adm_month = str_c(year(adm_date), ".", month(adm_date)) %>%
+  mutate(adm_year = year(adm_date),
+         adm_month = month(adm_date),
+         adm_year_month = str_c(year(adm_date), ".", month(adm_date)) %>%
            fct_relevel(~str_sort(., numeric = TRUE)) %>%
-           as.ordered()
-         # adm_quarter = ordered(quarter(adm_date, type = "year.quarter"))
+           as.ordered(),
+         adm_quarter = ordered(quarter(adm_date, type = "year.quarter"))
          ) %>%
-  group_by(adm_month) %>% 
-  summarise(#F50_prop = sum(icd_f50 == "F50+")/n()*100, 
+  group_by(adm_year_month, adm_year, adm_month) %>% 
+  summarise(#f50_prop = sum(icd_f50 == "F50+")/n()*100, 
             AN_prop = sum(f50_type == "Anorexie")/n()*100,
             BN_prop = sum(f50_type == "Bulimie")/n()*100,
-            ED_sonst_prop = sum(f50_type == "Essstörung Sonst.")/n()*100) %>% 
-  pivot_longer(ends_with("_prop"), names_to = "f50_prop_type", values_to = "f50_props")
+            ED_sonst_prop = sum(f50_type == "Essstörung Sonst.")/n()*100,
+            covid_lockd = Mode(covid_lockd),
+            covid_lockd_i = Mode(covid_lockd_i)
+            ) %>% 
+  ungroup()
 
 df_ed_share_month %>% 
-  ggplot(aes(x = adm_month, y = f50_props, group = f50_prop_type)) + 
+  pivot_longer(ends_with("_prop"), names_to = "f50_prop_type", values_to = "f50_props") %>% 
+  ggplot(aes(x = adm_year_month, y = f50_props, group = f50_prop_type)) + 
   geom_col(aes(fill = f50_prop_type)) +
   scale_fill_discrete(name = "ES Diagnose", labels = c("AN", "BN", "aES")) +
   # geom_line(aes(colour = f50_prop_type)) +
@@ -120,6 +126,41 @@ df_ed_share_month %>%
             nudge_x = 0.3, nudge_y = 0.5) +
   theme_classic()
 ```
+
+### baseline-year comparison
+```{r}
+df_ed_share_month_yearly <- df_ed_share_month %>% 
+  # summarise data for baseline year
+  filter(covid_lockd == "pre_covid") %>%
+  group_by(adm_month) %>%
+  summarise(across(c(adm_year_month, adm_year, covid_lockd, covid_lockd_i), min_na),
+            across(ends_with("_prop"), mean)) %>% 
+  # add covid periods
+  bind_rows(df_ed_share_month %>% filter(covid_lockd != "pre_covid"))
+
+# year-cycle
+df_ed_share_month_yearly %>%
+  filter(covid_lockd != "pre_covid") %>%
+  bind_rows(df_ed_share_month_yearly %>%
+              filter(covid_lockd != "pre_covid") %>%
+              select(c(adm_month, adm_year_month)) %>% 
+              left_join(df_ed_share_month_yearly %>% 
+                          filter(covid_lockd == "pre_covid") %>%
+                          select(-adm_year_month)
+                        )
+            ) %>%
+  mutate(covid_pan = if_else(adm_year == 2016, "baseline", "dur_covid")) %>% 
+  ggplot(aes(x = adm_year_month, y = AN_prop, group = covid_pan)) +
+  geom_line(aes(colour = covid_lockd)) +
+  # scale_colour_discrete(name = "year") +
+  # labs(title = "...",
+  #      x = "month", y = "... [%]") +
+  theme_classic()
+
+# whole pandemic
+
+```
+
 
 ### lockdown periods within covid pandemic
 ```{r}
