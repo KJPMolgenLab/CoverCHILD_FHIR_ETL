@@ -161,6 +161,35 @@ df_ed_share_month_yearly %>%
 
 ```
 
+### re-admissions within 6 months, quarterly
+```{r}
+df_ed_share_re_adm <- df_ed %>%
+  mutate(re_adm_soon = replace_na(re_adm_soon, FALSE)) %>%
+  arrange(adm_date) %>%
+  mutate(#adm_month = str_c(year(adm_date), ".", month(adm_date)) %>%
+    # fct_relevel(~str_sort(., numeric = TRUE)) %>%
+    # as.ordered()
+    adm_quarter = ordered(quarter(adm_date, type = "year.quarter"))
+  ) %>%
+  group_by(adm_quarter, icd_f50) %>%
+  summarise(re_adm_soon_prop = sum(re_adm_soon)/n()*100)
+
+df_ed_share_re_adm %>%
+  ggplot(aes(x = adm_quarter, y = re_adm_soon_prop, group = icd_f50)) +
+  geom_line(aes(colour = icd_f50)) +
+  scale_colour_discrete(name = "ED Diagnosis") +
+  # geom_line(aes(colour = f50_prop_type)) +
+  guides(x = guide_axis(angle = -90)) +
+  geom_vline(aes(xintercept = "2020.2"), show.legend = FALSE) +
+  # labs(title = "Proportion of cases with F50.* diagnoses per month",
+  #      x = "Year.Month", y = "cases with F50.* diagnosis [%]") +
+  labs(title = "Readmissions within 6 months for cases with and without ED",
+       x = "Year.Quarter", y = "Share of readmissions within 6 months [%]") +
+  geom_text(aes(x = "2020.2", y = 100, label = "Onset\nCovid\nPandemic", hjust = "left", vjust = "top"),
+            nudge_x = 0.3, nudge_y = 0.5) +
+  theme_classic()
+```
+
 
 ### lockdown periods within covid pandemic
 ```{r}

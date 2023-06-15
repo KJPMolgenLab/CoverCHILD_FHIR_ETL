@@ -123,7 +123,7 @@ gen_tabyl <- function(df, ...){
     tabyl(..., show_missing_levels = FALSE) %>%
     adorn_totals(c("row", "col")) %>%
     adorn_percentages("row") %>%
-    adorn_pct_formatting(digits = 1) %>%
-    adorn_ns() %>%
+    adorn_pct_formatting(digits = 2) %>%
+    adorn_ns(format_func = \(x) format(x)) %>%
     adorn_title("combined")
 }
