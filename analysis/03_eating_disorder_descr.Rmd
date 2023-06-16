@@ -1,0 +1,233 @@
+---
+title: "03_eating_disorder_descriptives"
+author: "SP"
+date: "`r Sys.Date()`"
+output: 
+  workflowr::wflow_html: 
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    number_sections: true
+    df_print: paged
+    fig_width: 11
+    fig_height: 8
+    fig_caption: yes
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, echo = FALSE)
+# knitr::opts_knit$set(root.dir = dirname(getwd()))
+```
+
+```{r libs, include=FALSE}
+do_source_data_creation <- FALSE
+source("code/eating_disorder_data_proc.R")
+load_inst_pkgs("tidyverse", "psych", "DescTools", "janitor", "knitr")
+```
+
+# Sample periods
+- Pre-Covid from `r study_start` until `r covid_start`: `r pre_cov_dur` years
+- During Covid pandemic until `r study_end`: `r cov_dur` years
+
+
+# sample characteristics
+## number of unique diagnoses per case
+```{r}
+df_diag %>%
+  summarise(n = n_distinct(icd_code), .by = case_id) %>%
+  ggplot(aes(x = n)) + geom_bar() + ggtitle("number of diagnoses per case")
+```
+
+## number of cases per year pre/during covid
+```{r}
+df_ed %>% 
+  group_by(covid_pan) %>%
+  summarise(n_cases = n_distinct(case_id),
+            n_patients = n_distinct(p_id)) %>%
+  mutate(years = c(pre_cov_dur, cov_dur)) %>%
+  adorn_totals() %>%
+  mutate(n_cases_year = n_cases/years,
+         n_patients_year = n_patients/years)
+```
+
+## mean & sd by ED & Covid_pan
+```{r}
+summarise_mean_sd <- function(df) {
+  summarise(df, 
+            # across(where(~is.numeric(.x) | is.POSIXct(.x)), list(mean = ~mean(., na.rm = FALSE), sd = SD)), 
+            across(c(age_adm, length_stay_brutto, n_icd_code, n_icd_f, n_icd_other, re_adm_lag),
+                   list(mean = ~mean(., na.rm = TRUE), sd = ~DescTools::SD(., na.rm = TRUE))), 
+            # across(sex, list(mean = ~mean(as.numeric(.)-1, na.rm = TRUE), sd = ~SD(as.numeric(.)-1))),
+            # across(re_adm_soon, list(mean = ~mean(as.numeric(replace_na(., FALSE))),
+            #                          sd = ~SD(as.numeric(replace_na(., FALSE))))),
+            n_cases = n())
+}
+
+df_ed_stats <- 
+  # F50 all
+  df_ed %>% summarise_mean_sd() %>% mutate(covid_pan = "total_dur", .before = 1) %>% 
+  bind_rows(df_ed %>% group_by(covid_pan) %>% summarise_mean_sd()) %>% 
+  mutate(icd_f50 = "all_diag", .before = 2) %>% 
+  # F50 groups
+  bind_rows(df_ed %>% group_by(icd_f50) %>% summarise_mean_sd() %>% mutate(covid_pan = "total_dur", .before = 1)) %>% 
+  bind_rows(df_ed %>% group_by(icd_f50, covid_pan) %>% summarise_mean_sd()) %>% 
+  mutate(covid_pan = fct(covid_pan, c("pre_covid", "dur_covid", "total_dur")),
+         icd_f50 = fct(icd_f50, c("F50-", "F50+", "all_diag"))) %>% 
+  arrange(icd_f50, covid_pan)
+df_ed_stats
+```
+
+## age range
+```{r}
+df_ed %>%
+  group_by(icd_f50) %>%
+  summarise(min_age = min_na(age_adm),
+            max_age = max_na(age_adm))
+```
+
+## ED counts & proportions by covid {.tabset .tabset-pills}
+```{r}
+df_ed %>% gen_tabyl(covid_pan, icd_f50)
+df_ed %>% gen_tabyl(covid_pan, f50_type)
+```
+
+### sex counts & proportions by ED
+```{r}
+df_ed %>% gen_tabyl(covid_pan, sex)
+df_ed %>% gen_tabyl(icd_f50, sex)
+df_ed %>% gen_tabyl(f50_type, sex)
+```
+
+### ED + sex counts & proportions by covid
+```{r}
+df_ed %>% gen_tabyl(icd_f50, sex, covid_pan)
+df_ed %>% gen_tabyl(f50_type, sex, covid_pan)
+```
+
+### sex counts & proportions for lockdowns
+```{r}
+#TODO include above
+df_ed %>% gen_tabyl(covid_lockd, icd_f50)
+df_ed %>% gen_tabyl(icd_f50, sex, covid_lockd)
+```
+
+### sex counts & proportions for lockdowns & ED subcategories
+```{r}
+df_ed %>% gen_tabyl(covid_lockd, f50_type)
+
+df_ed %>% gen_tabyl(f50_type, sex, covid_lockd)
+
+df_ed %>% gen_tabyl(covid_lockd_i, f50_type)
+```
+
+### co-occuring depression & anxiety
+#### DD
+```{r}
+df_ed %>% gen_tabyl(covid_pan, icd_dd)
+df_ed %>% gen_tabyl(covid_pan, icd_dd, icd_f50)
+```
+#### AD
+```{r}
+df_ed %>% gen_tabyl(covid_pan, icd_ad)
+df_ed %>% gen_tabyl(covid_pan, icd_ad, icd_f50)
+```
+#### F50+DD+AD
+```{r}
+df_ed %>% gen_tabyl(covid_pan, icd_f50_dd_ad)
+df_ed %>% gen_tabyl(covid_lockd, icd_f50_dd_ad)
+```
+#### LOS
+```{r}
+df_ed %>%
+  group_by(covid_pan, icd_f50_dd_ad) %>%
+  summarise(los_mean = mean(length_stay_brutto), los_sd = SD(length_stay_brutto))
+```
+
+### psychotropic medication
+```{r}
+df_ed %>% filter(!is.na(psych_med)) %>% gen_tabyl(covid_pan, psych_med)
+df_ed %>% filter(!is.na(psych_med)) %>% gen_tabyl(icd_f50, psych_med, covid_pan)
+```
+
+
+## re-admissions / first presentations
+
+### within 6 months
+```{r}
+df_ed %>%
+  mutate(re_adm_soon = replace_na(re_adm_soon, FALSE)) %>%
+  gen_tabyl(icd_f50, re_adm_soon, covid_pan)
+```
+
+### 2-year baseline comparison
+```{r}
+df_ed_re <- df_ed %>%
+  mutate(re_adm_period = if_else(covid_pan == "pre_covid",
+                                 if_else(adm_date < ymd("2018-03-01"), "pre", "baseline"),
+                                 covid_pan)) %>%
+  filter(adm_date >= ymd("2016-03-01"))
+```
+
+#### v1: 2y baseline vs 2y covid, 2y lookback each
+```{r}
+df_ed_re %>%
+  filter(re_adm_period != "dur_covid") %>%
+  group_by(p_id) %>%
+  arrange(adm_date) %>%
+  mutate(is_first_case = case_id == first(case_id, na_rm = TRUE),
+         re_adm_lag = difftime(adm_date, coalesce(lag(dis_date), lag(adm_date)), units = "days"),
+         re_adm_soon = re_adm_lag < re_adm_span) %>%
+  ungroup() %>%
+  filter(re_adm_period == "baseline") %>%
+  gen_tabyl(icd_f50, is_first_case)
+
+df_ed_re %>%
+  filter(re_adm_period != "pre") %>%
+  group_by(p_id) %>%
+  arrange(adm_date) %>%
+  mutate(is_first_case = case_id == first(case_id, na_rm = TRUE),
+         re_adm_lag = difftime(adm_date, coalesce(lag(dis_date), lag(adm_date)), units = "days"),
+         re_adm_soon = re_adm_lag < re_adm_span) %>%
+  ungroup() %>%
+  filter(re_adm_period == "dur_covid") %>%
+  gen_tabyl(icd_f50, is_first_case)
+```
+
+#### v2: 2y baseline vs 2y covid, no lookback #TODO
+```{r}
+# df_ed %>%
+#   group_by(p_id, covid_pan) %>%
+#   arrange(adm_date) %>%
+#   mutate(is_first_case_by_covid = case_id == first(case_id, na_rm = TRUE),
+#          re_adm_lag_by_covid = difftime(adm_date, coalesce(lag(dis_date), lag(adm_date)), units = "days"),
+#          re_adm_soon_by_covid = re_adm_lag_by_covid < re_adm_span) %>%
+#   ungroup()
+```
+
+
+# Lists for AN
+## AN non-psychiatric comorbidities
+```{r}
+df_diag %>% 
+  select(case_id, icd_code, icd_label, icd_cat_l1, f50_type) %>% 
+  filter("Anorexie" %in% f50_type, icd_cat_l1 == "somatische Diag.", .by = case_id) %>% 
+  use_series(icd_code) %>%
+  unique() %>% as.character() %>% sort() %T>% 
+  write_lines(file.path(outdir, "AN_somatische_Komorbiditäten.txt"))
+```
+
+## Medications in last week of stay
+```{r}
+data_exp$medication %>%
+  select(case_id, med_start_date, med_end_date, med_nvl) %>% 
+  inner_join(df_ed %>% filter(f50_type == "Anorexie") %>% select(case_id, dis_date)) %>% 
+  # filter last week per case: med_end_date > dis_date-1week OR if NA med_start_date > dis_date-1week
+  mutate(in_last_week = coalesce(med_end_date>(dis_date-weeks(1)), med_start_date>(dis_date-weeks(1)))) %>%
+  filter(in_last_week) %>% 
+  use_series(med_nvl) %>% 
+  unique() %>% as.character() %>% sort() %T>%
+  write_lines(file.path(outdir, "AN_Medikation_letzte_Woche.txt"))
+```

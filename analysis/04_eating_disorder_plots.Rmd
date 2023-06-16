@@ -1,0 +1,197 @@
+---
+title: "03_eating_disorder_plots"
+author: "SP"
+date: "`r Sys.Date()`"
+output: 
+  workflowr::wflow_html: 
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    number_sections: true
+    df_print: paged
+    fig_width: 11
+    fig_height: 8
+    fig_caption: yes
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, echo = FALSE)
+# knitr::opts_knit$set(root.dir = dirname(getwd()))
+```
+
+```{r libs, include=FALSE}
+do_source_data_creation <- FALSE
+source("code/eating_disorder_data_proc.R")
+load_inst_pkgs("tidyverse", "psych", "DescTools", "janitor", "knitr")
+```
+
+## trend of ED diagnosis proportion
+### full study period
+```{r}
+df_ed_share_month <- df_ed %>% 
+  arrange(adm_date) %>% 
+  mutate(adm_year = year(adm_date),
+         adm_month = month(adm_date),
+         adm_year_month = str_c(year(adm_date), ".", month(adm_date)) %>%
+           fct_relevel(~str_sort(., numeric = TRUE)) %>%
+           as.ordered(),
+         adm_quarter = ordered(quarter(adm_date, type = "year.quarter"))
+         ) %>%
+  group_by(adm_year_month, adm_year, adm_month) %>% 
+  summarise(#f50_prop = sum(icd_f50 == "F50+")/n()*100, 
+            AN_prop = sum(f50_type == "Anorexie")/n()*100,
+            BN_prop = sum(f50_type == "Bulimie")/n()*100,
+            ED_sonst_prop = sum(f50_type == "Essstörung Sonst.")/n()*100,
+            covid_lockd = Mode(covid_lockd),
+            covid_lockd_i = Mode(covid_lockd_i)
+            ) %>% 
+  ungroup()
+
+df_ed_share_month %>% 
+  pivot_longer(ends_with("_prop"), names_to = "f50_prop_type", values_to = "f50_props") %>% 
+  ggplot(aes(x = adm_year_month, y = f50_props, group = f50_prop_type)) + 
+  geom_col(aes(fill = f50_prop_type)) +
+  scale_fill_discrete(name = "ES Diagnose", labels = c("AN", "BN", "aES")) +
+  # geom_line(aes(colour = f50_prop_type)) +
+  guides(x = guide_axis(angle = -90)) + 
+  geom_vline(aes(xintercept = "2020.3"), show.legend = FALSE) +
+  # labs(title = "Proportion of cases with F50.* diagnoses per month", 
+  #      x = "Year.Month", y = "cases with F50.* diagnosis [%]") +
+  labs(title = "Prozentualer Anteil an Fällen mit Essstörungs-Diagnose pro Monat", 
+       x = "Jahr.Monat", y = "Anteil der Fälle mit ES-Diagnose [%]") +
+  geom_text(aes(x = "2020.3", y = 30, label = "Beginn\nCorona-\nPandemie", hjust = "left", vjust = "top"),
+            nudge_x = 0.3, nudge_y = 0.5) +
+  theme_classic()
+```
+
+### baseline-year comparison
+```{r}
+df_ed_share_month_yearly <- df_ed_share_month %>% 
+  # summarise data for baseline year
+  filter(covid_lockd == "pre_covid") %>%
+  group_by(adm_month) %>%
+  summarise(across(c(adm_year_month, adm_year, covid_lockd, covid_lockd_i), min_na),
+            across(ends_with("_prop"), mean)) %>% 
+  # add covid periods
+  bind_rows(df_ed_share_month %>% filter(covid_lockd != "pre_covid"))
+
+# year-cycle
+df_ed_share_month_yearly %>%
+  filter(covid_lockd != "pre_covid") %>%
+  bind_rows(df_ed_share_month_yearly %>%
+              filter(covid_lockd != "pre_covid") %>%
+              select(c(adm_month, adm_year_month)) %>% 
+              left_join(df_ed_share_month_yearly %>% 
+                          filter(covid_lockd == "pre_covid") %>%
+                          select(-adm_year_month)
+                        )
+            ) %>%
+  mutate(covid_pan = if_else(adm_year == 2016, "baseline", "dur_covid")) %>% 
+  ggplot(aes(x = adm_year_month, y = AN_prop, group = covid_pan)) +
+  geom_line(aes(colour = covid_lockd)) +
+  # scale_colour_discrete(name = "year") +
+  # labs(title = "...",
+  #      x = "month", y = "... [%]") +
+  theme_classic()
+
+# whole pandemic
+
+```
+
+### re-admissions within 6 months, quarterly
+```{r}
+df_ed_share_re_adm <- df_ed %>%
+  mutate(re_adm_soon = replace_na(re_adm_soon, FALSE)) %>%
+  arrange(adm_date) %>%
+  mutate(#adm_month = str_c(year(adm_date), ".", month(adm_date)) %>%
+    # fct_relevel(~str_sort(., numeric = TRUE)) %>%
+    # as.ordered()
+    adm_quarter = ordered(quarter(adm_date, type = "year.quarter"))
+  ) %>%
+  group_by(adm_quarter, icd_f50) %>%
+  summarise(re_adm_soon_prop = sum(re_adm_soon)/n()*100)
+
+df_ed_share_re_adm %>%
+  ggplot(aes(x = adm_quarter, y = re_adm_soon_prop, group = icd_f50)) +
+  geom_line(aes(colour = icd_f50)) +
+  scale_colour_discrete(name = "ED Diagnosis") +
+  # geom_line(aes(colour = f50_prop_type)) +
+  guides(x = guide_axis(angle = -90)) +
+  geom_vline(aes(xintercept = "2020.2"), show.legend = FALSE) +
+  # labs(title = "Proportion of cases with F50.* diagnoses per month",
+  #      x = "Year.Month", y = "cases with F50.* diagnosis [%]") +
+  labs(title = "Readmissions within 6 months for cases with and without ED",
+       x = "Year.Quarter", y = "Share of readmissions within 6 months [%]") +
+  geom_text(aes(x = "2020.2", y = 100, label = "Onset\nCovid\nPandemic", hjust = "left", vjust = "top"),
+            nudge_x = 0.3, nudge_y = 0.5) +
+  theme_classic()
+```
+
+
+### lockdown periods within covid pandemic
+```{r}
+df_ed_share_week <- df_ed %>% 
+  arrange(adm_date) %>% 
+  group_by(adm_week) %>% 
+  summarise(#F50_prop = sum(icd_f50 == "F50+")/n()*100, 
+            AN_prop = sum(f50_type == "Anorexie")/n()*100,
+            BN_prop = sum(f50_type == "Bulimie")/n()*100,
+            ED_sonst_prop = sum(f50_type == "Essstörung Sonst.")/n()*100) %>% 
+  pivot_longer(ends_with("_prop"), names_to = "f50_prop_type", values_to = "f50_props") %>% 
+  filter(adm_week >= "2020.10")
+
+df_ed_share_week %>% 
+  ggplot(aes(x = adm_week, y = f50_props, group = f50_prop_type)) + 
+  geom_col() +
+  geom_rect(data = df_lockdown_periods %>% filter(state == "Hessen", measure == "school"),
+            mapping = aes(xmin = start_week, xmax = end_week, group = subperiod_i, alpha = ordered(status)),
+            ymin = 0, ymax = 100, fill = scales::alpha("black", 0.2), inherit.aes = FALSE) +
+  scale_alpha_ordinal(range = c(0.2, 0.5),
+                      name = "Lockdown status", labels = c("1" = "partial", "2" = "full (incl. holidays)")) +
+  geom_col(aes(fill = f50_prop_type)) +
+  scale_fill_discrete(name = "ES Diagnose", labels = c("AN", "BN", "aES")) +
+  scale_x_discrete(breaks = levels(df_ed_share_week$adm_week)[seq(1, length(levels(df_ed_share_week$adm_week)), 2)],
+                   guide = guide_axis(angle = -90)) +
+  # guides(x = guide_axis(angle = -90)) + 
+  labs(title = "Anteil an Fällen mit Essstörungs-Diagnose während Covid-Pandemie pro Woche", 
+       x = "Jahr.Woche", y = "Anteil der Fälle mit ES-Diagnose [%]") +
+  # geom_text(aes(x = "2020.11", y = 95, label = "1. Schulschließung", hjust = "left", vjust = "top"),
+  #           nudge_x = 1, nudge_y = 0.5) +
+  # geom_text(aes(x = "2021.2", y = 95, label = "2. Schulschließung", hjust = "left", vjust = "top"),
+  #           nudge_x = 1, nudge_y = 0.5) +
+  theme_classic()
+```
+
+## periods of cases per patient
+! WIP, not finalised
+```{r}
+# downsample F50- to match number of patients with ED. Proportion of F50- to F50+:
+prop_f50min_to_plus <- 1.5
+
+df_ed %>% 
+  group_by(p_id) %>%
+  mutate(n_cases = n()) %>%
+  filter(n_cases > 1) %>%
+  # filter(case_id != first(case_id)) %>% 
+  ungroup() %>% 
+  
+  {filter(., icd_f50 == "F50+" | p_id %in% 
+            sample(unique(.[.$icd_f50 == "F50-",]$p_id), 
+                   round(length(unique(.[.$icd_f50 == "F50+",]$p_id))*prop_f50min_to_plus)))} %>%
+  
+  ggplot(aes(x = adm_date, xend = dis_date,
+             y = fct_reorder(p_id, adm_date, first), yend = p_id,
+             group = case_id, colour = f50_type)) +
+  geom_segment() + 
+  scale_x_datetime(date_breaks = "3 months", date_labels = "%y.%m", date_minor_breaks = "1 month", 
+                   guide = guide_axis(angle = -90)) +
+  # scale_y_discrete() +
+  # scale_colour_viridis_d() + 
+  geom_vline(aes(xintercept = as.POSIXct(covid_start)), show.legend = FALSE) + 
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank()) + 
+  labs(title = "periods of treatments per patient", 
+       x = "time", y = "patients", colour = "ED diag")
+```
