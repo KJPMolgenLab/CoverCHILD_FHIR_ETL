@@ -40,6 +40,9 @@ same_case_span <- weeks(3)
 #       (see https://lubridate.tidyverse.org/reference/mplus.html)
 re_adm_span <- months(6)
 
+# window to look back when determining whether a case is a patient's first case
+first_case_span <- years(2)
+
 # data exclusion
 # ICD codes to be in-/excluded
 filter_icd <- "[^UVXZ]" # regex as defined by stringi, matched only at start of string
@@ -689,9 +692,10 @@ data_exp <- data_norm_merged %>%
         { if(all(c("p_id", "case_id", "adm_date", "dis_date") %in% colnames(.))) {
           group_by(., p_id) %>%
             arrange(adm_date) %>%
-            mutate(is_first_case = case_id == first(case_id, na_rm = TRUE),
+            mutate(is_first_case_abs = case_id == first(case_id, na_rm = TRUE),
                    re_adm_lag = difftime(adm_date, coalesce(lag(dis_date), lag(adm_date)), units = "days"),
-                   re_adm_soon = re_adm_lag < re_adm_span) %>%
+                   re_adm_soon = re_adm_lag < re_adm_span,
+                   is_first_case_rel = (re_adm_lag > first_case_span) %>% replace_na(TRUE)) %>%
             ungroup()
         } else . } %>%
 
