@@ -127,3 +127,6 @@ gen_tabyl <- function(df, ...){
     adorn_ns(format_func = \(x) format(x)) %>%
     adorn_title("combined")
 }
+
+# rgb() function with maxColorValue = 255
+rgb256 <- function(...) rgb(..., maxColorValue = 255)

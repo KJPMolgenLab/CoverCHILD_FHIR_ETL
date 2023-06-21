@@ -28,6 +28,24 @@ source("code/eating_disorder_data_proc.R")
 load_inst_pkgs("tidyverse", "psych", "DescTools", "janitor", "knitr")
 ```
 
+```{r GU colours}
+gu_colours <- list(
+  main = c(rgb256(134, 0, 71, names = "gu_purple"),
+           rgb256(179, 6, 44, names = "gu_emo_rot"),
+           rgb256(227, 186, 15, names = "gu_senfgelb"),
+           rgb256(115, 124, 69, names = "gu_gruen"),
+           rgb256(0, 97, 143, names = "gu_goethe_blau")),
+  light = c(rgb256(173, 59, 118, names = "gu_magenta"),
+            rgb256(201, 98, 21, names = "gu_orange"),
+            rgb256(247, 217, 38, names = "gu_sonnengelb"),
+            rgb256(165, 171, 82, names = "gu_helles_gruen"),
+            rgb256(72, 169, 218, names = "gu_lichtblau")),
+  greys = c(rgb256(248, 246, 245, names = "gu_hellgrau"),
+            rgb256(228, 227, 221, names = "gu_sandgrau"),
+            rgb256(77, 75, 70, names = "gu_dunkelgrau"))
+  )
+```
+
 ## trend of ED diagnosis proportion
 ### full study period
 ```{r}
@@ -53,8 +71,10 @@ df_ed_share_month <- df_ed %>%
 df_ed_share_month %>% 
   pivot_longer(ends_with("_prop"), names_to = "f50_prop_type", values_to = "f50_props") %>% 
   ggplot(aes(x = adm_year_month, y = f50_props, group = f50_prop_type)) + 
-  geom_col(aes(fill = f50_prop_type)) +
-  scale_fill_discrete(name = "ED Type", labels = c("AN", "BN", "oED")) +
+  geom_area(aes(fill = f50_prop_type)) +
+  # geom_col(aes(fill = f50_prop_type)) +
+  scale_fill_discrete(type = set_names(gu_colours$main[c("gu_emo_rot", "gu_senfgelb", "gu_goethe_blau")], NULL),
+                      name = "ED Type", labels = c("AN", "BN", "oED")) +
   # geom_line(aes(colour = f50_prop_type)) +
   guides(x = guide_axis(angle = -90)) + 
   geom_vline(aes(xintercept = "2020.3"), show.legend = FALSE) +
@@ -88,7 +108,8 @@ df_ed_share_week %>%
   scale_alpha_ordinal(range = c(0.2, 0.5),
                       name = "Lockdown status", labels = c("1" = "partial", "2" = "full (incl. holidays)")) +
   geom_col(aes(fill = f50_prop_type)) +
-  scale_fill_discrete(name = "ED Type", labels = c("AN", "BN", "oED")) +
+  scale_fill_discrete(type = set_names(gu_colours$main[c("gu_emo_rot", "gu_senfgelb", "gu_goethe_blau")], NULL),
+                      name = "ED Type", labels = c("AN", "BN", "oED")) +
   scale_x_discrete(breaks = levels(df_ed_share_week$adm_week)[seq(1, length(levels(df_ed_share_week$adm_week)), 2)],
                    guide = guide_axis(angle = -90)) +
   # guides(x = guide_axis(angle = -90)) + 
@@ -126,8 +147,8 @@ df_ed_share_month_yearly %>%
   mutate(covid_pan = if_else(adm_year == 2016, "baseline", "dur_covid")) %>% 
   ggplot(aes(x = adm_year_month, y = AN_prop, group = covid_pan)) +
   geom_line(aes(colour = covid_lockd)) +
+  scale_colour_discrete(type = set_names(gu_colours$main[c(1, 3:5)], NULL)) +
   guides(x = guide_axis(angle = -90)) + 
-  # scale_colour_discrete(name = "year") +
   # labs(title = "...",
   #      x = "month", y = "... [%]") +
   theme_classic()
@@ -152,7 +173,8 @@ df_ed_share_re_adm <- df_ed %>%
 df_ed_share_re_adm %>%
   ggplot(aes(x = adm_quarter, y = re_adm_soon_prop, group = icd_f50)) +
   geom_line(aes(colour = icd_f50)) +
-  scale_colour_discrete(name = "ED Diagnosis", labels = c("no ED", "ED")) +
+  scale_colour_discrete(type = set_names(gu_colours$main[c("gu_emo_rot", "gu_goethe_blau")], NULL),
+                        name = "ED Diagnosis", labels = c("no ED", "ED")) +
   # geom_line(aes(colour = f50_prop_type)) +
   guides(x = guide_axis(angle = -90)) +
   geom_vline(aes(xintercept = "2020.2"), show.legend = FALSE) +
@@ -176,7 +198,8 @@ df_ed %>%
   pivot_longer(c(is_first_case_rel, re_adm_soon), names_to = "variable", values_to = "mean") %>% 
   ggplot(aes(x = adm_year, y = mean, fill = variable)) +
   geom_col(position = "dodge") +
-  scale_fill_discrete(name = "Type of encounter", labels = c("First presentation", "Early re-admission")) +
+  scale_fill_discrete(type = set_names(gu_colours$main[c("gu_emo_rot", "gu_goethe_blau")], NULL),
+                      name = "Type of encounter", labels = c("First presentation", "Early re-admission")) +
   labs(title = "Share of first presentations and re-admissions of ED patients over time",
        y = "Share of cases in all ED cases [%]") +
   theme_classic()

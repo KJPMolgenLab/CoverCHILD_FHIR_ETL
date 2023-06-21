@@ -9,7 +9,7 @@ if(!exists("do_source_data_creation")) do_source_data_creation <- FALSE
 if(do_source_data_creation) {
   source("code/data_etl.R") # creates "data_exp" & "data_exp_sum" from scratch from raw data
 } else {
-  load("output/CoverCHILD_data_ETL_2023-06-19.RData.xz")
+  load("output/CoverCHILD_data_ETL_2023-06-21.RData.xz")
   load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "psych", "rlang", "glue", "janitor")
 }
 
