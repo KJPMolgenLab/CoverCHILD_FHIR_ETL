@@ -29,14 +29,22 @@ set_wd <- function() {
 ## DataFrame inspection helper functions ###############################################################################
 # create codebook of input df
 create_codebook <- function(df, lvl_threshold=10) {
-  library("tidyverse")
+  if(!("tidyverse" %in% loadedNamespaces())) library(tidyverse)
   summarise(df,
             across(everything(),
                    list(type = ~list(class(.)),
                         n_unique = n_distinct,
                         perc_NA = ~round(sum(is.na(.))/length(.)*100, 1),
-                        min = ~if(is.numeric(.) || is.POSIXt(.) || is.Date(.)) min(., na.rm = TRUE) else NA,
-                        max = ~if(is.numeric(.) || is.POSIXt(.) || is.Date(.)) max(., na.rm = TRUE) else NA,
+                        min = ~if(is.numeric(.) || is.POSIXt(.) || is.Date(.)) min_na(.) else NA,
+                        max = ~if(is.numeric(.) || is.POSIXt(.) || is.Date(.)) max_na(.) else NA,
+                        mode = \(x) na.omit(x) %>% {
+                          if (length(.) == 0) NA
+                          else as.factor(.) %>%
+                            fct_count(sort = TRUE) %>%
+                            use_series(f) %>%
+                            extract2(1) %>%
+                            as.character()
+                          },
                         # range = ~if(is.numeric(.) || is.POSIXt(.) || is.Date(.)) list(range(., na.rm = TRUE)) else NA,
                         levels = \(x) {
                           if(is.factor(x)) lvls <- levels(x)
@@ -44,7 +52,8 @@ create_codebook <- function(df, lvl_threshold=10) {
                           if(length(lvls) > lvl_threshold) return(str_glue(">{lvl_threshold} unique vals."))
                           else return(list(lvls))
                         }),
-                   .names = "{.col}:::{.fn}")) %>%
+                   .names = "{.col}:::{.fn}")
+            ) %>%
     pivot_longer(everything(),
                  names_to = c("variable_name", ".value"),
                  names_pattern = "(\\w+):::(\\w+)",
