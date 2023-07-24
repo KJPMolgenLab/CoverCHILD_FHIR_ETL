@@ -25,7 +25,7 @@ knitr::opts_chunk$set(warning = FALSE, echo = FALSE)
 ```{r libs, include=FALSE}
 do_source_data_creation <- FALSE
 source("code/eating_disorder_data_proc.R")
-load_inst_pkgs("tidyverse", "psych", "DescTools", "janitor", "knitr")
+load_inst_pkgs("tidyverse", "ggnewscale", "psych", "DescTools", "janitor", "knitr")
 ```
 
 ```{r plot settings}
@@ -87,36 +87,71 @@ df_ed_monthly %>%
 
 ### lockdown periods within covid pandemic
 ```{r}
-df_ed_share_week <- df_ed %>% 
-  arrange(adm_date) %>% 
-  group_by(adm_week) %>% 
-  summarise(#F50_prop = sum(icd_f50 == "F50+")/n()*100, 
-            AN_prop = sum(f50_type == "Anorexie")/n()*100,
-            BN_prop = sum(f50_type == "Bulimie")/n()*100,
-            ED_sonst_prop = sum(f50_type == "Essstörung Sonst.")/n()*100) %>% 
-  pivot_longer(ends_with("_prop"), names_to = "f50_prop_type", values_to = "f50_props") %>% 
-  filter(adm_week >= "2020.10")
+df_ed_weekly <- df_ed %>%
+  filter(covid_pan == "dur_covid") %>% 
+  sum_ed_abs_props(.by = adm_year_week)
 
-df_ed_share_week %>% 
-  ggplot(aes(x = adm_week, y = f50_props, group = f50_prop_type)) + 
-  geom_col() +
-  geom_rect(data = df_lockdown_periods %>% filter(state == "Hessen", measure == "school"),
-            mapping = aes(xmin = start_week, xmax = end_week, group = subperiod_i, alpha = ordered(status)),
-            ymin = 0, ymax = 100, fill = scales::alpha("black", 0.2), inherit.aes = FALSE) +
-  scale_alpha_ordinal(range = c(0.2, 0.5),
-                      name = "Lockdown status", labels = c("1" = "partial", "2" = "full (incl. holidays)")) +
-  geom_col(aes(fill = f50_prop_type)) +
-  scale_fill_discrete(type = set_names(gu_colours$main[c("gu_emo_rot", "gu_senfgelb", "gu_goethe_blau")], NULL),
-                      name = "ED Type", labels = c("AN", "BN", "oED")) +
-  scale_x_discrete(breaks = levels(df_ed_share_week$adm_week)[seq(1, length(levels(df_ed_share_week$adm_week)), 2)],
-                   guide = guide_axis(angle = -90)) +
-  # guides(x = guide_axis(angle = -90)) + 
+df_schoolclosures <- df_covid_periods_ed %>%
+  filter(state == "Hessen", measure == "school") %>% 
+  select(contains("no_hol")) %>% 
+  distinct() %>% 
+  filter(status_no_hol != 0) %>% 
+  mutate(status_no_hol = as_factor(status_no_hol),
+         period_no_hol_end_year_week = fct_recode(period_no_hol_end_year_week, "2021.14" = "2021.13"))
+
+# V1
+#TODO: this needs reformatting of df_schoolclosures to be facettable by covid_period_i
+df_ed_weekly %>% 
+  ggplot(aes(x = adm_year_week, y = prop, group = f50_type)) + 
+  geom_area() +
+  # geom_col() +
+  geom_rect(data = df_schoolclosures,
+            mapping = aes(xmin = period_no_hol_start_year_week, xmax = period_no_hol_end_year_week,
+                          group = status_no_hol, colour = status_no_hol, fill = status_no_hol),
+            ymin = 0, ymax = 100, inherit.aes = FALSE) +
+  scale_colour_discrete(aesthetics = c("colour", "fill"),
+                        type = set_names(gu_colours$greys, NULL),
+                        name = "School closure periods", labels = c("1" = "partial", "2" = "full (incl. holidays)")) +
+  new_scale_fill() +
+  geom_area(aes(fill = f50_type)) +
+  scale_fill_discrete(type = gu_pref_colours, name = "ED Type", labels = c("AN", "BN", "oED")) +
+  guides(x = guide_axis(angle = -90)) + 
   labs(title = "weekly share of cases with ED diagnosis during Covid pandemic", 
        x = "Year.Week", y = "share of cases with ED diagnosis [%]") +
-  # geom_text(aes(x = "2020.11", y = 95, label = "1. Schulschließung", hjust = "left", vjust = "top"),
-  #           nudge_x = 1, nudge_y = 0.5) +
-  # geom_text(aes(x = "2021.2", y = 95, label = "2. Schulschließung", hjust = "left", vjust = "top"),
-  #           nudge_x = 1, nudge_y = 0.5) +
+  scale_x_discrete(breaks = levels(df_ed_weekly$adm_year_week)[seq(1, length(levels(df_ed_weekly$adm_year_week)), 2)],
+                   guide = guide_axis(angle = -90)) +
+  facet_grid(cols = vars(covid_period_i), scales = "free_x", space = "free_x") +
+  theme_classic() +
+  theme(panel.spacing.x = unit(0, "lines"))
+
+# V2
+df_ed_weekly %>% 
+  ggplot(aes(x = adm_year_week, y = prop, group = f50_type)) + 
+  # school closure rectangles
+  geom_area() +
+  geom_rect(data = df_schoolclosures,
+            mapping = aes(xmin = period_no_hol_start_year_week, xmax = period_no_hol_end_year_week,
+                          group = status_no_hol, colour = status_no_hol, fill = status_no_hol),
+            ymin = 0, ymax = 100, inherit.aes = FALSE) +
+  scale_colour_discrete(aesthetics = c("colour", "fill"),
+                        type = set_names(gu_colours$greys, NULL),
+                        name = "School closure periods", labels = c("1" = "partial", "2" = "full (incl. holidays)")) +
+  new_scale_fill() +
+  # stacked area plot
+  geom_area(aes(fill = f50_type)) +
+  scale_fill_discrete(type = gu_pref_colours, name = "ED Type", labels = c("AN", "BN", "oED")) +
+  # labs
+  geom_vline(aes(xintercept = period_end_year_week), data = df_covid_periods_is_lockd) +
+  geom_text(aes(x = period_start_year_week,
+                label = as_factor(period_i_is_lockd) %>%
+                  fct_recode(NULL = "1", "1st school closure" = "2", "2nd open period" = "3",
+                             "2nd school closure" = "4", "3rd open period" = "5")),
+            y = 103, hjust = "left", vjust = "top", nudge_x = 0.75,
+            data = df_covid_periods_is_lockd, inherit.aes = FALSE, na.rm = TRUE) +
+  scale_x_discrete(breaks = levels(df_ed_weekly$adm_year_week)[seq(1, length(levels(df_ed_weekly$adm_year_week)), 2)],
+                   guide = guide_axis(angle = -90)) +
+  labs(title = "weekly share of cases with ED diagnosis during Covid pandemic", 
+       x = "Year.Week", y = "share of cases with ED diagnosis [%]") +
   theme_classic()
 ```
 
