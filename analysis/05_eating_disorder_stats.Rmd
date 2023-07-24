@@ -25,7 +25,7 @@ knitr::opts_chunk$set(warning = FALSE, echo = FALSE)
 ```{r libs, include=FALSE}
 do_source_data_creation <- FALSE
 source("code/eating_disorder_data_proc.R")
-load_inst_pkgs("tidyverse", "psych", "DescTools", "janitor", "knitr")
+load_inst_pkgs("tidyverse", "psych", "DescTools", "lmtest", "janitor", "knitr")
 ```
 
 # Modelling
@@ -202,7 +202,126 @@ kruskal.test(f50_type == "Essstörung Sonst." ~ covid_lockd_sev, df_ed_covid)
 kruskal.test(icd_f50_dd_ad ~ covid_lockd_sev, df_ed_covid)
 ```
 
-kruskal.test(icd_f50_dd_ad ~ covid_lockd, df_ed_covid)
+### Covid periods
+#### increasing trend of F50 share over periods
+```{r}
+kruskal.test(icd_f50 ~ covid_period_i, df_ed_covid)
+cor.test(df_ed_covid$icd_f50 %>% as.numeric(),
+         df_ed_covid$covid_period_i %>% as.numeric(),
+         method = "spearman")$p.value
+
+cor.test((df_ed_covid$f50_type == "Anorexie") %>% as.numeric(),
+         df_ed_covid$covid_period_i %>% as.numeric(),
+         method = "spearman")$p.value
+
+cor.test((df_ed_covid$f50_type == "Bulimie") %>% as.numeric(),
+         df_ed_covid$covid_period_i %>% as.numeric(),
+         method = "spearman")$p.value
+
+cor.test((df_ed_covid$f50_type == "Essstörung Sonst.") %>% as.numeric(),
+         df_ed_covid$covid_period_i %>% as.numeric(),
+         method = "spearman")$p.value
+
+cor.test(df_ed_covid$icd_f50_dd_ad %>% as.numeric(),
+         df_ed_covid$covid_period_i %>% as.numeric(),
+         method = "spearman")$p.value
+```
+
+#### comparison with respective baseline period
+```{r}
+df_covid_periods_is_lockd <- df_covid_periods_ed %>% 
+  summarise(across(c(period_start_date, period_start_year_week), min_na), 
+            across(c(period_end_date, period_end_year_week), max_na), 
+            .by = period_i_is_lockd) %>% 
+  rowwise() %>% 
+  mutate(period_interval = interval(period_start_date, period_end_date),
+         period_days = list(seq(as_date(period_start_date), as_date(period_end_date), by = "days") %>%
+                              `year<-`(0) %>%
+                              unique()),
+         period_start_year_week = fct_recode(period_start_year_week, "2021.25" = "2021.26"))
+
+create_covid_period_baseline_df <- function(i = 1L) {
+  df_ed %>% 
+    # baseline period
+    filter(covid_pan == "pre_covid", 
+           as_date(adm_date_year0) %in% (df_covid_periods_is_lockd %>% 
+                                           filter(period_i_is_lockd == i) %>% 
+                                           use_series(period_days) %>% 
+                                           extract2(1))) %>% 
+    # covid_period
+    bind_rows(df_ed %>% filter(as.numeric(covid_period_i) == i+1))
+}
+
+kruskal.test(icd_f50 ~ covid_pan, create_covid_period_baseline_df(1))
+kruskal.test(icd_f50 ~ covid_pan, create_covid_period_baseline_df(2))
+kruskal.test(icd_f50 ~ covid_pan, create_covid_period_baseline_df(3))
+kruskal.test(icd_f50 ~ covid_pan, create_covid_period_baseline_df(4))
+kruskal.test(icd_f50 ~ covid_pan, create_covid_period_baseline_df(5))
+```
+
+
+### Granger causality
+```{r}
+# aggregate per week
+df_ed_covid_weekly <- df_ed_covid %>%
+  summarise(n_cases = n(),
+            ED_abs = sum(icd_f50 == "F50+"),
+            AN_abs = sum(f50_type == "Anorexie"),
+            BN_abs = sum(f50_type == "Bulimie"),
+            oED_abs = sum(f50_type == "Essstörung Sonst."),
+            ED_prop = ED_abs/n(),
+            AN_prop = AN_abs/n(),
+            BN_prop = BN_abs/n(),
+            oED_prop = oED_abs/n(),
+            covid_lockd_sev = Mode(covid_lockd_sev),
+            covid_is_lockd = Mode(lockd_status_is_lockd),
+            covid_period_i = Mode(covid_period_i),
+            .by = adm_year_week
+            )
+
+# aggregate per month
+df_ed_covid_monthly <- df_ed_covid %>%
+  summarise(n_cases = n(),
+            ED_abs = sum(icd_f50 == "F50+"),
+            AN_abs = sum(f50_type == "Anorexie"),
+            BN_abs = sum(f50_type == "Bulimie"),
+            oED_abs = sum(f50_type == "Essstörung Sonst."),
+            ED_prop = ED_abs/n(),
+            AN_prop = AN_abs/n(),
+            BN_prop = BN_abs/n(),
+            oED_prop = oED_abs/n(),
+            covid_lockd_sev = Mode(covid_lockd_sev),
+            covid_is_lockd = Mode(lockd_status_is_lockd),
+            covid_period_i = Mode(covid_period_i),
+            .by = adm_year_month
+            )
+
+grangertest(AN_prop ~ as.numeric(covid_lockd_sev), order = 6, data = df_ed_covid_monthly)
+# plot lag time points: orthogonal impulse response
+```
+
+```{r}
+# granger plots
+df_ed_covid_monthly %>% 
+  transmute(adm_year_month, AN_prop, covid_lockd_sev = as.numeric(covid_lockd_sev)/15) %>% 
+  pivot_longer(cols = -adm_year_month) %>% 
+  ggplot(aes(x = adm_year_month, y = value, group = name)) +
+  geom_line(aes(colour = name), linewidth = 0.7) +
+  scale_colour_manual(values = c("#00AFBB", "#E7B800")) +
+  theme_minimal()
+
+library(tseries)
+adf.test(df_ed_covid_monthly$AN_prop, k = 6)
+
+library(vars)
+
+ed_covid_monthly_irf <- df_ed_covid_monthly %>% 
+  transmute(AN_prop, sev = as.numeric(covid_lockd_sev)) %>% 
+  as.ts() %>% 
+  VAR(p = 6, type = "const") %>% 
+  irf()
+
+plot(ed_covid_monthly_irf)
 ```
 
 
