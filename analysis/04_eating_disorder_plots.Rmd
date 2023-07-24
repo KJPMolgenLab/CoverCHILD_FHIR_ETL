@@ -263,17 +263,29 @@ df_ed %>%
 ```{r}
 df_ed %>%
   filter(adm_date >= ymd("2018-03-01"), icd_f50 == "F50+") %>% 
-  mutate(adm_year = year(adm_date) %>% as_factor() %>% fct_recode("baseline" = "2018", "baseline" = "2019"),
-         re_adm_soon = replace_na(re_adm_soon, FALSE)) %>% 
+  mutate(adm_year = as_factor(adm_year) %>% fct_recode("baseline" = "2018", "baseline" = "2019")) %>% 
+  # aggregate per year
   group_by(adm_year) %>% 
-  summarise(across(c(is_first_case_rel, re_adm_soon), ~mean(., na.rm = TRUE)*100)) %>% 
-  pivot_longer(c(is_first_case_rel, re_adm_soon), names_to = "variable", values_to = "mean") %>% 
-  ggplot(aes(x = adm_year, y = mean, fill = variable)) +
-  geom_col(position = "dodge") +
-  scale_fill_discrete(type = set_names(gu_colours$main[c("gu_emo_rot", "gu_goethe_blau")], NULL),
-                      name = "Type of encounter", labels = c("First presentation", "Early re-admission")) +
-  labs(title = "Share of first presentations and re-admissions of ED patients over time",
-       y = "Share of cases in all ED cases [%]") +
+  summarise(across(c(is_first_case_rel, re_adm_soon_nona),
+                   list("_prop" = ~mean(., na.rm = TRUE),
+                        "_sd" = ~DescTools::SD(., na.rm = TRUE),
+                        "_sd_p" = ~sqrt(mean(., na.rm = TRUE)*(1-mean(., na.rm = TRUE))))),
+            n = n()) %>%
+  mutate(is_first_case_rel__se = is_first_case_rel__sd_p/sqrt(n),
+         re_adm_soon_nona__se = re_adm_soon_nona__sd_p/sqrt(n),
+         across(ends_with(c("prop", "sd", "sd_p", "se")), ~.*100)) %>%
+  pivot_longer(starts_with(c("is_first_case_rel", "re_adm_soon_nona")),
+               names_to = c("variable", ".value"), names_sep = "__") %>%
+  
+  ggplot(aes(x = adm_year, y = prop, fill = variable)) +
+  geom_col() +
+  geom_errorbar(aes(ymin = prop-se, ymax = prop+se), width = 0.25) +
+  facet_wrap(vars(variable), labeller = as_labeller(c("is_first_case_rel" = "First presentation (within 2 years)",
+                                                      "re_adm_soon_nona" = "Early re-admission (within 6 months)"))) +
+  scale_fill_discrete(type = gu_pref_colours, guide = NULL) +
+  labs(title = "Share of first presentations and re-admissions of ED patients by year",
+       x = "Year", y = "Share of cases in all ED cases [%]") +
+  scale_y_continuous(limits = c(0, 100)) +
   theme_classic()
 ```
 
