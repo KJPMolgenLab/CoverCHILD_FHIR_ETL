@@ -26,7 +26,7 @@ covid_end <- ymd("2023-04-06", tz = "CET")
 data_fs <- Sys.glob("data/*.csv")
 names(data_fs) <- basename(file_path_sans_ext(data_fs))
 lockdown_f <- "data/ext/ZPID_lockdown_measures_dataset-V6.0.csv"
-lockdown_school_hesse_f <- "data/ext/ZPID_lockdown_Arora_Schule.csv"
+lockdown_school_hesse_f <- "data/ext/ZPID_lockdown_Hesse_schools.csv"
 
 # sort data sources by descending trustworthiness of information
 data_fs <- data_fs[c("Ergebnis_V2_PLZ_PID_Fall_pseudonym", "Pers_Fall_V2_pseudonym", "ICD_V2", "ICPM_V3",

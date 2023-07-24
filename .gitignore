@@ -15,5 +15,9 @@ analysis/*html
 analysis/*_cache
 analysis/site_libs
 archive/*
-data/*
+data/*.csv
+data/ext/*.*x
+data/ext/*.ods
+data/ext/*.pdf
+data/UKF_patient_examples
 output/*
