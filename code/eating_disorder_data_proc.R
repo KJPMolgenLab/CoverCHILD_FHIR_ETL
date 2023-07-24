@@ -9,8 +9,9 @@ if(!exists("do_source_data_creation")) do_source_data_creation <- FALSE
 if(do_source_data_creation) {
   source("code/data_etl.R") # creates "data_exp" & "data_exp_sum" from scratch from raw data
 } else {
-  load("output/CoverCHILD_data_ETL_2023-06-21.RData.xz")
+  load("output/CoverCHILD_data_ETL_2023-06-26.RData.xz")
   load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "psych", "rlang", "glue", "janitor")
+  do_save_objects <- FALSE
 }
 
 # settings -------------------------------------------------------------------------------------------------------------
@@ -34,6 +35,19 @@ psych_med_regex <- str_c("Chlorprothixen", "Circadin", "Equasym", "Escitalopram"
 
 
 # create data ----------------------------------------------------------------------------------------------------------
+# confine lockdown data period to study period
+df_covid_periods_ed <- df_covid_periods %>%
+  mutate(period_end_date = if_else(period_end_date == max_na(period_end_date),
+                                   study_end + hms("23:59:59"),
+                                   period_end_date)) %>%
+  group_by(period_i_no_hol, .add = TRUE) %>%
+  mutate(period_no_hol_start_date = min_na(period_start_date),
+         period_no_hol_end_date = max_na(period_end_date)) %>%
+  ungroup() %>%
+  mutate(across(ends_with("_date"),
+                ~str_c(year(.), ".", week(.)) %>% fct_relevel(~str_sort(., numeric = TRUE)) %>% as.ordered(),
+                .names = '{str_replace(.col, "_date", "_year_week")}'))
+
 # Esstörungskategorien
 # l3: "Anorexie", "Bulimie", "Essstörung Sonst." -> l1: "Essstörung"
 df_diag <- data_exp$diagnosis %>%
@@ -80,18 +94,39 @@ df_ed <-
   inner_join(data_exp_sum$diagnosis %>% select(-case_id_orig), by = "case_id") %>%
   # medication
   left_join(df_med, by = "case_id") %>%
-  # unify covid_pan+lockdown
-  mutate(covid_lockd = if_else(covid_pan == "pre_covid", as.character(covid_pan), as.character(lockd_status)) %>%
-           replace_na("0") %>%
-           ordered(levels = c("pre_covid", "0", "1", "2")) %>%
-           fct_recode(covid_open = "0", lockd_part = "1", lockd_full = "2"),
-         covid_lockd_i = if_else(covid_pan == "pre_covid", as.character(covid_pan), as.character(lockd_period_i)) %>%
-           replace_na("0") %>%
-           ordered(levels = c("pre_covid", "0", "1", "2")) %>%
-           fct_recode(covid_open = "0", lockd_1 = "1", lockd_2 = "2"))
+  # add variables
+  arrange(adm_date) %>%
+  mutate(
+    # create covid lockdown severity from covid_pan + lockdown without holidays
+    covid_lockd_sev = if_else(covid_pan == "pre_covid", as.character(covid_pan), as.character(lockd_status_no_hol)) %>%
+      #TODO replace_na("0") %>%
+      ordered(levels = c("pre_covid", "0", "1", "2")) %>%
+      fct_recode(covid_open = "0", lockd_part = "1", lockd_full = "2"),
+    # create covid period from covid_pan + is_lockdown period
+    covid_period_i = if_else(covid_pan == "pre_covid", 0L, lockd_period_i_is_lockd) %>%
+      ordered() %>% fct_inseq() %>%
+      fct_recode(pre_covid_0 = "0", open_1 = "1", lockd_2 = "2", open_3 = "3", lockd_4 = "4", open_5 = "5"),
 
-pre_cov_dur <- min(df_ed$adm_date) %--% covid_start %>% as.numeric("years")
-cov_dur <- covid_start %--% max(df_ed$adm_date) %>% as.numeric("years")
+    # add broader admission date categories: month & quarter, date without year
+    adm_date_year0 = `year<-`(adm_date, 0),
+    adm_year = year(adm_date),
+    adm_month = month(adm_date),
+    adm_year_month = str_c(year(adm_date), ".", month(adm_date)) %>%
+      fct_relevel(~str_sort(., numeric = TRUE)) %>%
+      as.ordered(),
+    adm_year_quarter = ordered(quarter(adm_date, type = "year.quarter")),
+
+    # re_adm_soon where NAs (= first presentation) are recoded to FALSE
+    re_adm_soon_nona = replace_na(re_adm_soon, FALSE),
+
+    # re-admission periods for 2-year baseline comparison v1 (see descr Notebook)
+    re_adm_period = if_else(covid_pan == "pre_covid",
+                            if_else(adm_date < ymd("2018-03-01", tz = "CET"), "pre", "baseline"),
+                            covid_pan)
+    )
+
+pre_cov_dur <- min(df_ed$adm_date) %--% covid_start %>% as.numeric("days") %>% divide_by(30)
+cov_dur <- covid_start %--% max(df_ed$adm_date) %>% as.numeric("days") %>% divide_by(30)
 
 ## save ----
 if(do_save_objects) saveRDS(df_ed, str_glue("output/CoverCHILD_data+EDvars_{Sys.Date()}.rds"))

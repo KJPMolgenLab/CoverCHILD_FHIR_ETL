@@ -114,11 +114,9 @@ chisq.test(matrix(c(226+39, 225+63, 575+54, 576+98), nrow = 2))
 
 ### re-adm 6 months
 ```{r}
-kruskal.test(re_adm_soon ~ covid_pan, df_ed %>% mutate(re_adm_soon = replace_na(re_adm_soon, FALSE)))
-kruskal.test(re_adm_soon ~ covid_pan,
-             df_ed %>% mutate(re_adm_soon = replace_na(re_adm_soon, FALSE)) %>% filter(icd_f50 == "F50+"))
-kruskal.test(re_adm_soon ~ covid_pan,
-             df_ed %>% mutate(re_adm_soon = replace_na(re_adm_soon, FALSE)) %>% filter(icd_f50 == "F50-"))
+kruskal.test(re_adm_soon_nona ~ covid_pan, df_ed)
+kruskal.test(re_adm_soon_nona ~ covid_pan, df_ed %>% filter(icd_f50 == "F50+"))
+kruskal.test(re_adm_soon_nona ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
 ```
 
 ### age
@@ -189,14 +187,20 @@ kruskal.test(psych_med ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
 ## Lockdowns
 ```{r}
 df_ed_covid <- df_ed %>%
-  filter(covid_lockd != "pre_covid") %>%
+  filter(covid_lockd_sev != "pre_covid") %>%
   mutate(across(where(is.factor) & contains("covid"), fct_drop))
+```
 
-kruskal.test(icd_f50 ~ covid_lockd, df_ed_covid)
+### Lockdown severity
+```{r}
+kruskal.test(icd_f50 ~ covid_lockd_sev, df_ed_covid)
 # kruskal.test(f50_type ~ covid_lockd, df_ed_covid)
-kruskal.test(f50_type == "Anorexie" ~ covid_lockd, df_ed_covid)
-kruskal.test(f50_type == "Bulimie" ~ covid_lockd, df_ed_covid)
-kruskal.test(f50_type == "Essstörung Sonst." ~ covid_lockd, df_ed_covid)
+kruskal.test(f50_type == "Anorexie" ~ covid_lockd_sev, df_ed_covid)
+kruskal.test(f50_type == "Bulimie" ~ covid_lockd_sev, df_ed_covid)
+kruskal.test(f50_type == "Essstörung Sonst." ~ covid_lockd_sev, df_ed_covid)
+
+kruskal.test(icd_f50_dd_ad ~ covid_lockd_sev, df_ed_covid)
+```
 
 kruskal.test(icd_f50_dd_ad ~ covid_lockd, df_ed_covid)
 ```

@@ -110,17 +110,23 @@ df_ed %>% gen_tabyl(f50_type, sex, covid_pan)
 ### sex counts & proportions for lockdowns
 ```{r}
 #TODO include above
-df_ed %>% gen_tabyl(covid_lockd, icd_f50)
-df_ed %>% gen_tabyl(icd_f50, sex, covid_lockd)
+df_ed %>% gen_tabyl(covid_lockd_sev, icd_f50)
+df_ed %>% gen_tabyl(icd_f50, sex, covid_lockd_sev)
 ```
 
 ### sex counts & proportions for lockdowns & ED subcategories
 ```{r}
-df_ed %>% gen_tabyl(covid_lockd, f50_type)
+df_ed %>% gen_tabyl(covid_lockd_sev, f50_type)
 
-df_ed %>% gen_tabyl(f50_type, sex, covid_lockd)
+df_ed %>% gen_tabyl(f50_type, sex, covid_lockd_sev)
 
-df_ed %>% gen_tabyl(covid_lockd_i, f50_type)
+```
+
+### by covid phase
+```{r}
+df_ed %>% gen_tabyl(covid_period_i, icd_f50)
+df_ed %>% gen_tabyl(covid_period_i, f50_type)
+df_ed %>% gen_tabyl(covid_period_i, icd_f50_dd_ad)
 ```
 
 ### co-occuring depression & anxiety
@@ -137,7 +143,7 @@ df_ed %>% gen_tabyl(covid_pan, icd_ad, icd_f50)
 #### F50+DD+AD
 ```{r}
 df_ed %>% gen_tabyl(covid_pan, icd_f50_dd_ad)
-df_ed %>% gen_tabyl(covid_lockd, icd_f50_dd_ad)
+df_ed %>% gen_tabyl(covid_lockd_sev, icd_f50_dd_ad)
 ```
 #### LOS
 ```{r}
@@ -157,17 +163,12 @@ df_ed %>% filter(!is.na(psych_med)) %>% gen_tabyl(icd_f50, psych_med, covid_pan)
 
 ### within 6 months
 ```{r}
-df_ed %>%
-  mutate(re_adm_soon = replace_na(re_adm_soon, FALSE)) %>%
-  gen_tabyl(icd_f50, re_adm_soon, covid_pan)
+df_ed %>% gen_tabyl(icd_f50, re_adm_soon_nona, covid_pan)
 ```
 
 ### 2-year baseline comparison
 ```{r}
 df_ed_re <- df_ed %>%
-  mutate(re_adm_period = if_else(covid_pan == "pre_covid",
-                                 if_else(adm_date < ymd("2018-03-01"), "pre", "baseline"),
-                                 covid_pan)) %>%
   filter(adm_date >= ymd("2016-03-01"))
 ```
 

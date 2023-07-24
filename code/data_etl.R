@@ -625,40 +625,44 @@ df_lockdown_days <- df_lockdown_long %>%
 
 lockdown_data_period <- df_lockdown_days$date %>% {interval(min_na(.), max_na(.))}
 
-# extract lockdown periods
-df_lockdown_periods <- df_lockdown_long %>%
-  filter(status != 0) %>% # exclude periods of no lockdown
-
-  # find continuous periods of lockdown by state & measure
+# extract covid lockdown status periods
+df_covid_periods <- df_lockdown_long %>%
+  # find continuous periods of statuses by state & measure
+  group_by(state, measure, status) %>%
+  mutate(period_i_all = cumsum((date-lag(date, default = first(date, na_rm = TRUE))) != 1)) %>%
+  group_by(period_i_all, .add = TRUE) %>%
+  summarise(period_start_date = min_na(date), period_end_date = max_na(date)) %>%
   group_by(state, measure) %>%
-  # detect uninterrupted periods of lockdowns, including public school breaks (code 8)
-  mutate(period_i = cumsum((date-lag(date, default = first(date, na_rm = TRUE))) != 1)) %>%
-  group_by(period_i, .add = TRUE) %>%
+  arrange(period_start_date) %>%
+  mutate(
+    # recode periods
+    period_i_all = row_number(),
+    # extend first and last periods to span whole covid pandemic
+    period_start_date = if_else(period_start_date == min_na(period_start_date), covid_start, period_start_date),
+    period_end_date = if_else(period_end_date == max_na(period_end_date), covid_end, period_end_date) + hms("23:59:59"),
+    # recode school holidays to fully closed when lying within a lockdown period or to open otherwise
+    status_no_hol = case_when(status == 8 & lag(status, default = 0) != 0 & lead(status, default = 0) != 0 ~ 2L,
+                              status == 8 ~ 0L,
+                              .default = status),
+    # find continuous periods of updated statuses by state & measure
+    period_i_no_hol = cumsum((status_no_hol-lag(status_no_hol, default = first(status_no_hol))) != 0)+1L,
+    # status based only on lockdown or no lockdown
+    status_is_lockd = if_else(status_no_hol == 0, 0, 1),
+    period_i_is_lockd = cumsum((status_is_lockd-lag(status_is_lockd, default = first(status_is_lockd))) != 0)+1L,
 
-  # exclude school breaks if it is at beginning or end of period
-  # (this includes periods consisting of school breaks only)
-  #  i.e. only include school breaks if they lie within a lockdown period
-  mutate(status_group = c(0, cumsum(diff(status) != 0))) %>% # find continuous groups of the same status
-  filter(!(status == 8 & (status_group %in% c(0, last(status_group))))) %>% # exclude school breaks
-  # # alternatively, exclude schoolbreaks only if they don't occur in combination with a lockdown
-  # filter(!all(unique(status) == 8)) %>%
-  mutate(status = if_else(status == 8, 2, status)) %>% # for remaining groups, recode school breaks to fully closed (2)
-
-  # update periods & status groups after recoding/filtering
-  group_by(state, measure) %>%
-  mutate(period_i = cumsum((date-lag(date, default = first(date, na_rm = TRUE))) != 1)) %>%
-  group_by(period_i, .add = TRUE) %>%
-  mutate(status_group = c(0, cumsum(diff(status) != 0))+1) %>%
-
-  # summarise periods
-  group_by(status_group, status, .add = TRUE) %>%
-  summarise(start_date = min_na(date), end_date = max_na(date)) %>%
+    # subperiod_i = str_c(period_i, status_group, sep = "_") %>% as.ordered(),
+    ) %>%
+  # add times based on no-holiday statuses
+  group_by(period_i_no_hol, .add = TRUE) %>%
+  mutate(period_no_hol_start_date = min_na(period_start_date),
+         period_no_hol_end_date = max_na(period_end_date)) %>%
   ungroup() %>%
-  mutate(subperiod_i = str_c(period_i, status_group, sep = "_") %>% as.ordered(),
-         date_period = interval(start_date, end_date),
-         across(c(start_date, end_date),
-                ~str_c(year(.), ".", week(.)) %>% fct_relevel(~str_sort(., numeric = TRUE)) %>% as.ordered(),
-                .names = '{str_replace(.col, "_date", "_week")}'))
+  # add time vars
+  # status_date_period = interval(period_start_date, period_end_date),
+  mutate(across(ends_with("_date"),
+         ~str_c(year(.), ".", week(.)) %>% fct_relevel(~str_sort(., numeric = TRUE)) %>% as.ordered(),
+         .names = '{str_replace(.col, "_date", "_year_week")}'))
+
 
 ## filter & expand normalized data ----
 data_exp <- data_norm_merged %>%
@@ -706,14 +710,11 @@ data_exp <- data_norm_merged %>%
           mutate(., covid_pan = factor(if_else(adm_date < covid_start, "pre_covid", "dur_covid"),
                                        levels = c("pre_covid", "dur_covid"), ordered = TRUE)) %>%
             # lockdown / school closure status
-            left_join(df_lockdown_periods %>%
+            left_join(df_covid_periods %>%
                         filter(state == "Hessen", measure == "school") %>%
-                        select(-c(state, measure, date_period)) %>%
+                        select(-c(state, measure)) %>%
                         rename_with(\(x) str_c("lockd_", x)),
-                      by = join_by(between(adm_date, lockd_start_date, lockd_end_date))) %>%
-            # select(!c(lockdown_start_date, lockdown_end_date)) %>%
-            mutate(lockd_status = if_else(is.na(lockd_status) & (adm_date %within% lockdown_data_period),
-                                             0, lockd_status))
+                      by = join_by(between(adm_date, lockd_period_start_date, lockd_period_end_date)))
         } else . } %>%
 
         # add calendar week to all dates
