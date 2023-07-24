@@ -717,10 +717,10 @@ data_exp <- data_norm_merged %>%
                       by = join_by(between(adm_date, lockd_period_start_date, lockd_period_end_date)))
         } else . } %>%
 
-        # add calendar week to all dates
+        # add calendar year+week to all dates
         mutate(across(where(~ is.POSIXt(.) || is.Date(.)),
                       ~str_c(year(.), ".", week(.)) %>% fct_relevel(~str_sort(., numeric = TRUE)) %>% as.ordered(),
-                      .names = '{str_replace(.col, "_date", "_week")}')) %>%
+                      .names = '{str_replace(.col, "_date", "_year_week")}')) %>%
 
         mutate(across(where(is.factor), ~fct_drop(.) %>% fct_na_level_to_value()))
       )
@@ -760,7 +760,7 @@ data_exp_sum$diagnosis <- data_exp$diagnosis %>%
             n_icd_other = sum(str_starts(unique(na.omit(icd_code)), "[^F]")),
             across(c(icd_code, icd_date, starts_with("icd_cat_")), list(n = ~n_distinct(.x, na.rm = TRUE)),
                    .names = "{.fn}_{.col}"),
-            across(c(icd_date, icd_week), list(first = min_na, last = max_na)),
+            across(c(icd_date, icd_year_week), list(first = min_na, last = max_na)),
             across(c(fa_icd, icd_hn, icd_version, case_id_orig, starts_with("icd_cat_")),
                    ~collapse_na(., sum_fun = collapse_to))
             ) %>%
@@ -769,7 +769,7 @@ data_exp_sum$diagnosis <- data_exp$diagnosis %>%
 ## treatment ----
 data_exp_sum$treatment <- data_exp$treatment %>%
   summarise(across(c(age_treat), min_na),
-            across(c(ops_date, ops_week), list(first = min_na, last = max_na)),
+            across(c(ops_date, ops_year_week), list(first = min_na, last = max_na)),
             across(c(fa_ops, ops_version, case_id_orig), ~collapse_na(., sum_fun = collapse_to)),
             # treatment intensity & volume
             n_int_treat_ord = sum_na(treat_int == "int_treat_ordered"),

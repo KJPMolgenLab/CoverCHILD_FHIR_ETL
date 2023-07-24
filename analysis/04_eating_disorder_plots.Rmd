@@ -28,7 +28,7 @@ source("code/eating_disorder_data_proc.R")
 load_inst_pkgs("tidyverse", "psych", "DescTools", "janitor", "knitr")
 ```
 
-```{r GU colours}
+```{r plot settings}
 gu_colours <- list(
   main = c(rgb256(134, 0, 71, names = "gu_purple"),
            rgb256(179, 6, 44, names = "gu_emo_rot"),
@@ -44,6 +44,7 @@ gu_colours <- list(
             rgb256(228, 227, 221, names = "gu_sandgrau"),
             rgb256(77, 75, 70, names = "gu_dunkelgrau"))
   )
+gu_pref_colours <- set_names(list_c(gu_colours)[c("gu_lichtblau", "gu_gruen", "gu_sonnengelb")], NULL)
 ```
 
 ## trend of ED diagnosis proportion
@@ -157,33 +158,22 @@ df_ed_share_month_yearly %>%
 
 ```
 
-### re-admissions within 6 months, quarterly
+### re-admissions within 6 months, monthly
 ```{r}
-df_ed_share_re_adm <- df_ed %>%
-  mutate(re_adm_soon = replace_na(re_adm_soon, FALSE)) %>%
-  arrange(adm_date) %>%
-  mutate(#adm_month = str_c(year(adm_date), ".", month(adm_date)) %>%
-    # fct_relevel(~str_sort(., numeric = TRUE)) %>%
-    # as.ordered()
-    adm_quarter = ordered(quarter(adm_date, type = "year.quarter"))
-  ) %>%
-  group_by(adm_quarter, icd_f50) %>%
-  summarise(re_adm_soon_prop = sum(re_adm_soon)/n()*100)
-
-df_ed_share_re_adm %>%
-  ggplot(aes(x = adm_quarter, y = re_adm_soon_prop, group = icd_f50)) +
-  geom_line(aes(colour = icd_f50)) +
-  scale_colour_discrete(type = set_names(gu_colours$main[c("gu_emo_rot", "gu_goethe_blau")], NULL),
-                        name = "ED Diagnosis", labels = c("no ED", "ED")) +
-  # geom_line(aes(colour = f50_prop_type)) +
+df_ed %>%
+  group_by(adm_year_month, icd_f50) %>%
+  summarise(re_adm_soon_prop = sum(re_adm_soon)/n()*100) %>%
+  ggplot(aes(x = adm_year_month, y = re_adm_soon_prop, group = icd_f50)) +
+  geom_line(aes(colour = icd_f50), alpha = 0.4) +
+  stat_smooth(aes(colour = icd_f50, fill = icd_f50), span = 0.3) +
+  scale_colour_discrete(aesthetics = c("colour", "fill"), 
+                        type = gu_pref_colours, name = "ED Diagnosis", labels = c("no ED", "ED")) +
   guides(x = guide_axis(angle = -90)) +
-  geom_vline(aes(xintercept = "2020.2"), show.legend = FALSE) +
-  # labs(title = "Proportion of cases with F50.* diagnoses per month",
-  #      x = "Year.Month", y = "cases with F50.* diagnosis [%]") +
-  labs(title = "Readmissions within 6 months for cases with and without ED",
-       x = "Year.Quarter", y = "Share of readmissions within 6 months [%]") +
-  geom_text(aes(x = "2020.2", y = 100, label = "Onset\nCovid\nPandemic", hjust = "left", vjust = "top"),
-            nudge_x = 0.3, nudge_y = 0.5) +
+  geom_vline(aes(xintercept = "2020.3"), show.legend = FALSE) +
+  labs(title = "Share of readmissions within 6 months for cases with and without ED",
+       x = "Year.Month", y = "Share of readmissions within 6 months [%]") +
+  geom_text(aes(x = "2020.3", y = 100, label = "Onset\nCovid\nPandemic", hjust = "left", vjust = "top"),
+            nudge_x = 0.3, nudge_y = 0.5, check_overlap = TRUE) +
   theme_classic()
 ```
 
