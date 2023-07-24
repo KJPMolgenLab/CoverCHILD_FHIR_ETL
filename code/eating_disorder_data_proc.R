@@ -14,8 +14,8 @@ if(do_source_data_creation) {
 }
 
 # settings -------------------------------------------------------------------------------------------------------------
-study_start <- ymd("2016-01-01") # start of available data
-study_end <- ymd("2022-02-28") # until start of Ukraine war
+study_start <- ymd("2016-01-01", tz = "CET") # start of available data
+study_end <- ymd("2022-02-28", tz = "CET") # until start of Ukraine war
 
 ## AN pre/post comorbidities ----
 an_comorb_cats <- exprs(

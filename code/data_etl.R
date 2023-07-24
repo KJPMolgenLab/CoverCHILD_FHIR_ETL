@@ -20,7 +20,8 @@ dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 ## general ----
 do_save_objects <- FALSE # save final dataframes in outdir
 
-covid_start <- ymd("2020-03-01")
+covid_start <- ymd("2020-03-01", tz = "CET")
+covid_end <- ymd("2023-04-06", tz = "CET")
 
 data_fs <- Sys.glob("data/*.csv")
 names(data_fs) <- basename(file_path_sans_ext(data_fs))
@@ -399,7 +400,7 @@ data_raw <- imap(data_fs, \(path, name) {
   read_delim(path, delim = ";", trim_ws = TRUE, col_types = col_formats[[name]],
              na = c("", "NA", "na", "NaN", "-/-", "#NV", " "),
              locale = locale(date_names = "de", date_format = "%d.%m.%Y", time_format = "%H:%M:%S",
-                             decimal_mark =".", tz = "Europe/Berlin", encoding = encoding))
+                             decimal_mark =".", tz = "CET", encoding = encoding))
   })
 
 ## recode p_ids in P21 data ----
@@ -470,7 +471,7 @@ data_tidy <- data_raw %>%
                 across(any_of("ops_code"), ~fct_relabel(., ~str_remove_all(., "[\\-\\.]"))),
 
                 # unify prescription date+time column to datetime
-                across(any_of("presc_date"), ~(ymd(.) + hms(presc_time))),
+                across(any_of("presc_date"), ~(ymd(., tz = "CET") + hms(presc_time))),
 
                 # fill in length_stay where missing and both dates present
                 across(any_of("length_stay"), ~coalesce(., as.numeric(dis_date-adm_date)))
@@ -617,7 +618,7 @@ df_lockdown_long <- read_csv(lockdown_school_hesse_f, col_types = cols("f", "f",
   rename_with(tolower) %>%
   filter(!is.na(state), !is.na(measure)) %>%
   pivot_longer(cols = !c(state_id, state, measure), names_to = "date", values_to = "status") %>%
-  mutate(date = as_date(date, format = "%Y-%m-%d"))
+  mutate(date = ymd(date))
 
 df_lockdown_days <- df_lockdown_long %>%
   pivot_wider(names_from = "measure", values_from = "status")
