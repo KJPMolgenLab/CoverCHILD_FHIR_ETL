@@ -50,41 +50,38 @@ gu_pref_colours <- set_names(list_c(gu_colours)[c("gu_lichtblau", "gu_gruen", "g
 ## trend of ED diagnosis proportion
 ### full study period
 ```{r}
-df_ed_share_month <- df_ed %>% 
-  arrange(adm_date) %>% 
-  mutate(adm_year = year(adm_date),
-         adm_month = month(adm_date),
-         adm_year_month = str_c(year(adm_date), ".", month(adm_date)) %>%
-           fct_relevel(~str_sort(., numeric = TRUE)) %>%
-           as.ordered(),
-         adm_quarter = ordered(quarter(adm_date, type = "year.quarter"))
-         ) %>%
-  group_by(adm_year_month, adm_year, adm_month) %>% 
-  summarise(#f50_prop = sum(icd_f50 == "F50+")/n()*100, 
-            AN_prop = sum(f50_type == "Anorexie")/n()*100,
-            BN_prop = sum(f50_type == "Bulimie")/n()*100,
-            ED_sonst_prop = sum(f50_type == "Essstörung Sonst.")/n()*100,
-            covid_lockd = Mode(covid_lockd),
-            covid_lockd_i = Mode(covid_lockd_i)
+sum_ed_abs_props <- function(...) {
+  summarise(...,
+            ED_abs = sum(icd_f50 == "F50+"),
+            AN_abs = sum(f50_type == "Anorexie"),
+            BN_abs = sum(f50_type == "Bulimie"),
+            oED_abs = sum(f50_type == "Essstörung Sonst."),
+            ED_prop = ED_abs/n()*100,
+            AN_prop = AN_abs/n()*100,
+            BN_prop = BN_abs/n()*100,
+            oED_prop = oED_abs/n()*100,
+            covid_lockd_sev = Mode(covid_lockd_sev),
+            covid_period_i = Mode(covid_period_i)
             ) %>% 
+    pivot_longer(starts_with(c("AN", "BN", "oED")), names_to = c("f50_type", ".value"), names_sep = "_")
+}
+
+df_ed_monthly <- df_ed %>%
+  group_by(adm_year_month, adm_year, adm_month) %>%
+  sum_ed_abs_props() %>% 
   ungroup()
 
-df_ed_share_month %>% 
-  pivot_longer(ends_with("_prop"), names_to = "f50_prop_type", values_to = "f50_props") %>% 
-  ggplot(aes(x = adm_year_month, y = f50_props, group = f50_prop_type)) + 
-  geom_area(aes(fill = f50_prop_type)) +
-  # geom_col(aes(fill = f50_prop_type)) +
-  scale_fill_discrete(type = set_names(gu_colours$main[c("gu_emo_rot", "gu_senfgelb", "gu_goethe_blau")], NULL),
-                      name = "ED Type", labels = c("AN", "BN", "oED")) +
-  # geom_line(aes(colour = f50_prop_type)) +
+df_ed_monthly %>% 
+  ggplot(aes(x = adm_year_month, y = prop, group = f50_type, fill = f50_type)) + 
+  geom_area() +
+  # geom_col() +
+  scale_fill_discrete(type = gu_pref_colours, name = "ED Type", labels = c("AN", "BN", "oED")) +
   guides(x = guide_axis(angle = -90)) + 
   geom_vline(aes(xintercept = "2020.3"), show.legend = FALSE) +
-  # labs(title = "Proportion of cases with F50.* diagnoses per month", 
-  #      x = "Year.Month", y = "cases with F50.* diagnosis [%]") +
   labs(title = "monthly share of cases with ED diagnosis", 
        x = "Year.Month", y = "share of cases with ED diagnosis [%]") +
-  geom_text(aes(x = "2020.3", y = 30, label = "Begin of\nCovid \npandemic", hjust = "left", vjust = "top"),
-            nudge_x = 0.3, nudge_y = 0.5) +
+  geom_text(aes(x = "2020.3", y = 30), label = "Begin of\nCovid \npandemic",
+            hjust = "left", vjust = "top", nudge_x = 0.3, nudge_y = 0.5, check_overlap = TRUE) +
   theme_classic()
 ```
 
@@ -125,44 +122,48 @@ df_ed_share_week %>%
 
 ### baseline-year comparison
 ```{r}
-df_ed_share_month_yearly <- df_ed_share_month %>% 
+df_ed_monthly_baseline <- df_ed_monthly %>% 
   # summarise data for baseline year
-  filter(covid_lockd == "pre_covid") %>%
-  group_by(adm_month) %>%
-  summarise(across(c(adm_year_month, adm_year, covid_lockd, covid_lockd_i), min_na),
-            across(ends_with("_prop"), mean)) %>% 
+  filter(covid_lockd_sev == "pre_covid") %>%
+  group_by(adm_month, f50_type) %>%
+  summarise(across(c(adm_year_month, adm_year, covid_lockd_sev, covid_period_i, ED_abs, ED_prop), min_na),
+            across(c(abs, prop), mean)) %>% 
   # add covid periods
-  bind_rows(df_ed_share_month %>% filter(covid_lockd != "pre_covid"))
+  bind_rows(df_ed_monthly %>% filter(covid_lockd_sev != "pre_covid"))
 
-# year-cycle
-df_ed_share_month_yearly %>%
-  filter(covid_lockd != "pre_covid") %>%
-  bind_rows(df_ed_share_month_yearly %>%
-              filter(covid_lockd != "pre_covid") %>%
-              select(c(adm_month, adm_year_month)) %>% 
-              left_join(df_ed_share_month_yearly %>% 
-                          filter(covid_lockd == "pre_covid") %>%
-                          select(-adm_year_month)
-                        )
-            ) %>%
-  mutate(covid_pan = if_else(adm_year == 2016, "baseline", "dur_covid")) %>% 
-  ggplot(aes(x = adm_year_month, y = AN_prop, group = covid_pan)) +
-  geom_line(aes(colour = covid_lockd)) +
-  scale_colour_discrete(type = set_names(gu_colours$main[c(1, 3:5)], NULL)) +
+#TODO
+# whole pandemic
+df_ed_monthly_baseline %>%
+  # during covid
+  filter(covid_lockd_sev != "pre_covid") %>%
+  # add baseline - recycle values to covid year_months
+  bind_rows(
+    # extract covid period year_months
+    df_ed_monthly_baseline %>%
+      filter(covid_lockd_sev != "pre_covid") %>%
+      select(c(adm_month, adm_year_month, f50_type)) %>%
+      # fill in values for corresponding months
+      left_join(df_ed_monthly_baseline %>%
+                  filter(covid_lockd_sev == "pre_covid") %>%
+                  select(-adm_year_month),
+                by = c("adm_month", "f50_type"))) %>%
+  mutate(covid_pan = if_else(adm_year == 2016, "baseline", "dur_covid")) %>%
+  filter(f50_type == "AN") %>% 
+  
+  ggplot(aes(x = adm_year_month, y = prop, group = covid_pan)) +
+  geom_smooth(aes(colour = covid_pan, fill = covid_pan), span = 0.3) +
+  scale_colour_discrete(aesthetics = c("colour", "fill"), type = gu_pref_colours) +
   guides(x = guide_axis(angle = -90)) + 
   # labs(title = "...",
   #      x = "month", y = "... [%]") +
   theme_classic()
-
-# whole pandemic
-
 ```
 
 ### re-admissions within 6 months, monthly
 ```{r}
 df_ed %>%
   group_by(adm_year_month, icd_f50) %>%
-  summarise(re_adm_soon_prop = sum(re_adm_soon)/n()*100) %>%
+  summarise(re_adm_soon_prop = sum(re_adm_soon_nona)/n()*100) %>% 
   ggplot(aes(x = adm_year_month, y = re_adm_soon_prop, group = icd_f50)) +
   geom_line(aes(colour = icd_f50), alpha = 0.4) +
   stat_smooth(aes(colour = icd_f50, fill = icd_f50), span = 0.3) +
@@ -193,7 +194,6 @@ df_ed %>%
   labs(title = "Share of first presentations and re-admissions of ED patients over time",
        y = "Share of cases in all ED cases [%]") +
   theme_classic()
-
 ```
 
 
