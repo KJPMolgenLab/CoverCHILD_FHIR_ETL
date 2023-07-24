@@ -25,7 +25,7 @@ knitr::opts_chunk$set(warning = FALSE, echo = FALSE)
 ```{r libs, include=FALSE}
 do_source_data_creation <- FALSE
 source("code/eating_disorder_data_proc.R")
-load_inst_pkgs("tidyverse", "ggnewscale", "psych", "DescTools", "janitor", "knitr")
+load_inst_pkgs("tidyverse", "magrittr", "ggnewscale", "psych", "DescTools", "janitor", "knitr")
 ```
 
 ```{r plot settings}
@@ -45,6 +45,13 @@ gu_colours <- list(
             rgb256(77, 75, 70, names = "gu_dunkelgrau"))
   )
 gu_pref_colours <- set_names(list_c(gu_colours)[c("gu_lichtblau", "gu_gruen", "gu_sonnengelb")], NULL)
+
+plotdir <- file.path(outdir, "ed_plots")
+dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
+# customise ggsave function with different defaults if necessary
+ed_ggsave <- function(filename, path = plotdir, device = "svg", scale = 2, ...) {
+  ggsave(path = path, filename = paste(filename, device, sep = "."), device = device, scale = scale, ...)
+}
 ```
 
 ## trend of ED diagnosis proportion
@@ -72,32 +79,34 @@ df_ed_monthly <- df_ed %>%
   ungroup()
 
 # relative
-df_ed_monthly %>% 
-  ggplot(aes(x = adm_year_month, y = prop, group = f50_type, fill = f50_type)) + 
-  geom_area() +
-  # geom_col() +
-  scale_fill_discrete(type = gu_pref_colours, name = "ED Type", labels = c("AN", "BN", "oED")) +
-  guides(x = guide_axis(angle = -90)) + 
-  geom_vline(aes(xintercept = "2020.3"), show.legend = FALSE) +
-  labs(title = "monthly share of cases with ED diagnosis", 
-       x = "Year.Month", y = "share of cases with ED diagnosis [%]") +
-  geom_text(aes(x = "2020.3", y = 30), label = "Begin of\nCovid \npandemic",
-            hjust = "left", vjust = "top", nudge_x = 0.3, nudge_y = 0.5, check_overlap = TRUE) +
-  theme_classic()
+{df_ed_monthly %>% 
+    ggplot(aes(x = adm_year_month, y = prop, group = f50_type, fill = f50_type)) + 
+    geom_area() +
+    # geom_col() +
+    scale_fill_discrete(type = gu_pref_colours, name = "ED Type", labels = c("AN", "BN", "oED")) +
+    guides(x = guide_axis(angle = -90)) + 
+    geom_vline(aes(xintercept = "2020.3"), show.legend = FALSE) +
+    labs(title = "monthly share of cases with ED diagnosis", 
+         x = "Year.Month", y = "share of cases with ED diagnosis [%]") +
+    geom_text(aes(x = "2020.3", y = 30), label = "Begin of\nCovid \npandemic",
+              hjust = "left", vjust = "top", nudge_x = 0.3, nudge_y = 0.5, check_overlap = TRUE) +
+    theme_classic()} %T>% 
+  {if (do_save_objects) ed_ggsave("ED_share_monthly_whole_period", plot = .)}
 
 # absolute
-df_ed_monthly %>% 
-  ggplot(aes(x = adm_year_month, y = abs, group = f50_type, fill = f50_type)) + 
-  geom_area() +
-  # geom_col() +
-  scale_fill_discrete(type = gu_pref_colours, name = "ED Type", labels = c("AN", "BN", "oED")) +
-  guides(x = guide_axis(angle = -90)) + 
-  geom_vline(aes(xintercept = "2020.3"), show.legend = FALSE) +
-  labs(title = "number of monthly cases with ED diagnosis", 
-       x = "Year.Month", y = "number of cases with ED diagnosis") +
-  geom_text(aes(x = "2020.3", y = 12), label = "Begin of\nCovid \npandemic",
-            hjust = "left", vjust = "top", nudge_x = 0.3, nudge_y = 0.5, check_overlap = TRUE) +
-  theme_classic()
+{df_ed_monthly %>% 
+    ggplot(aes(x = adm_year_month, y = abs, group = f50_type, fill = f50_type)) + 
+    geom_area() +
+    # geom_col() +
+    scale_fill_discrete(type = gu_pref_colours, name = "ED Type", labels = c("AN", "BN", "oED")) +
+    guides(x = guide_axis(angle = -90)) + 
+    geom_vline(aes(xintercept = "2020.3"), show.legend = FALSE) +
+    labs(title = "number of monthly cases with ED diagnosis", 
+         x = "Year.Month", y = "number of cases with ED diagnosis") +
+    geom_text(aes(x = "2020.3", y = 12), label = "Begin of\nCovid \npandemic",
+              hjust = "left", vjust = "top", nudge_x = 0.3, nudge_y = 0.5, check_overlap = TRUE) +
+    theme_classic()} %T>% 
+  {if (do_save_objects) ed_ggsave("ED_absolute_monthly_whole_period", plot = .)}
 ```
 
 ### lockdown periods within covid pandemic
@@ -141,64 +150,66 @@ df_ed_weekly %>%
   theme(panel.spacing.x = unit(0, "lines"))
 
 # V2
-df_ed_weekly %>% 
-  ggplot(aes(x = adm_year_week, y = prop, group = f50_type)) + 
-  # school closure rectangles
-  geom_area() +
-  geom_rect(data = df_schoolclosures,
-            mapping = aes(xmin = period_no_hol_start_year_week, xmax = period_no_hol_end_year_week,
-                          group = status_no_hol, colour = status_no_hol, fill = status_no_hol),
-            ymin = 0, ymax = 100, inherit.aes = FALSE) +
-  scale_colour_discrete(aesthetics = c("colour", "fill"),
-                        type = set_names(gu_colours$greys, NULL),
-                        name = "School closure periods", labels = c("1" = "partial", "2" = "full (incl. holidays)")) +
-  new_scale_fill() +
-  # stacked area plot
-  geom_area(aes(fill = f50_type)) +
-  scale_fill_discrete(type = gu_pref_colours, name = "ED Type", labels = c("AN", "BN", "oED")) +
-  # labs
-  geom_vline(aes(xintercept = period_end_year_week), data = df_covid_periods_is_lockd) +
-  geom_text(aes(x = period_start_year_week,
-                label = as_factor(period_i_is_lockd) %>%
-                  fct_recode(NULL = "1", "1st school closure" = "2", "2nd open period" = "3",
-                             "2nd school closure" = "4", "3rd open period" = "5")),
-            y = 103, hjust = "left", vjust = "top", nudge_x = 0.75,
-            data = df_covid_periods_is_lockd, inherit.aes = FALSE, na.rm = TRUE) +
-  scale_x_discrete(breaks = levels(df_ed_weekly$adm_year_week)[seq(1, length(levels(df_ed_weekly$adm_year_week)), 2)],
-                   guide = guide_axis(angle = -90)) +
-  labs(title = "weekly share of cases with ED diagnosis during Covid pandemic", 
-       x = "Year.Week", y = "share of cases with ED diagnosis [%]") +
-  theme_classic()
+{df_ed_weekly %>% 
+    ggplot(aes(x = adm_year_week, y = prop, group = f50_type)) + 
+    # school closure rectangles
+    geom_area() +
+    geom_rect(data = df_schoolclosures,
+              mapping = aes(xmin = period_no_hol_start_year_week, xmax = period_no_hol_end_year_week,
+                            group = status_no_hol, colour = status_no_hol, fill = status_no_hol),
+              ymin = 0, ymax = 100, inherit.aes = FALSE) +
+    scale_colour_discrete(aesthetics = c("colour", "fill"),
+                          type = set_names(gu_colours$greys, NULL),
+                          name = "School closure periods", labels = c("1" = "partial", "2" = "full (incl. holidays)")) +
+    new_scale_fill() +
+    # stacked area plot
+    geom_area(aes(fill = f50_type)) +
+    scale_fill_discrete(type = gu_pref_colours, name = "ED Type", labels = c("AN", "BN", "oED")) +
+    # labs
+    geom_vline(aes(xintercept = period_end_year_week), data = df_covid_periods_is_lockd) +
+    geom_text(aes(x = period_start_year_week,
+                  label = as_factor(period_i_is_lockd) %>%
+                    fct_recode(NULL = "1", "1st school closure" = "2", "2nd open period" = "3",
+                               "2nd school closure" = "4", "3rd open period" = "5")),
+              y = 103, hjust = "left", vjust = "top", nudge_x = 0.75,
+              data = df_covid_periods_is_lockd, inherit.aes = FALSE, na.rm = TRUE) +
+    scale_x_discrete(breaks = levels(df_ed_weekly$adm_year_week)[seq(1, length(levels(df_ed_weekly$adm_year_week)), 2)],
+                     guide = guide_axis(angle = -90)) +
+    labs(title = "weekly share of cases with ED diagnosis during Covid pandemic", 
+         x = "Year.Week", y = "share of cases with ED diagnosis [%]") +
+    theme_classic()} %T>% 
+  {if (do_save_objects) ed_ggsave("ED_share_weekly_covid_period", plot = .)}
 
 # absolute
-df_ed_weekly %>% 
-  ggplot(aes(x = adm_year_week, y = abs, group = f50_type)) + 
-  # school closure rectangles
-  geom_area() +
-  geom_rect(data = df_schoolclosures,
-            mapping = aes(xmin = period_no_hol_start_year_week, xmax = period_no_hol_end_year_week,
-                          group = status_no_hol, colour = status_no_hol, fill = status_no_hol),
-            ymin = 0, ymax = 5, inherit.aes = FALSE) +
-  scale_colour_discrete(aesthetics = c("colour", "fill"),
-                        type = set_names(gu_colours$greys, NULL),
-                        name = "School closure periods", labels = c("1" = "partial", "2" = "full (incl. holidays)")) +
-  new_scale_fill() +
-  # stacked area plot
-  geom_area(aes(fill = f50_type)) +
-  scale_fill_discrete(type = gu_pref_colours, name = "ED Type", labels = c("AN", "BN", "oED")) +
-  # labs
-  geom_vline(aes(xintercept = period_end_year_week), data = df_covid_periods_is_lockd) +
-  geom_text(aes(x = period_start_year_week, 
-                label = as_factor(period_i_is_lockd) %>%
-                  fct_recode(NULL = "1", "1st school closure" = "2", "2nd open period" = "3",
-                             "2nd school closure" = "4", "3rd open period" = "5")),
-            y = 5.15, hjust = "left", vjust = "top", nudge_x = 0.75,
-            data = df_covid_periods_is_lockd, inherit.aes = FALSE, na.rm = TRUE) +
-  scale_x_discrete(breaks = levels(df_ed_weekly$adm_year_week)[seq(1, length(levels(df_ed_weekly$adm_year_week)), 2)],
-                   guide = guide_axis(angle = -90)) +
-  labs(title = "number of weekly cases with ED diagnosis during Covid pandemic", 
-       x = "Year.Week", y = "number of cases with ED diagnosis") +
-  theme_classic()
+{df_ed_weekly %>% 
+    ggplot(aes(x = adm_year_week, y = abs, group = f50_type)) + 
+    # school closure rectangles
+    geom_area() +
+    geom_rect(data = df_schoolclosures,
+              mapping = aes(xmin = period_no_hol_start_year_week, xmax = period_no_hol_end_year_week,
+                            group = status_no_hol, colour = status_no_hol, fill = status_no_hol),
+              ymin = 0, ymax = 5, inherit.aes = FALSE) +
+    scale_colour_discrete(aesthetics = c("colour", "fill"),
+                          type = set_names(gu_colours$greys, NULL),
+                          name = "School closure periods", labels = c("1" = "partial", "2" = "full (incl. holidays)")) +
+    new_scale_fill() +
+    # stacked area plot
+    geom_area(aes(fill = f50_type)) +
+    scale_fill_discrete(type = gu_pref_colours, name = "ED Type", labels = c("AN", "BN", "oED")) +
+    # labs
+    geom_vline(aes(xintercept = period_end_year_week), data = df_covid_periods_is_lockd) +
+    geom_text(aes(x = period_start_year_week, 
+                  label = as_factor(period_i_is_lockd) %>%
+                    fct_recode(NULL = "1", "1st school closure" = "2", "2nd open period" = "3",
+                               "2nd school closure" = "4", "3rd open period" = "5")),
+              y = 5.15, hjust = "left", vjust = "top", nudge_x = 0.75,
+              data = df_covid_periods_is_lockd, inherit.aes = FALSE, na.rm = TRUE) +
+    scale_x_discrete(breaks = levels(df_ed_weekly$adm_year_week)[seq(1, length(levels(df_ed_weekly$adm_year_week)), 2)],
+                     guide = guide_axis(angle = -90)) +
+    labs(title = "number of weekly cases with ED diagnosis during Covid pandemic", 
+         x = "Year.Week", y = "number of cases with ED diagnosis") +
+    theme_classic()} %T>% 
+  {if (do_save_objects) ed_ggsave("ED_absolute_weekly_covid_period", plot = .)}
 ```
 
 ### baseline-year comparison
@@ -242,51 +253,53 @@ df_ed_monthly_baseline %>%
 
 ### re-admissions within 6 months, monthly
 ```{r}
-df_ed %>%
-  group_by(adm_year_month, icd_f50) %>%
-  summarise(re_adm_soon_prop = sum(re_adm_soon_nona)/n()*100) %>% 
-  ggplot(aes(x = adm_year_month, y = re_adm_soon_prop, group = icd_f50)) +
-  geom_line(aes(colour = icd_f50), alpha = 0.4) +
-  stat_smooth(aes(colour = icd_f50, fill = icd_f50), span = 0.3) +
-  scale_colour_discrete(aesthetics = c("colour", "fill"), 
-                        type = gu_pref_colours, name = "ED Diagnosis", labels = c("no ED", "ED")) +
-  guides(x = guide_axis(angle = -90)) +
-  geom_vline(aes(xintercept = "2020.3"), show.legend = FALSE) +
-  labs(title = "Share of readmissions within 6 months for cases with and without ED",
-       x = "Year.Month", y = "Share of readmissions within 6 months [%]") +
-  geom_text(aes(x = "2020.3", y = 100, label = "Onset\nCovid\nPandemic", hjust = "left", vjust = "top"),
-            nudge_x = 0.3, nudge_y = 0.5, check_overlap = TRUE) +
-  theme_classic()
+{df_ed %>%
+    group_by(adm_year_month, icd_f50) %>%
+    summarise(re_adm_soon_prop = sum(re_adm_soon_nona)/n()*100) %>% 
+    ggplot(aes(x = adm_year_month, y = re_adm_soon_prop, group = icd_f50)) +
+    geom_line(aes(colour = icd_f50), alpha = 0.4) +
+    stat_smooth(aes(colour = icd_f50, fill = icd_f50), span = 0.3) +
+    scale_colour_discrete(aesthetics = c("colour", "fill"), 
+                          type = gu_pref_colours, name = "ED Diagnosis", labels = c("no ED", "ED")) +
+    guides(x = guide_axis(angle = -90)) +
+    geom_vline(aes(xintercept = "2020.3"), show.legend = FALSE) +
+    labs(title = "Share of readmissions within 6 months for cases with and without ED",
+         x = "Year.Month", y = "Share of readmissions within 6 months [%]") +
+    geom_text(aes(x = "2020.3", y = 100, label = "Onset\nCovid\nPandemic", hjust = "left", vjust = "top"),
+              nudge_x = 0.3, nudge_y = 0.5, check_overlap = TRUE) +
+    theme_classic()} %T>% 
+  {if (do_save_objects) ed_ggsave("Readmission_share_monthly_whole_period", plot = .)}
 ```
 
 ## share of first presentations
 ```{r}
-df_ed %>%
-  filter(adm_date >= ymd("2018-03-01"), icd_f50 == "F50+") %>% 
-  mutate(adm_year = as_factor(adm_year) %>% fct_recode("baseline" = "2018", "baseline" = "2019")) %>% 
-  # aggregate per year
-  group_by(adm_year) %>% 
-  summarise(across(c(is_first_case_rel, re_adm_soon_nona),
-                   list("_prop" = ~mean(., na.rm = TRUE),
-                        "_sd" = ~DescTools::SD(., na.rm = TRUE),
-                        "_sd_p" = ~sqrt(mean(., na.rm = TRUE)*(1-mean(., na.rm = TRUE))))),
-            n = n()) %>%
-  mutate(is_first_case_rel__se = is_first_case_rel__sd_p/sqrt(n),
-         re_adm_soon_nona__se = re_adm_soon_nona__sd_p/sqrt(n),
-         across(ends_with(c("prop", "sd", "sd_p", "se")), ~.*100)) %>%
-  pivot_longer(starts_with(c("is_first_case_rel", "re_adm_soon_nona")),
-               names_to = c("variable", ".value"), names_sep = "__") %>%
-  
-  ggplot(aes(x = adm_year, y = prop, fill = variable)) +
-  geom_col() +
-  geom_errorbar(aes(ymin = prop-se, ymax = prop+se), width = 0.25) +
-  facet_wrap(vars(variable), labeller = as_labeller(c("is_first_case_rel" = "First presentation (within 2 years)",
-                                                      "re_adm_soon_nona" = "Early re-admission (within 6 months)"))) +
-  scale_fill_discrete(type = gu_pref_colours, guide = NULL) +
-  labs(title = "Share of first presentations and re-admissions of ED patients by year",
-       x = "Year", y = "Share of cases in all ED cases [%]") +
-  scale_y_continuous(limits = c(0, 100)) +
-  theme_classic()
+{df_ed %>%
+    filter(adm_date >= ymd("2018-03-01"), icd_f50 == "F50+") %>% 
+    mutate(adm_year = as_factor(adm_year) %>% fct_recode("baseline" = "2018", "baseline" = "2019")) %>% 
+    # aggregate per year
+    group_by(adm_year) %>% 
+    summarise(across(c(is_first_case_rel, re_adm_soon_nona),
+                     list("_prop" = ~mean(., na.rm = TRUE),
+                          "_sd" = ~DescTools::SD(., na.rm = TRUE),
+                          "_sd_p" = ~sqrt(mean(., na.rm = TRUE)*(1-mean(., na.rm = TRUE))))),
+              n = n()) %>%
+    mutate(is_first_case_rel__se = is_first_case_rel__sd_p/sqrt(n),
+           re_adm_soon_nona__se = re_adm_soon_nona__sd_p/sqrt(n),
+           across(ends_with(c("prop", "sd", "sd_p", "se")), ~.*100)) %>%
+    pivot_longer(starts_with(c("is_first_case_rel", "re_adm_soon_nona")),
+                 names_to = c("variable", ".value"), names_sep = "__") %>%
+    
+    ggplot(aes(x = adm_year, y = prop, fill = variable)) +
+    geom_col() +
+    geom_errorbar(aes(ymin = prop-se, ymax = prop+se), width = 0.25) +
+    facet_wrap(vars(variable), labeller = as_labeller(c("is_first_case_rel" = "First presentation (within 2 years)",
+                                                        "re_adm_soon_nona" = "Early re-admission (within 6 months)"))) +
+    scale_fill_discrete(type = gu_pref_colours, guide = NULL) +
+    labs(title = "Share of first presentations and re-admissions of ED patients by year",
+         x = "Year", y = "Share of cases in all ED cases [%]") +
+    scale_y_continuous(limits = c(0, 100)) +
+    theme_classic()} %T>% 
+  {if (do_save_objects) ed_ggsave("First-presentation+readmisson_shares_in_ED", plot = .)}
 ```
 
 
