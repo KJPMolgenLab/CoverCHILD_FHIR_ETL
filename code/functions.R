@@ -111,6 +111,11 @@ filter_dfs_with_col <- function(..., var_names, df_list = data_tidy) {
   })
 }
 
+# grep for column names of a DF
+colname_grep <- function(df, ..., value = TRUE) {
+  grep(..., x = names(df), value = value)
+}
+
 ## misc ################################################################################################################
 # min & max with na.rm=T, which return NA instead of (-)Inf, if all values are NA
 min_na <- function(x) min(x, na.rm = TRUE) %>% {if_else(is.infinite(.), NA, .)}
