@@ -251,9 +251,7 @@ df_ed_monthly_baseline %>%
     # aggregate per year
     group_by(adm_year) %>% 
     summarise(across(c(is_first_case_rel, re_adm_soon_nona),
-                     list("_prop" = ~mean(., na.rm = TRUE),
-                          "_sd" = ~DescTools::SD(., na.rm = TRUE),
-                          "_sd_p" = ~sqrt(mean(., na.rm = TRUE)*(1-mean(., na.rm = TRUE))))),
+                     list("_prop" = mean_na, "_sd" = sd_na, "_sd_p" = ~sqrt(mean_na(.)*(1-mean_na(.))))),
               n = n()) %>%
     mutate(is_first_case_rel__se = is_first_case_rel__sd_p/sqrt(n),
            re_adm_soon_nona__se = re_adm_soon_nona__sd_p/sqrt(n),

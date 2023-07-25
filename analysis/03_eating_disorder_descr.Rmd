@@ -59,7 +59,7 @@ summarise_mean_sd <- function(df) {
   summarise(df, 
             # across(where(~is.numeric(.x) | is.POSIXct(.x)), list(mean = ~mean(., na.rm = FALSE), sd = SD)), 
             across(c(age_adm, length_stay_brutto, n_icd_code, n_icd_f, n_icd_other, re_adm_lag),
-                   list(mean = ~mean(., na.rm = TRUE), sd = ~DescTools::SD(., na.rm = TRUE))), 
+                   list(mean = mean_na, sd = sd_na)), 
             # across(sex, list(mean = ~mean(as.numeric(.)-1, na.rm = TRUE), sd = ~SD(as.numeric(.)-1))),
             # across(re_adm_soon, list(mean = ~mean(as.numeric(replace_na(., FALSE))),
             #                          sd = ~SD(as.numeric(replace_na(., FALSE))))),
@@ -147,7 +147,7 @@ df_ed %>% gen_tabyl(covid_lockd_sev, icd_f50_dd_ad)
 ```{r}
 df_ed %>%
   group_by(covid_pan, icd_f50_dd_ad) %>%
-  summarise(los_mean = mean(length_stay_brutto), los_sd = SD(length_stay_brutto))
+  summarise(los_mean = mean_na(length_stay_brutto), los_sd = sd_na(length_stay_brutto))
 ```
 
 ### psychotropic medication

@@ -421,8 +421,8 @@ p21_p_id_lvls_rec <- data_raw$Pers_Fall_V2_pseudonym %>%
          p_id_Orb != p_id_P21) %>%
   group_by(case_id) %>%
   mutate(n_tot_case = n(),
-         n_pid_Orb = n_distinct(p_id_Orb, na.rm = TRUE),
-         n_pid_P21 = n_distinct(p_id_P21, na.rm = TRUE)) %>%
+         n_pid_Orb = n_distinct_na(p_id_Orb),
+         n_pid_P21 = n_distinct_na(p_id_P21)) %>%
   ungroup() %>%
   filter(n_pid_Orb == 1 & n_pid_P21 == 1) %>%
   select(p_id_Orb, p_id_P21) %>%
@@ -504,7 +504,7 @@ data_norm <-
       reduce(~ { full_join(.x, .y) %>%
           group_by(across(any_of(id_cols))) %>%
           mutate(across(everything(),
-                        \(x) if(n_distinct(x, na.rm = TRUE) == 1) first(x, na_rm = TRUE) else x
+                        \(x) if(n_distinct_na(x) == 1) first(x, na_rm = TRUE) else x
           )) %>%
           ungroup() %>%
           distinct()}) %>%
@@ -758,8 +758,7 @@ data_exp_sum$diagnosis <- data_exp$diagnosis %>%
   group_by(case_id) %>%
   summarise(n_icd_f = sum(str_starts(unique(na.omit(icd_code)), "F")),
             n_icd_other = sum(str_starts(unique(na.omit(icd_code)), "[^F]")),
-            across(c(icd_code, icd_date, starts_with("icd_cat_")), list(n = ~n_distinct(.x, na.rm = TRUE)),
-                   .names = "{.fn}_{.col}"),
+            across(c(icd_code, icd_date, starts_with("icd_cat_")), list(n = n_distinct_na), .names = "{.fn}_{.col}"),
             across(c(icd_date, icd_year_week), list(first = min_na, last = max_na)),
             across(c(fa_icd, icd_hn, icd_version, case_id_orig, starts_with("icd_cat_")),
                    ~collapse_na(., sum_fun = collapse_to))

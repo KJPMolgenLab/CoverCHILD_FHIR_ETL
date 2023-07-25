@@ -117,10 +117,14 @@ colname_grep <- function(df, ..., value = TRUE) {
 }
 
 ## misc ################################################################################################################
-# min & max with na.rm=T, which return NA instead of (-)Inf, if all values are NA
-min_na <- function(x) min(x, na.rm = TRUE) %>% {if_else(is.infinite(.), NA, .)}
-max_na <- function(x) max(x, na.rm = TRUE) %>% {if_else(is.infinite(.), NA, .)}
-sum_na <- function(x) sum(x, na.rm = TRUE)
+# function versions with na.rm=T as default
+sum_na <- function(..., na.rm = TRUE) sum(..., na.rm = na.rm)
+mean_na <- function(..., na.rm = TRUE) mean(..., na.rm = na.rm)
+n_distinct_na <- function(..., na.rm = TRUE) n_distinct(..., na.rm = na.rm)
+sd_na <- function(..., na.rm = TRUE) DescTools::SD(..., na.rm = na.rm)
+# min & max, which return NA instead of (-)Inf, if all values are NA
+min_na <- function(..., na.rm = TRUE) min(..., na.rm = na.rm) %>% {if_else(is.infinite(.), NA, .)}
+max_na <- function(..., na.rm = TRUE) max(..., na.rm = na.rm) %>% {if_else(is.infinite(.), NA, .)}
 
 # collapse multiple values to list or string, returning NA if empty
 collapse_na <- function(x, sum_fun = "glue", ...) {
