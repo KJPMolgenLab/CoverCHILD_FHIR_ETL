@@ -117,9 +117,7 @@ df_ed %>% gen_tabyl(icd_f50, sex, covid_lockd_sev)
 ### sex counts & proportions for lockdowns & ED subcategories
 ```{r}
 df_ed %>% gen_tabyl(covid_lockd_sev, f50_type)
-
 df_ed %>% gen_tabyl(f50_type, sex, covid_lockd_sev)
-
 ```
 
 ### by covid phase
@@ -167,10 +165,6 @@ df_ed %>% gen_tabyl(icd_f50, re_adm_soon_nona, covid_pan)
 ```
 
 ### 2-year baseline comparison
-```{r}
-df_ed_re <- df_ed %>%
-  filter(adm_date >= ymd("2016-03-01"))
-```
 
 #### v1: 2y baseline vs 2y covid, 2y lookback each
 ```{r}

@@ -10,7 +10,8 @@ if(do_source_data_creation) {
   source("code/data_etl.R") # creates "data_exp" & "data_exp_sum" from scratch from raw data
 } else {
   load("output/CoverCHILD_data_ETL_2023-06-26.RData.xz")
-  load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "psych", "rlang", "glue", "janitor")
+  load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "psych", "DescTools", "rlang", "glue",
+                 "janitor")
   do_save_objects <- FALSE
 }
 
@@ -35,6 +36,8 @@ psych_med_regex <- str_c("Chlorprothixen", "Circadin", "Equasym", "Escitalopram"
 
 
 # create data ----------------------------------------------------------------------------------------------------------
+
+## Eating disorder base DF ----
 # confine lockdown data period to study period
 df_covid_periods_ed <- df_covid_periods %>%
   mutate(period_end_date = if_else(period_end_date == max_na(period_end_date),
@@ -47,6 +50,28 @@ df_covid_periods_ed <- df_covid_periods %>%
   mutate(across(ends_with("_date"),
                 ~str_c(year(.), ".", week(.)) %>% fct_relevel(~str_sort(., numeric = TRUE)) %>% as.ordered(),
                 .names = '{str_replace(.col, "_date", "_year_week")}'))
+
+# PLOTS
+df_schoolclosures <- df_covid_periods_ed %>%
+  filter(state == "Hessen", measure == "school") %>%
+  select(contains("no_hol")) %>%
+  distinct() %>%
+  filter(status_no_hol != 0) %>%
+  mutate(status_no_hol = as_factor(status_no_hol),
+         period_no_hol_end_year_week = fct_recode(period_no_hol_end_year_week, "2021.14" = "2021.13"))
+
+# STATS
+df_covid_periods_is_lockd <- df_covid_periods_ed %>%
+  summarise(across(c(period_start_date, period_start_year_week), min_na),
+            across(c(period_end_date, period_end_year_week), max_na),
+            .by = period_i_is_lockd) %>%
+  rowwise() %>%
+  mutate(period_interval = interval(period_start_date, period_end_date),
+         period_days = list(seq(as_date(period_start_date), as_date(period_end_date), by = "days") %>%
+                              `year<-`(0) %>%
+                              unique()),
+         period_start_year_week = fct_recode(period_start_year_week, "2021.25" = "2021.26"))
+
 
 # Esstörungskategorien
 # l3: "Anorexie", "Bulimie", "Essstörung Sonst." -> l1: "Essstörung"
@@ -72,6 +97,7 @@ df_med <- data_exp$medication %>%
   summarise(psych_med = any(psych_med),
             .by = case_id)
 
+# base DF for ED analyses
 df_ed <-
   # case
   data_exp$case %>%
@@ -125,8 +151,68 @@ df_ed <-
                             covid_pan)
     )
 
+## derivatives: monthly, weekly, baseline-pseudoyear, 2-year-comparisons ----
+# summarise function
+sum_ed_abs_props <- function(...) {
+  summarise(...,
+            n_cases = n(),
+            ED_abs = sum(icd_f50 == "F50+"),
+            AN_abs = sum(f50_type == "Anorexie"),
+            BN_abs = sum(f50_type == "Bulimie"),
+            oED_abs = sum(f50_type == "Essstörung Sonst."),
+            ED_prop = ED_abs/n(),
+            AN_prop = AN_abs/n(),
+            BN_prop = BN_abs/n(),
+            oED_prop = oED_abs/n(),
+            covid_lockd_sev = Mode(covid_lockd_sev),
+            covid_is_lockd = Mode(lockd_status_is_lockd),
+            covid_period_i = Mode(covid_period_i)
+  )
+}
+
+# subset covid period only
+df_ed_covid <- df_ed %>%
+  filter(covid_pan != "pre_covid") %>%
+  mutate(across(where(is.factor), fct_drop))
+
+### monthly ----
+# whole period
+df_ed_monthly <- df_ed %>%
+  group_by(adm_year_month, adm_year, adm_month) %>%
+  sum_ed_abs_props() %>%
+  ungroup()
+# long format for plotting
+df_ed_monthly_long <- df_ed_monthly %>%
+  pivot_longer(starts_with(c("AN", "BN", "oED")), names_to = c("f50_type", ".value"), names_sep = "_")
+# covid period only
+df_ed_covid_monthly <- df_ed_covid %>%
+  group_by(adm_year_month, adm_year, adm_month) %>%
+  sum_ed_abs_props() %>%
+  ungroup()
+
+### weekly ----
+# whole period
+df_ed_weekly <- df_ed %>%
+  group_by(adm_year_week, adm_year) %>%
+  sum_ed_abs_props() %>%
+  ungroup()
+# covid period only
+df_ed_covid_weekly <- df_ed_covid %>%
+  group_by(adm_year_week, adm_year) %>%
+  sum_ed_abs_props() %>%
+  ungroup()
+df_ed_covid_weekly_long <- df_ed_covid_weekly %>%
+  pivot_longer(starts_with(c("AN", "BN", "oED")), names_to = c("f50_type", ".value"), names_sep = "_")
+
+
+### baseline ----
+# re-admissions: 2 year baseline vs 2 year covid, 2 year lookback each
+df_ed_re <- df_ed %>% filter(adm_date >= ymd("2016-03-01"))
+
+# pre-pandemic and pandemic period durations
 pre_cov_dur <- min(df_ed$adm_date) %--% covid_start %>% as.numeric("days") %>% divide_by(30)
 cov_dur <- covid_start %--% max(df_ed$adm_date) %>% as.numeric("days") %>% divide_by(30)
 
-## save ----
+
+# save ----
 if(do_save_objects) saveRDS(df_ed, str_glue("output/CoverCHILD_data+EDvars_{Sys.Date()}.rds"))

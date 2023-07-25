@@ -57,30 +57,9 @@ ed_ggsave <- function(filename, path = plotdir, device = "svg", scale = 2, ...) 
 ## trend of ED diagnosis proportion
 ### full study period
 ```{r}
-sum_ed_abs_props <- function(...) {
-  summarise(...,
-            ED_abs = sum(icd_f50 == "F50+"),
-            AN_abs = sum(f50_type == "Anorexie"),
-            BN_abs = sum(f50_type == "Bulimie"),
-            oED_abs = sum(f50_type == "Essstörung Sonst."),
-            ED_prop = ED_abs/n()*100,
-            AN_prop = AN_abs/n()*100,
-            BN_prop = BN_abs/n()*100,
-            oED_prop = oED_abs/n()*100,
-            covid_lockd_sev = Mode(covid_lockd_sev),
-            covid_period_i = Mode(covid_period_i)
-            ) %>% 
-    pivot_longer(starts_with(c("AN", "BN", "oED")), names_to = c("f50_type", ".value"), names_sep = "_")
-}
-
-df_ed_monthly <- df_ed %>%
-  group_by(adm_year_month, adm_year, adm_month) %>%
-  sum_ed_abs_props() %>% 
-  ungroup()
-
 # relative
-{df_ed_monthly %>% 
-    ggplot(aes(x = adm_year_month, y = prop, group = f50_type, fill = f50_type)) + 
+{df_ed_monthly_long %>% 
+    ggplot(aes(x = adm_year_month, y = prop*100, group = f50_type, fill = f50_type)) + 
     geom_area() +
     # geom_col() +
     scale_fill_discrete(type = gu_pref_colours, name = "ED Type", labels = c("AN", "BN", "oED")) +
@@ -94,7 +73,7 @@ df_ed_monthly <- df_ed %>%
   {if (do_save_objects) ed_ggsave("ED_share_monthly_whole_period", plot = .)}
 
 # absolute
-{df_ed_monthly %>% 
+{df_ed_monthly_long %>% 
     ggplot(aes(x = adm_year_month, y = abs, group = f50_type, fill = f50_type)) + 
     geom_area() +
     # geom_col() +
@@ -111,23 +90,11 @@ df_ed_monthly <- df_ed %>%
 
 ### lockdown periods within covid pandemic
 ```{r}
-df_ed_weekly <- df_ed %>%
-  filter(covid_pan == "dur_covid") %>% 
-  sum_ed_abs_props(.by = adm_year_week)
-
-df_schoolclosures <- df_covid_periods_ed %>%
-  filter(state == "Hessen", measure == "school") %>% 
-  select(contains("no_hol")) %>% 
-  distinct() %>% 
-  filter(status_no_hol != 0) %>% 
-  mutate(status_no_hol = as_factor(status_no_hol),
-         period_no_hol_end_year_week = fct_recode(period_no_hol_end_year_week, "2021.14" = "2021.13"))
-
 # relative
-# V1
+## V1
 #TODO: this needs reformatting of df_schoolclosures to be facettable by covid_period_i
-df_ed_weekly %>% 
-  ggplot(aes(x = adm_year_week, y = prop, group = f50_type)) + 
+df_ed_covid_weekly_long %>% 
+  ggplot(aes(x = adm_year_week, y = prop*100, group = f50_type)) + 
   geom_area() +
   # geom_col() +
   geom_rect(data = df_schoolclosures,
@@ -143,15 +110,16 @@ df_ed_weekly %>%
   guides(x = guide_axis(angle = -90)) + 
   labs(title = "weekly share of cases with ED diagnosis during Covid pandemic", 
        x = "Year.Week", y = "share of cases with ED diagnosis [%]") +
-  scale_x_discrete(breaks = levels(df_ed_weekly$adm_year_week)[seq(1, length(levels(df_ed_weekly$adm_year_week)), 2)],
-                   guide = guide_axis(angle = -90)) +
+  scale_x_discrete(
+    breaks = levels(df_ed_covid_weekly_long$adm_year_week)[seq(1, length(levels(df_ed_covid_weekly_long$adm_year_week)), 2)],
+    guide = guide_axis(angle = -90)) +
   facet_grid(cols = vars(covid_period_i), scales = "free_x", space = "free_x") +
   theme_classic() +
   theme(panel.spacing.x = unit(0, "lines"))
 
-# V2
-{df_ed_weekly %>% 
-    ggplot(aes(x = adm_year_week, y = prop, group = f50_type)) + 
+## V2
+{df_ed_covid_weekly_long %>% 
+    ggplot(aes(x = adm_year_week, y = prop*100, group = f50_type)) + 
     # school closure rectangles
     geom_area() +
     geom_rect(data = df_schoolclosures,
@@ -173,15 +141,17 @@ df_ed_weekly %>%
                                "2nd school closure" = "4", "3rd open period" = "5")),
               y = 103, hjust = "left", vjust = "top", nudge_x = 0.75,
               data = df_covid_periods_is_lockd, inherit.aes = FALSE, na.rm = TRUE) +
-    scale_x_discrete(breaks = levels(df_ed_weekly$adm_year_week)[seq(1, length(levels(df_ed_weekly$adm_year_week)), 2)],
-                     guide = guide_axis(angle = -90)) +
+    scale_x_discrete(
+      breaks = 
+        levels(df_ed_covid_weekly_long$adm_year_week)[seq(1, length(levels(df_ed_covid_weekly_long$adm_year_week)), 2)],
+      guide = guide_axis(angle = -90)) +
     labs(title = "weekly share of cases with ED diagnosis during Covid pandemic", 
          x = "Year.Week", y = "share of cases with ED diagnosis [%]") +
     theme_classic()} %T>% 
   {if (do_save_objects) ed_ggsave("ED_share_weekly_covid_period", plot = .)}
 
 # absolute
-{df_ed_weekly %>% 
+{df_ed_covid_weekly_long %>% 
     ggplot(aes(x = adm_year_week, y = abs, group = f50_type)) + 
     # school closure rectangles
     geom_area() +
@@ -204,8 +174,10 @@ df_ed_weekly %>%
                                "2nd school closure" = "4", "3rd open period" = "5")),
               y = 5.15, hjust = "left", vjust = "top", nudge_x = 0.75,
               data = df_covid_periods_is_lockd, inherit.aes = FALSE, na.rm = TRUE) +
-    scale_x_discrete(breaks = levels(df_ed_weekly$adm_year_week)[seq(1, length(levels(df_ed_weekly$adm_year_week)), 2)],
-                     guide = guide_axis(angle = -90)) +
+    scale_x_discrete(
+      breaks =
+        levels(df_ed_covid_weekly_long$adm_year_week)[seq(1, length(levels(df_ed_covid_weekly_long$adm_year_week)), 2)],
+      guide = guide_axis(angle = -90)) +
     labs(title = "number of weekly cases with ED diagnosis during Covid pandemic", 
          x = "Year.Week", y = "number of cases with ED diagnosis") +
     theme_classic()} %T>% 
@@ -214,7 +186,7 @@ df_ed_weekly %>%
 
 ### baseline-year comparison
 ```{r}
-df_ed_monthly_baseline <- df_ed_monthly %>% 
+df_ed_monthly_baseline <- df_ed_monthly_long %>% 
   # summarise data for baseline year
   filter(covid_lockd_sev == "pre_covid") %>%
   group_by(adm_month, f50_type) %>%
