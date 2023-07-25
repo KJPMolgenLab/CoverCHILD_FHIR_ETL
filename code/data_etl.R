@@ -823,4 +823,15 @@ if(do_save_objects) {
              na = "")
   write_csv2(codebook_data_exp_sum, file.path(outdir, str_glue("CoverCHILD_codebook_sum_{Sys.Date()}.csv")),
              na = "")
+
+  # dashboard dummy data
+  inner_join(data_exp$patient %>% select(-source_dfs),
+             data_exp$case %>% select(-source_dfs)) %>%
+    inner_join(data_exp$diagnosis %>%
+                 select(-c(source_dfs, case_id_orig)) %>%
+                 filter(icd_type == "Entl.") %>%
+                 group_by(case_id, icd_code) %>%
+                 slice_max(icd_date, with_ties = FALSE) %>%
+                 ungroup()) %>%
+    saveRDS(file.path(outdir, str_glue("CoverCHILD_dashboard_data_{Sys.Date()}.rds")))
 }
