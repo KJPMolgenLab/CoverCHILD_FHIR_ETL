@@ -9,7 +9,7 @@ if(!exists("do_source_data_creation")) do_source_data_creation <- FALSE
 if(do_source_data_creation) {
   source("code/data_etl.R") # creates "data_exp" & "data_exp_sum" from scratch from raw data
 } else {
-  load("output/CoverCHILD_data_ETL_2023-06-26.RData.xz")
+  load("output/CoverCHILD_data_ETL_2023-07-25.RData.xz")
   load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "psych", "DescTools", "rlang", "glue",
                  "janitor")
   do_save_objects <- FALSE
@@ -37,7 +37,7 @@ psych_med_regex <- str_c("Chlorprothixen", "Circadin", "Equasym", "Escitalopram"
 
 # create data ----------------------------------------------------------------------------------------------------------
 
-## Eating disorder base DF ----
+## lockdown / school closure data ----
 # confine lockdown data period to study period
 df_covid_periods_ed <- df_covid_periods %>%
   mutate(period_end_date = if_else(period_end_date == max_na(period_end_date),
@@ -51,7 +51,7 @@ df_covid_periods_ed <- df_covid_periods %>%
                 ~str_c(year(.), ".", week(.)) %>% fct_relevel(~str_sort(., numeric = TRUE)) %>% as.ordered(),
                 .names = '{str_replace(.col, "_date", "_year_week")}'))
 
-# PLOTS
+# periods of school closures with severity, but without holiday codes
 df_schoolclosures <- df_covid_periods_ed %>%
   filter(state == "Hessen", measure == "school") %>%
   select(contains("no_hol")) %>%
@@ -60,7 +60,7 @@ df_schoolclosures <- df_covid_periods_ed %>%
   mutate(status_no_hol = as_factor(status_no_hol),
          period_no_hol_end_year_week = fct_recode(period_no_hol_end_year_week, "2021.14" = "2021.13"))
 
-# STATS
+# covid periods: open vs school closure (without severity)
 df_covid_periods_is_lockd <- df_covid_periods_ed %>%
   summarise(across(c(period_start_date, period_start_year_week), min_na),
             across(c(period_end_date, period_end_year_week), max_na),
@@ -73,6 +73,7 @@ df_covid_periods_is_lockd <- df_covid_periods_ed %>%
          period_start_year_week = fct_recode(period_start_year_week, "2021.25" = "2021.26"))
 
 
+## Eating disorder base data ----
 # Esstörungskategorien
 # l3: "Anorexie", "Bulimie", "Essstörung Sonst." -> l1: "Essstörung"
 df_diag <- data_exp$diagnosis %>%
@@ -203,7 +204,6 @@ df_ed_covid_weekly <- df_ed_covid %>%
   ungroup()
 df_ed_covid_weekly_long <- df_ed_covid_weekly %>%
   pivot_longer(starts_with(c("AN", "BN", "oED")), names_to = c("f50_type", ".value"), names_sep = "_")
-
 
 ### baseline ----
 # re-admissions: 2 year baseline vs 2 year covid, 2 year lookback each

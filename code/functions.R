@@ -140,11 +140,12 @@ gen_tabyl <- function(df, ...){
   df %>%
     tabyl(..., show_missing_levels = FALSE) %>%
     adorn_totals(c("row", "col")) %>%
-    adorn_percentages("row") %>%
+    adorn_percentages("col") %>%
     adorn_pct_formatting(digits = 2) %>%
     adorn_ns(format_func = \(x) format(x)) %>%
     adorn_title("combined")
 }
 
-# rgb() function with maxColorValue = 255
-rgb256 <- function(...) rgb(..., maxColorValue = 255)
+# rgb() function with maxColorValue = 255 as default
+rgb256 <- function(..., maxColorValue = 255) rgb(..., maxColorValue = maxColorValue)
+
