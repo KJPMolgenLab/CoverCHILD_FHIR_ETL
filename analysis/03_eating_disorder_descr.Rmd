@@ -26,6 +26,7 @@ knitr::opts_chunk$set(warning = FALSE, echo = FALSE)
 do_source_data_creation <- FALSE
 source("code/eating_disorder_data_proc.R")
 load_inst_pkgs("tidyverse", "psych", "DescTools", "janitor", "knitr")
+do_save_objects <- FALSE
 ```
 
 # Sample periods
