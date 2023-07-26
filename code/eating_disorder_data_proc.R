@@ -208,6 +208,22 @@ df_ed_covid_weekly_long <- df_ed_covid_weekly %>%
 ### baseline ----
 # re-admissions: 2 year baseline vs 2 year covid, 2 year lookback each
 df_ed_re <- df_ed %>% filter(adm_date >= ymd("2016-03-01"))
+filter_df_ed_re <- function(period = "baseline") {
+  if (period == "baseline") filter_1 <- "dur_covid"
+  else if (period == "dur_covid") filter_1 <- "pre"
+  else abort("period must be 'baseline' or 'dur_covid'.")
+  df_ed_re %>%
+    filter(re_adm_period != filter_1) %>%
+    group_by(p_id) %>%
+    arrange(adm_date) %>%
+    mutate(is_first_case = case_id == first(case_id, na_rm = TRUE),
+           re_adm_lag = difftime(adm_date, coalesce(lag(dis_date), lag(adm_date)), units = "days"),
+           re_adm_soon = re_adm_lag < re_adm_span) %>%
+    ungroup() %>%
+    filter(re_adm_period == period)
+}
+df_ed_re_baseline <- filter_df_ed_re("baseline")
+df_ed_re_covid <- filter_df_ed_re("dur_covid")
 
 # pre-pandemic and pandemic period durations
 pre_cov_dur <- min(df_ed$adm_date) %--% covid_start %>% as.numeric("days") %>% divide_by(30)

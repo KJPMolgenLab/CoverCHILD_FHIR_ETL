@@ -28,201 +28,269 @@ source("code/eating_disorder_data_proc.R")
 load_inst_pkgs("tidyverse", "psych", "lmtest", "janitor", "knitr")
 ```
 
-# Modelling
+Note: Reported here are the uncorrected p-values. Controlling for FDR is done within the adjoined tables via Benjamini–Hochberg procedure.
+
+# Pre-pandemic vs Covid pandemic
+
+## Eating Disorders {.tabset .tabset-pills}
+
+### Eating Disorder (ED) cases
 ```{r echo=TRUE}
-n_tests <- 39
+kruskal.test(icd_f50 ~ covid_pan, df_ed)
 ```
-
-## Essstörungen während Pandemie {.tabset .tabset-pills}
-### Fälle mit ED-Diagnose
+### ED-subgroup Anorexia (AN)
 ```{r echo=TRUE}
-mod_ed_pan <- kruskal.test(icd_f50 ~ covid_pan, df_ed)
-# mod_ed_pan <- tabyl(df_ed, icd_f50, covid_pan) %>% chisq.test()
-mod_ed_pan
+kruskal.test(f50_type == "Anorexie" ~ covid_pan, df_ed)
 ```
-Corrected p-value for multiple testing is: `r format(mod_ed_pan[["p.value"]]*n_tests, scientific = FALSE)`
-
-### ED-Subgruppe Anorexie
+### ED-subgroup Bulimia (BN)
 ```{r echo=TRUE}
-mod_an_pan <- kruskal.test(f50_type == "Anorexie" ~ covid_pan, df_ed)
-mod_an_pan
+kruskal.test(f50_type == "Bulimie" ~ covid_pan, df_ed)
 ```
-Corrected p-value for multiple testing is: `r format(mod_an_pan[["p.value"]]*n_tests, scientific = FALSE)`
-
-### ED-Subgruppe Bulimie
+### ED-subgroup other EDs (oED)
 ```{r echo=TRUE}
-mod_bu_pan <- kruskal.test(f50_type == "Bulimie" ~ covid_pan, df_ed)
-mod_bu_pan
-```
-Corrected p-value for multiple testing is: `r format(mod_bu_pan[["p.value"]]*n_tests, scientific = FALSE)`
-
-### ED-Subgruppe sonstige Esstörungen
-```{r echo=TRUE}
-mod_edsonst_pan <- kruskal.test(f50_type == "Essstörung Sonst." ~ covid_pan, df_ed)
-mod_edsonst_pan
-```
-Corrected p-value for multiple testing is: `r format(mod_edsonst_pan[["p.value"]]*n_tests, scientific = FALSE)`
-
-
-## klinische Präsentation während Pandemie {.tabset .tabset-pills}
-### jüngeres Alter
-```{r echo=TRUE}
-# kruskal.test(age_adm ~ covid_pan, df_ed)
-mod_age_pan <- oneway.test(age_adm ~ covid_pan, df_ed)
-mod_age_pan
-```
-Corrected p-value for multiple testing is: `r format(mod_age_pan[["p.value"]]*n_tests, scientific = FALSE)`
-
-### Geschlecht
-```{r echo=TRUE}
-# kruskal.test(age_adm ~ covid_pan, df_ed)
-mod_sex_pan <- kruskal.test(sex ~ covid_pan, df_ed)
-mod_sex_pan
-```
-Corrected p-value for multiple testing is: `r format(mod_sex_pan[["p.value"]]*n_tests, scientific = FALSE)`
-
-### Zunahme Komorbiditäten - F
-```{r echo=TRUE}
-mod_como_f_pan <- oneway.test(n_icd_f ~ covid_pan, df_ed)
-mod_como_f_pan
-```
-Corrected p-value for multiple testing is: `r format(mod_como_f_pan[["p.value"]]*n_tests, scientific = FALSE)`
-
-### Zunahme Komorbiditäten - !F
-```{r echo=TRUE}
-mod_como_other_pan <- oneway.test(n_icd_other ~ covid_pan, df_ed)
-mod_como_other_pan
-```
-Corrected p-value for multiple testing is: `r format(mod_como_other_pan[["p.value"]]*n_tests, scientific = FALSE)`
-
-### Abnahme (!) Behandlungsdauer
-```{r echo=TRUE}
-mod_los_pan <- oneway.test(length_stay_brutto ~ covid_pan, df_ed)
-mod_los_pan
-```
-Corrected p-value for multiple testing is: `r format(mod_los_pan[["p.value"]]*n_tests, scientific = FALSE)`
-
-### re-admissions (v1)
-```{r}
-# non-ED
-chisq.test(matrix(c(226, 225, 575, 576), nrow = 2))
-# ED
-chisq.test(matrix(c(39, 63, 54, 98), nrow = 2))
-# combined
-chisq.test(matrix(c(226+39, 225+63, 575+54, 576+98), nrow = 2))
+kruskal.test(f50_type == "Essstörung Sonst." ~ covid_pan, df_ed)
 ```
 
-### re-adm 6 months
-```{r}
-kruskal.test(re_adm_soon_nona ~ covid_pan, df_ed)
-kruskal.test(re_adm_soon_nona ~ covid_pan, df_ed %>% filter(icd_f50 == "F50+"))
-kruskal.test(re_adm_soon_nona ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
-```
+## clinical presentation {.tabset .tabset-pills}
 
 ### age
-```{r}
+#### all cases
+```{r echo=TRUE}
+oneway.test(age_adm ~ covid_pan, df_ed)
+```
+#### ED cases only
+```{r echo=TRUE}
 oneway.test(age_adm ~ covid_pan, df_ed %>% filter(icd_f50 == "F50+"))
+```
+#### non-ED cases only
+```{r echo=TRUE}
 oneway.test(age_adm ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
 ```
 
 ### sex
-```{r}
+#### all cases
+```{r echo=TRUE}
+kruskal.test(sex ~ covid_pan, df_ed)
+```
+#### ED cases only
+```{r echo=TRUE}
 kruskal.test(sex ~ covid_pan, df_ed %>% filter(icd_f50 == "F50+"))
+```
+#### non-ED cases only
+```{r echo=TRUE}
 kruskal.test(sex ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
 ```
 
-### n diagnoses
-```{r}
+## comorbidities {.tabset .tabset-pills}
+
+### total comorbidities / number of diagnoses
+#### all cases
+```{r echo=TRUE}
 oneway.test(n_icd_code ~ covid_pan, df_ed)
+```
+#### ED cases only
+```{r echo=TRUE}
 oneway.test(n_icd_code ~ covid_pan, df_ed %>% filter(icd_f50 == "F50+"))
+```
+#### non-ED cases only
+```{r echo=TRUE}
 oneway.test(n_icd_code ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
 ```
 
-### somatic comorbidities
-```{r}
-oneway.test(n_icd_other ~ covid_pan, df_ed %>% filter(icd_f50 == "F50+"))
-oneway.test(n_icd_other ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
+### psychiatric comorbidities (co-occuring F-diagnoses)
+#### all cases
+```{r echo=TRUE}
+oneway.test(n_icd_f ~ covid_pan, df_ed)
 ```
-
-### psychiatric comorbidities
-```{r}
+#### ED cases only
+```{r echo=TRUE}
 oneway.test(n_icd_f ~ covid_pan, df_ed %>% filter(icd_f50 == "F50+"))
+```
+#### non-ED cases only
+```{r echo=TRUE}
 oneway.test(n_icd_f ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
 ```
 
-### LOS
-```{r}
-oneway.test(length_stay_brutto ~ covid_pan, df_ed %>% filter(icd_f50 == "F50+"))
-oneway.test(length_stay_brutto ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
-oneway.test(length_stay_brutto ~ covid_pan, df_ed %>% filter(icd_f50_dd_ad))
+### somatic comorbidities (co-occuring non-F-diagnoses)
+#### all cases
+```{r echo=TRUE}
+oneway.test(n_icd_other ~ covid_pan, df_ed)
+```
+#### ED cases only
+```{r echo=TRUE}
+oneway.test(n_icd_other ~ covid_pan, df_ed %>% filter(icd_f50 == "F50+"))
+```
+#### non-ED cases only
+```{r echo=TRUE}
+oneway.test(n_icd_other ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
 ```
 
-### DD
-```{r}
+### Depressive disorders (DD)
+#### all cases
+```{r echo=TRUE}
 kruskal.test(icd_dd ~ covid_pan, df_ed)
+```
+#### ED cases only
+```{r echo=TRUE}
 kruskal.test(icd_dd ~ covid_pan, df_ed %>% filter(icd_f50 == "F50+"))
+```
+#### non-ED cases only
+```{r echo=TRUE}
 kruskal.test(icd_dd ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
 ```
 
-### AD
-```{r}
+### Anxiety disorders (AD)
+#### all cases
+```{r echo=TRUE}
 kruskal.test(icd_ad ~ covid_pan, df_ed)
+```
+#### ED cases only
+```{r echo=TRUE}
 kruskal.test(icd_ad ~ covid_pan, df_ed %>% filter(icd_f50 == "F50+"))
+```
+#### non-ED cases only
+```{r echo=TRUE}
 kruskal.test(icd_ad ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
 ```
 
-### F50+DD+AD
-```{r}
+### combined ED+DD+AD
+```{r echo=TRUE}
 kruskal.test(icd_f50_dd_ad ~ covid_pan, df_ed)
 ```
 
-### psychotropic discharge medication
+## healthcare utilization {.tabset .tabset-pills}
+
+### Length of stay
+#### all cases
+```{r echo=TRUE}
+oneway.test(length_stay_brutto ~ covid_pan, df_ed)
+```
+#### ED cases only
+```{r echo=TRUE}
+oneway.test(length_stay_brutto ~ covid_pan, df_ed %>% filter(icd_f50 == "F50+"))
+```
+#### non-ED cases only
+```{r echo=TRUE}
+oneway.test(length_stay_brutto ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
+```
+#### cases with combined ED+DD+AD
+```{r echo=TRUE}
+oneway.test(length_stay_brutto ~ covid_pan, df_ed %>% filter(icd_f50_dd_ad))
+```
+
+### re-admissions (v1)
 ```{r}
+re_adm_table <- 
+  bind_rows(baseline = df_ed_re_baseline %>% tabyl(is_first_case, icd_f50),
+            dur_covid = df_ed_re_covid %>% tabyl(is_first_case, icd_f50),
+            .id = "period") %>% 
+  rename(F50minus = "F50-", F50plus = "F50+") %>% 
+  mutate(combined = F50minus + F50plus) %>% 
+  arrange(is_first_case)
+```
+#### all cases
+```{r echo=TRUE}
+chisq.test(matrix(re_adm_table$combined, nrow = 2))
+```
+#### ED cases only
+```{r echo=TRUE}
+chisq.test(matrix(re_adm_table$F50plus, nrow = 2))
+```
+#### non-ED cases only
+```{r echo=TRUE}
+chisq.test(matrix(re_adm_table$F50minus, nrow = 2))
+```
+
+### early re-admissions (within 6 months of last discharge)
+#### all cases
+```{r echo=TRUE}
+kruskal.test(re_adm_soon_nona ~ covid_pan, df_ed)
+```
+#### ED cases only
+```{r echo=TRUE}
+kruskal.test(re_adm_soon_nona ~ covid_pan, df_ed %>% filter(icd_f50 == "F50+"))
+```
+#### non-ED cases only
+```{r echo=TRUE}
+kruskal.test(re_adm_soon_nona ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
+```
+
+## discharge medication {.tabset .tabset-pills}
+
+### psychotropic medication
+#### all cases
+```{r echo=TRUE}
 kruskal.test(psych_med ~ covid_pan, df_ed)
+```
+#### ED cases only
+```{r echo=TRUE}
 kruskal.test(psych_med ~ covid_pan, df_ed %>% filter(icd_f50 == "F50+"))
+```
+#### non-ED cases only
+```{r echo=TRUE}
 kruskal.test(psych_med ~ covid_pan, df_ed %>% filter(icd_f50 == "F50-"))
 ```
 
 
-## Lockdowns
+# Within Covid pandemic
 
-### Lockdown severity
-```{r}
+## School closure severity
+### all cases
+```{r echo=TRUE}
 kruskal.test(icd_f50 ~ covid_lockd_sev, df_ed_covid)
-# kruskal.test(f50_type ~ covid_lockd, df_ed_covid)
+```
+### AN cases only
+```{r echo=TRUE}
 kruskal.test(f50_type == "Anorexie" ~ covid_lockd_sev, df_ed_covid)
+```
+### BN cases only
+```{r echo=TRUE}
 kruskal.test(f50_type == "Bulimie" ~ covid_lockd_sev, df_ed_covid)
+```
+### oED cases only
+```{r echo=TRUE}
 kruskal.test(f50_type == "Essstörung Sonst." ~ covid_lockd_sev, df_ed_covid)
-
+```
+### cases with combined ED+DD+AD
+```{r echo=TRUE}
 kruskal.test(icd_f50_dd_ad ~ covid_lockd_sev, df_ed_covid)
 ```
 
-### Covid periods
-#### increasing trend of F50 share over periods
-```{r}
-kruskal.test(icd_f50 ~ covid_period_i, df_ed_covid)
+## Covid pandemic phases {.tabset .tabset-pills}
+
+### trend of ED share over periods
+#### all cases
+```{r echo=TRUE}
 cor.test(df_ed_covid$icd_f50 %>% as.numeric(),
          df_ed_covid$covid_period_i %>% as.numeric(),
-         method = "spearman")$p.value
-
+         method = "spearman")
+```
+#### AN cases only
+```{r echo=TRUE}
 cor.test((df_ed_covid$f50_type == "Anorexie") %>% as.numeric(),
          df_ed_covid$covid_period_i %>% as.numeric(),
-         method = "spearman")$p.value
-
+         method = "spearman")
+```
+#### BN cases only
+```{r echo=TRUE}
 cor.test((df_ed_covid$f50_type == "Bulimie") %>% as.numeric(),
          df_ed_covid$covid_period_i %>% as.numeric(),
-         method = "spearman")$p.value
-
+         method = "spearman")
+```
+#### oED cases only
+```{r echo=TRUE}
 cor.test((df_ed_covid$f50_type == "Essstörung Sonst.") %>% as.numeric(),
          df_ed_covid$covid_period_i %>% as.numeric(),
-         method = "spearman")$p.value
-
+         method = "spearman")
+```
+#### cases with combined ED+DD+AD
+```{r echo=TRUE}
 cor.test(df_ed_covid$icd_f50_dd_ad %>% as.numeric(),
          df_ed_covid$covid_period_i %>% as.numeric(),
-         method = "spearman")$p.value
+         method = "spearman")
 ```
 
-#### comparison with respective baseline period
+### comparison of pandemic phase with same months of the respective baseline period
 ```{r}
 create_covid_period_baseline_df <- function(i = 1L) {
   df_ed %>% 
@@ -235,36 +303,40 @@ create_covid_period_baseline_df <- function(i = 1L) {
     # covid_period
     bind_rows(df_ed %>% filter(as.numeric(covid_period_i) == i+1))
 }
-
+```
+#### phase 1: 1st open period
+```{r echo=TRUE}
 kruskal.test(icd_f50 ~ covid_pan, create_covid_period_baseline_df(1))
+```
+#### phase 2: 1st school closure period
+```{r echo=TRUE}
 kruskal.test(icd_f50 ~ covid_pan, create_covid_period_baseline_df(2))
+```
+#### phase 3: 2nd open period
+```{r echo=TRUE}
 kruskal.test(icd_f50 ~ covid_pan, create_covid_period_baseline_df(3))
+```
+#### phase 4: 2nd school closure period
+```{r echo=TRUE}
 kruskal.test(icd_f50 ~ covid_pan, create_covid_period_baseline_df(4))
+```
+#### phase 5: 3rd open period
+```{r echo=TRUE}
 kruskal.test(icd_f50 ~ covid_pan, create_covid_period_baseline_df(5))
 ```
 
-
-### Granger causality
-```{r}
+### Granger causality model: AN by school closure severity
+```{r echo=TRUE}
 grangertest(AN_prop ~ as.numeric(covid_lockd_sev), order = 6, data = df_ed_covid_monthly)
-# plot lag time points: orthogonal impulse response
 ```
-
+#### Impulse response function
 ```{r}
-# granger plots
-df_ed_covid_monthly %>% 
-  transmute(adm_year_month, AN_prop, covid_lockd_sev = as.numeric(covid_lockd_sev)/15) %>% 
-  pivot_longer(cols = -adm_year_month) %>% 
-  ggplot(aes(x = adm_year_month, y = value, group = name)) +
-  geom_line(aes(colour = name), linewidth = 0.7) +
-  scale_colour_manual(values = c("#00AFBB", "#E7B800")) +
-  theme_minimal()
-
+# test for stationarity
 library(tseries)
 adf.test(df_ed_covid_monthly$AN_prop, k = 6)
 
+# IRF
 library(vars)
-
 ed_covid_monthly_irf <- df_ed_covid_monthly %>% 
   transmute(AN_prop, sev = as.numeric(covid_lockd_sev)) %>% 
   as.ts() %>% 
@@ -272,21 +344,4 @@ ed_covid_monthly_irf <- df_ed_covid_monthly %>%
   irf()
 
 plot(ed_covid_monthly_irf)
-```
-
-
-## GLM
-! WIP, not finalised
-```{r echo=TRUE}
-# predicting ED
-tmp <- glm(icd_f50 ~ covid_lockd_sev + sex + age_adm + n_icd_f + n_icd_other + length_stay_brutto,
-           family = binomial,
-           data = df_ed)
-summary(tmp)
-# sex
-# age_adm
-
-# f50_type
-# length_stay_netto/brutto
-# n_icd_f/other/code
 ```

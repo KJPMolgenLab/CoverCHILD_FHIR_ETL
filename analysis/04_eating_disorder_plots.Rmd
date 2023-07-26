@@ -75,6 +75,7 @@ ed_ggsave <- function(filename, path = plotdir, device = "svg", scale = 2, ...) 
     theme_classic()} %T>% 
   {if (do_save_objects) ed_ggsave("ED_share_monthly_whole_period", plot = .)}
 ```
+
 #### absolute
 ```{r}
 # absolute
@@ -129,6 +130,7 @@ ed_ggsave <- function(filename, path = plotdir, device = "svg", scale = 2, ...) 
     theme_classic()} %T>% 
   {if (do_save_objects) ed_ggsave("ED_share_weekly_covid_period", plot = .)}
 ```
+
 #### absolute
 ```{r}
 # absolute

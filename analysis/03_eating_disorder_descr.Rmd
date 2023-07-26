@@ -156,29 +156,11 @@ df_ed %>% gen_tabyl(re_adm_soon_nona, icd_f50, covid_pan)
 ### 2-year baseline comparison (2y baseline vs 2y covid, 2y lookback each)
 #### baseline
 ```{r}
-df_ed_re %>%
-  filter(re_adm_period != "dur_covid") %>%
-  group_by(p_id) %>%
-  arrange(adm_date) %>%
-  mutate(is_first_case = case_id == first(case_id, na_rm = TRUE),
-         re_adm_lag = difftime(adm_date, coalesce(lag(dis_date), lag(adm_date)), units = "days"),
-         re_adm_soon = re_adm_lag < re_adm_span) %>%
-  ungroup() %>%
-  filter(re_adm_period == "baseline") %>%
-  gen_tabyl(is_first_case, icd_f50)
+df_ed_re_baseline %>% gen_tabyl(is_first_case, icd_f50)
 ```
 #### Covid pandemic
 ```{r}
-df_ed_re %>%
-  filter(re_adm_period != "pre") %>%
-  group_by(p_id) %>%
-  arrange(adm_date) %>%
-  mutate(is_first_case = case_id == first(case_id, na_rm = TRUE),
-         re_adm_lag = difftime(adm_date, coalesce(lag(dis_date), lag(adm_date)), units = "days"),
-         re_adm_soon = re_adm_lag < re_adm_span) %>%
-  ungroup() %>%
-  filter(re_adm_period == "dur_covid") %>%
-  gen_tabyl(is_first_case, icd_f50)
+df_ed_re_covid %>% gen_tabyl(is_first_case, icd_f50)
 ```
 
 
