@@ -1,5 +1,5 @@
 ---
-title: "03_eating_disorder_descriptives"
+title: "Eating disorder paper descriptive statistics"
 author: "SP"
 date: "`r Sys.Date()`"
 output: 
@@ -86,13 +86,21 @@ df_ed_stats <-
 df_ed_stats
 ```
 ### ED counts & proportions by Covid
+#### ED vs non-ED
 ```{r}
 df_ed %>% gen_tabyl(icd_f50, covid_pan)
+```
+#### ED subgroups
+```{r}
 df_ed %>% gen_tabyl(f50_type, covid_pan)
 ```
 ### psychotropic medication
+#### all cases
 ```{r}
 df_ed %>% filter(!is.na(psych_med)) %>% gen_tabyl(psych_med, covid_pan)
+```
+#### by ED
+```{r}
 df_ed %>% filter(!is.na(psych_med)) %>% gen_tabyl(psych_med, icd_f50, covid_pan)
 ```
 
@@ -102,34 +110,61 @@ df_ed %>% filter(!is.na(psych_med)) %>% gen_tabyl(psych_med, icd_f50, covid_pan)
 df_ed %>% gen_tabyl(sex, covid_pan)
 ```
 ### ED counts & proportions by sex
+#### ED vs non-ED
 ```{r}
 df_ed %>% gen_tabyl(icd_f50, sex)
+```
+#### ED subgroups
+```{r}
 df_ed %>% gen_tabyl(f50_type, sex)
 ```
 ### ED + sex counts & proportions by covid
+#### ED vs non-ED
 ```{r}
 df_ed %>% gen_tabyl(icd_f50, sex, covid_pan)
+```
+#### ED subgroups
+```{r}
 df_ed %>% gen_tabyl(f50_type, sex, covid_pan)
 ```
 
 ## co-occuring depression & anxiety {.tabset .tabset-pills}
+
 ### DD
+#### all DD cases
 ```{r}
 df_ed %>% gen_tabyl(icd_dd, covid_pan)
+```
+#### DD cases by ED
+```{r}
 df_ed %>% gen_tabyl(icd_dd, icd_f50, covid_pan)
 ```
+
 ### AD
+#### all AD cases
 ```{r}
 df_ed %>% gen_tabyl(icd_ad, covid_pan)
+```
+#### AD cases by ED
+```{r}
 df_ed %>% gen_tabyl(icd_ad, icd_f50, covid_pan)
 ```
+
 ### F50+DD+AD
+#### by covid pandemic
 ```{r}
 df_ed %>% gen_tabyl(icd_f50_dd_ad, covid_pan)
+```
+#### by school closure severity
+```{r}
 df_ed %>% gen_tabyl(icd_f50_dd_ad, covid_lockd_sev)
+```
+#### by Covid pandemic phase
+```{r}
 df_ed %>% gen_tabyl(icd_f50_dd_ad, covid_period_i)
 ```
-#### Length of stay
+
+### Length of stay
 ```{r}
 df_ed %>%
   group_by(covid_pan, icd_f50_dd_ad) %>%
@@ -138,13 +173,22 @@ df_ed %>%
 
 ## Covid periods and school closures {.tabset .tabset-pills}
 ### ED counts & proportions for school closure severities
+#### ED vs non-ED
 ```{r}
 df_ed %>% gen_tabyl(icd_f50, covid_lockd_sev)
+```
+#### ED subcategories
+```{r}
 df_ed %>% gen_tabyl(f50_type, covid_lockd_sev)
 ```
+
 ### ED and comorbidity counts & proportions for Covid pandemic phase
+#### ED vs non-ED
 ```{r}
 df_ed %>% gen_tabyl(icd_f50, covid_period_i)
+```
+#### ED subcategories
+```{r}
 df_ed %>% gen_tabyl(f50_type, covid_period_i)
 ```
 

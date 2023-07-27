@@ -7,4 +7,14 @@ editor_options:
   chunk_output_type: console
 ---
 
-CoverCHILD KGU data analysis
+CoverCHILD KGU data analysis.
+
+Includes:
+
+- KIS -> normal-form data ETL
+- FHIR -> normal-form data ETL
+- Eating disorder paper
+  - processing
+  - descriptive statistics
+  - inference statistics
+  - plots/figures

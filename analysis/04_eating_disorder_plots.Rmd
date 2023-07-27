@@ -1,5 +1,5 @@
 ---
-title: "03_eating_disorder_plots"
+title: "Eating disorder paper plots"
 author: "SP"
 date: "`r Sys.Date()`"
 output: 
@@ -55,10 +55,10 @@ ed_ggsave <- function(filename, path = plotdir, device = "svg", scale = 2, ...) 
 }
 ```
 
-## trend of ED diagnosis proportions
+# trend of ED diagnosis proportions
 
-### full study period
-#### relative
+## full study period {.tabset .tabset-pills}
+### relative
 ```{r}
 # relative
 {df_ed_monthly_long %>% 
@@ -76,7 +76,7 @@ ed_ggsave <- function(filename, path = plotdir, device = "svg", scale = 2, ...) 
   {if (do_save_objects) ed_ggsave("ED_share_monthly_whole_period", plot = .)}
 ```
 
-#### absolute
+### absolute
 ```{r}
 # absolute
 {df_ed_monthly_long %>% 
@@ -94,8 +94,8 @@ ed_ggsave <- function(filename, path = plotdir, device = "svg", scale = 2, ...) 
   {if (do_save_objects) ed_ggsave("ED_absolute_monthly_whole_period", plot = .)}
 ```
 
-### covid pandemic with school closure periods
-#### relative
+## covid pandemic with school closure periods {.tabset .tabset-pills}
+### relative
 ```{r}
 # relative
 {df_ed_covid_weekly_long %>% 
@@ -131,7 +131,7 @@ ed_ggsave <- function(filename, path = plotdir, device = "svg", scale = 2, ...) 
   {if (do_save_objects) ed_ggsave("ED_share_weekly_covid_period", plot = .)}
 ```
 
-#### absolute
+### absolute
 ```{r}
 # absolute
 {df_ed_covid_weekly_long %>% 
@@ -167,7 +167,7 @@ ed_ggsave <- function(filename, path = plotdir, device = "svg", scale = 2, ...) 
   {if (do_save_objects) ed_ggsave("ED_absolute_weekly_covid_period", plot = .)}
 ```
 
-### baseline-year comparison
+## baseline-year comparison
 ! WIP, not finalised
 ```{r}
 df_ed_monthly_baseline <- df_ed_monthly %>% 
@@ -207,7 +207,7 @@ df_ed_monthly_baseline %>%
 ```
 
 
-## re-admissions within 6 months, monthly
+# re-admissions within 6 months, monthly
 ```{r}
 {df_ed %>%
     group_by(adm_year_month, icd_f50) %>%
@@ -228,7 +228,7 @@ df_ed_monthly_baseline %>%
 ```
 
 
-## share of first presentations and re-admissions
+# share of first presentations and re-admissions
 ```{r}
 {df_ed %>%
     filter(adm_date >= ymd("2018-03-01"), icd_f50 == "F50+") %>% 
