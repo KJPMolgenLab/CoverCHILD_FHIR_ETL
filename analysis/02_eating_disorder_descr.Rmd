@@ -55,6 +55,22 @@ df_ed %>%
   mutate(n_cases_month = n_cases/months,
          n_patients_month = n_patients/months)
 ```
+### number of cases per month (30 days) during the covid open / school closure phases
+```{r}
+df_ed %>% 
+  group_by(lockd_period_i_is_lockd) %>%
+  summarise(n_cases = n_distinct(case_id),
+            n_patients = n_distinct(p_id)) %>%
+  left_join(df_covid_periods_is_lockd %>%
+              mutate(period_end_date = if_else(period_end_date > max(df_ed$adm_date),
+                                               max(df_ed$adm_date), period_end_date),
+                     period_interval = interval(period_start_date, period_end_date),
+                     months =  period_interval %>% as.numeric("days") %>% divide_by(30)) %>% 
+              select(lockd_period_i_is_lockd = period_i_is_lockd, months)) %>% 
+  adorn_totals() %>%
+  mutate(n_cases_month = n_cases/months,
+         n_patients_month = n_patients/months)
+```
 ### number of unique diagnoses per case
 ```{r}
 df_diag %>%
