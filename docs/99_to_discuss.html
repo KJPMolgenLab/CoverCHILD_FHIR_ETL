@@ -1,0 +1,1617 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+<meta name="author" content="SP" />
+
+<meta name="date" content="2023-08-02" />
+
+<title>Points to discuss</title>
+
+<script src="site_libs/header-attrs-2.23/header-attrs.js"></script>
+<script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/cosmo.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<style>h1 {font-size: 34px;}
+       h1.title {font-size: 38px;}
+       h2 {font-size: 30px;}
+       h3 {font-size: 24px;}
+       h4 {font-size: 18px;}
+       h5 {font-size: 16px;}
+       h6 {font-size: 12px;}
+       code {color: inherit; background-color: rgba(0, 0, 0, 0.04);}
+       pre:not([class]) { background-color: white }</style>
+<script src="site_libs/jqueryui-1.13.2/jquery-ui.min.js"></script>
+<link href="site_libs/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
+<script src="site_libs/tocify-1.9.1/jquery.tocify.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<link href="site_libs/highlightjs-9.12.0/textmate.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+<link href="site_libs/pagedtable-1.1/css/pagedtable.css" rel="stylesheet" />
+<script src="site_libs/pagedtable-1.1/js/pagedtable.js"></script>
+<script src="site_libs/kePrint-0.0.1/kePrint.js"></script>
+<link href="site_libs/lightable-0.0.1/lightable.css" rel="stylesheet" />
+<link href="site_libs/font-awesome-6.4.0/css/all.min.css" rel="stylesheet" />
+<link href="site_libs/font-awesome-6.4.0/css/v4-shims.min.css" rel="stylesheet" />
+
+<link rel="icon" href="https://github.com/workflowr/workflowr-assets/raw/main/img/reproducible.png">
+<!-- Add a small amount of space between sections. -->
+<style type="text/css">
+div.section {
+  padding-top: 12px;
+}
+</style>
+
+
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+
+
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+details > summary > p:only-child {
+  display: inline;
+}
+pre code {
+  padding: 0;
+}
+</style>
+
+
+<style type="text/css">
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #adb5bd;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script type="text/javascript">
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark the anchor link active (and if it's in a dropdown, also mark that active)
+  var dropdown = menuAnchor.closest('li.dropdown');
+  if (window.bootstrap) { // Bootstrap 4+
+    menuAnchor.addClass('active');
+    dropdown.find('> .dropdown-toggle').addClass('active');
+  } else { // Bootstrap 3
+    menuAnchor.parent().addClass('active');
+    dropdown.addClass('active');
+  }
+
+  // Navbar adjustments
+  var navHeight = $(".navbar").first().height() + 15;
+  var style = document.createElement('style');
+  var pt = "padding-top: " + navHeight + "px; ";
+  var mt = "margin-top: -" + navHeight + "px; ";
+  var css = "";
+  // offset scroll position for anchor links (for fixed navbar)
+  for (var i = 1; i <= 6; i++) {
+    css += ".section h" + i + "{ " + pt + mt + "}\n";
+  }
+  style.innerHTML = "body {" + pt + "padding-bottom: 40px; }\n" + css;
+  document.head.appendChild(style);
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before, .tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "\e259";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "\e258";
+  font-family: 'Glyphicons Halflings';
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+
+
+
+<style type="text/css">
+
+#TOC {
+  margin: 25px 0px 20px 0px;
+}
+@media (max-width: 768px) {
+#TOC {
+  position: relative;
+  width: 100%;
+}
+}
+
+@media print {
+.toc-content {
+  /* see https://github.com/w3c/csswg-drafts/issues/4434 */
+  float: right;
+}
+}
+
+.toc-content {
+  padding-left: 30px;
+  padding-right: 40px;
+}
+
+div.main-container {
+  max-width: 1200px;
+}
+
+div.tocify {
+  width: 20%;
+  max-width: 260px;
+  max-height: 85%;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  div.tocify {
+    width: 25%;
+  }
+}
+
+@media (max-width: 767px) {
+  div.tocify {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+.tocify ul, .tocify li {
+  line-height: 20px;
+}
+
+.tocify-subheader .tocify-item {
+  font-size: 0.90em;
+}
+
+.tocify .list-group-item {
+  border-radius: 0px;
+}
+
+
+</style>
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+<!-- setup 3col/9col grid for toc_float and main content  -->
+<div class="row">
+<div class="col-xs-12 col-sm-4 col-md-3">
+<div id="TOC" class="tocify">
+</div>
+</div>
+
+<div class="toc-content col-xs-12 col-sm-8 col-md-9">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-bs-toggle="collapse" data-target="#navbar" data-bs-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">CoverCHILD</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="index.html">Home</a>
+</li>
+<li>
+  <a href="about.html">About</a>
+</li>
+<li>
+  <a href="license.html">License</a>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        <li>
+  <a href="https://github.com/KJPMolgenLab/CoverCHILD">
+    <span class="fab fa-github"></span>
+     
+    Source code
+  </a>
+</li>
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div id="header">
+
+
+
+<h1 class="title toc-ignore">Points to discuss</h1>
+<h4 class="author">SP</h4>
+<h4 class="date">2023-08-02</h4>
+
+</div>
+
+
+<p>
+<button type="button" class="btn btn-default btn-workflowr btn-workflowr-report" data-toggle="collapse" data-target="#workflowr-report">
+<span class="glyphicon glyphicon-list" aria-hidden="true"></span>
+workflowr <span class="glyphicon glyphicon-ok text-success"
+aria-hidden="true"></span>
+</button>
+</p>
+<div id="workflowr-report" class="collapse">
+<ul class="nav nav-tabs">
+<li class="active">
+<a data-toggle="tab" href="#summary">Summary</a>
+</li>
+<li>
+<a data-toggle="tab" href="#checks"> Checks <span
+class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span>
+</a>
+</li>
+<li>
+<a data-toggle="tab" href="#versions">Past versions</a>
+</li>
+</ul>
+<div class="tab-content">
+<div id="summary" class="tab-pane fade in active">
+<p>
+<strong>Last updated:</strong> 2023-08-02
+</p>
+<p>
+<strong>Checks:</strong> <span
+class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> 7
+<span class="glyphicon glyphicon-exclamation-sign text-danger"
+aria-hidden="true"></span> 0
+</p>
+<p>
+<strong>Knit directory:</strong> <code>CoverCHILD/</code> <span
+class="glyphicon glyphicon-question-sign" aria-hidden="true"
+title="This is the local directory in which the code in this file was executed.">
+</span>
+</p>
+<p>
+This reproducible <a href="https://rmarkdown.rstudio.com">R Markdown</a>
+analysis was created with <a
+  href="https://github.com/workflowr/workflowr">workflowr</a> (version
+1.7.0). The <em>Checks</em> tab describes the reproducibility checks
+that were applied when the results were created. The <em>Past
+versions</em> tab lists the development history.
+</p>
+<hr>
+</div>
+<div id="checks" class="tab-pane fade">
+<div id="workflowr-checks" class="panel-group">
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongRMarkdownfilestronguptodate">
+<span class="glyphicon glyphicon-ok text-success"
+aria-hidden="true"></span> <strong>R Markdown file:</strong> up-to-date
+</a>
+</p>
+</div>
+<div id="strongRMarkdownfilestronguptodate"
+class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great! Since the R Markdown file has been committed to the Git
+repository, you know the exact version of the code that produced these
+results.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongEnvironmentstrongempty">
+<span class="glyphicon glyphicon-ok text-success"
+aria-hidden="true"></span> <strong>Environment:</strong> empty </a>
+</p>
+</div>
+<div id="strongEnvironmentstrongempty" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great job! The global environment was empty. Objects defined in the
+global environment can affect the analysis in your R Markdown file in
+unknown ways. For reproduciblity it’s best to always run the code in an
+empty environment.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongSeedstrongcodesetseed20221104code">
+<span class="glyphicon glyphicon-ok text-success"
+aria-hidden="true"></span> <strong>Seed:</strong>
+<code>set.seed(20221104)</code> </a>
+</p>
+</div>
+<div id="strongSeedstrongcodesetseed20221104code"
+class="panel-collapse collapse">
+<div class="panel-body">
+<p>The command <code>set.seed(20221104)</code> was run prior to running
+the code in the R Markdown file. Setting a seed ensures that any results
+that rely on randomness, e.g. subsampling or permutations, are
+reproducible.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongSessioninformationstrongrecorded">
+<span class="glyphicon glyphicon-ok text-success"
+aria-hidden="true"></span> <strong>Session information:</strong>
+recorded </a>
+</p>
+</div>
+<div id="strongSessioninformationstrongrecorded"
+class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great job! Recording the operating system, R version, and package
+versions is critical for reproducibility.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongCachestrongnone">
+<span class="glyphicon glyphicon-ok text-success"
+aria-hidden="true"></span> <strong>Cache:</strong> none </a>
+</p>
+</div>
+<div id="strongCachestrongnone" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Nice! There were no cached chunks for this analysis, so you can be
+confident that you successfully produced the results during this
+run.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongFilepathsstrongrelative">
+<span class="glyphicon glyphicon-ok text-success"
+aria-hidden="true"></span> <strong>File paths:</strong> relative </a>
+</p>
+</div>
+<div id="strongFilepathsstrongrelative" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great job! Using relative paths to the files within your workflowr
+project makes it easier to run your code on other machines.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongRepositoryversionstrongahrefhttpsgithubcomKJPMolgenLabCoverCHILDtree7995c6f67e27808f4577116101d24136f83f5336targetblank7995c6fa">
+<span class="glyphicon glyphicon-ok text-success"
+aria-hidden="true"></span> <strong>Repository version:</strong>
+<a href="https://github.com/KJPMolgenLab/CoverCHILD/tree/7995c6f67e27808f4577116101d24136f83f5336" target="_blank">7995c6f</a>
+</a>
+</p>
+</div>
+<div
+id="strongRepositoryversionstrongahrefhttpsgithubcomKJPMolgenLabCoverCHILDtree7995c6f67e27808f4577116101d24136f83f5336targetblank7995c6fa"
+class="panel-collapse collapse">
+<div class="panel-body">
+<p>
+Great! You are using Git for version control. Tracking code development
+and connecting the code version to the results is critical for
+reproducibility.
+</p>
+<p>
+The results in this page were generated with repository version
+<a href="https://github.com/KJPMolgenLab/CoverCHILD/tree/7995c6f67e27808f4577116101d24136f83f5336" target="_blank">7995c6f</a>.
+See the <em>Past versions</em> tab to see a history of the changes made
+to the R Markdown and HTML files.
+</p>
+<p>
+Note that you need to be careful to ensure that all relevant files for
+the analysis have been committed to Git prior to generating the results
+(you can use <code>wflow_publish</code> or
+<code>wflow_git_commit</code>). workflowr only checks the R Markdown
+file, but you know if there are other scripts or data files that it
+depends on. Below is the status of the Git repository when the results
+were generated:
+</p>
+<pre><code>
+Ignored files:
+    Ignored:    .RData
+    Ignored:    .Rhistory
+    Ignored:    .Rproj.user/
+    Ignored:    .gitignore~
+    Ignored:    analysis/.Rhistory
+    Ignored:    analysis/03_eating_disorder_stats.Rmd.bak
+    Ignored:    analysis/_site.yml~
+    Ignored:    analysis/style.css~
+    Ignored:    archive/
+    Ignored:    code/data_etl.R.bak
+    Ignored:    code/eating_dis_cases.R.bak
+    Ignored:    code/functions.R~
+    Ignored:    data/Ergebnis_V2_PLZ_PID_Fall_pseudonym.csv
+    Ignored:    data/ICD_V2.csv
+    Ignored:    data/ICPM_V3.csv
+    Ignored:    data/KIJUPSY_Med_Detail_V2_pseudonym.csv
+    Ignored:    data/Labordaten_V3.csv
+    Ignored:    data/P21_FAB_V1_pseudonym.csv
+    Ignored:    data/P21_Fall_V1_pseudonym.csv
+    Ignored:    data/P21_ICD_V1_pseudonym.csv
+    Ignored:    data/P21_OPS_V1_pseudonym.csv
+    Ignored:    data/Pers_Fall_V2_pseudonym.csv
+    Ignored:    data/Rezepte_Pack_Wirkstoff_V4_pseudonym.csv
+    Ignored:    data/UKF_patient_examples/
+    Ignored:    data/ext/Auswertung C+ 01.01.2021-31.12.2022.xlsx
+    Ignored:    data/ext/CoverChildDatenVerordnungen_Hessen_221110.xlsx
+    Ignored:    data/ext/Diagnose Cluster NUM.docx
+    Ignored:    data/ext/Diagnose_Cluster_NUM_sp.docx
+    Ignored:    data/ext/Fachdisziplinen.pdf
+    Ignored:    data/ext/ICPM_codesCoverChild_AGC.xlsx
+    Ignored:    data/ext/KJP Behandlungstage 2022_20230109.xlsx
+    Ignored:    data/ext/ZPID_lockdown_Arora_Schule.xlsx
+    Ignored:    data/ext/ZPID_lockdown_Arora_Schule_sp.ods
+    Ignored:    data/ext/ZPID_lockdown_measures_release_note-2.0.pdf
+    Ignored:    data/ext/nonF AN Diagnosen und MEds.xlsx
+    Ignored:    data/ext/nonF AN Diagnosen und MEds_sp.ods
+    Ignored:    notes_2022-11-30.odt
+    Ignored:    notes_221128
+    Ignored:    notes_221128~
+    Ignored:    notes_230320.txt
+    Ignored:    notes_230320.txt~
+    Ignored:    notes_etl.txt
+    Ignored:    output/AN_Medikation_letzte_Woche.txt
+    Ignored:    output/AN_somatische_Komorbiditäten.txt
+    Ignored:    output/CoverCHILD_ED_stats_230217.zip
+    Ignored:    output/CoverCHILD_ED_stats_230310.zip
+    Ignored:    output/CoverCHILD_codebook_2023-07-13.csv
+    Ignored:    output/CoverCHILD_codebook_2023-07-13.ods
+    Ignored:    output/CoverCHILD_codebook_2023-07-25.csv
+    Ignored:    output/CoverCHILD_codebook_sum_2023-07-13.csv
+    Ignored:    output/CoverCHILD_codebook_sum_2023-07-25.csv
+    Ignored:    output/CoverCHILD_codebooks_2023-06-15.ods
+    Ignored:    output/CoverCHILD_codebooks_2023-06-15.xlsx
+    Ignored:    output/CoverCHILD_dashboard_data_2023-06-26.rds
+    Ignored:    output/CoverCHILD_dashboard_data_2023-07-25.rds
+    Ignored:    output/CoverCHILD_data+EDvars_2023-03-28.rds
+    Ignored:    output/CoverCHILD_data+EDvars_2023-04-24.rds
+    Ignored:    output/CoverCHILD_data+EDvars_2023-05-16.rds
+    Ignored:    output/CoverCHILD_data+EDvars_2023-06-12.rds
+    Ignored:    output/CoverCHILD_data+EDvars_2023-06-19.rds
+    Ignored:    output/CoverCHILD_data+EDvars_2023-06-21.rds
+    Ignored:    output/CoverCHILD_data+EDvars_2023-06-22.rds
+    Ignored:    output/CoverCHILD_data+EDvars_2023-06-26.rds
+    Ignored:    output/CoverCHILD_data+EDvars_2023-07-12.rds
+    Ignored:    output/CoverCHILD_data+EDvars_2023-07-25.rds
+    Ignored:    output/CoverCHILD_data_230213.rds
+    Ignored:    output/CoverCHILD_data_230215.rds
+    Ignored:    output/CoverCHILD_data_230328.rds
+    Ignored:    output/CoverCHILD_data_ETL_2023-03-28.RData.xz
+    Ignored:    output/CoverCHILD_data_ETL_2023-05-16.RData.xz
+    Ignored:    output/CoverCHILD_data_ETL_2023-06-01.RData.xz
+    Ignored:    output/CoverCHILD_data_ETL_2023-06-12.RData.xz
+    Ignored:    output/CoverCHILD_data_ETL_2023-06-19.RData.xz
+    Ignored:    output/CoverCHILD_data_ETL_2023-06-21.RData.xz
+    Ignored:    output/CoverCHILD_data_ETL_2023-06-22.RData.xz
+    Ignored:    output/CoverCHILD_data_ETL_2023-06-26.RData.xz
+    Ignored:    output/CoverCHILD_data_ETL_2023-07-25.RData
+    Ignored:    output/CoverCHILD_data_ETL_2023-07-25.RData.xz
+    Ignored:    output/CoverCHILD_data_exp_2023-07-25.rds
+    Ignored:    output/CoverCHILD_data_exp_sum_2023-07-25.rds
+    Ignored:    output/data_exp/
+    Ignored:    output/data_utf8/
+    Ignored:    output/ed_plots/
+    Ignored:    output/fhir_etl/
+    Ignored:    output/nicht-f-diagnosen.csv
+
+Untracked files:
+    Untracked:  .idea/
+    Untracked:  code/fhir_etl.R
+    Untracked:  code/fhir_etl.py
+    Untracked:  code/join_close_cases.R
+    Untracked:  code/summarise_per_case.R
+    Untracked:  code/transform_target_dfs.R
+    Untracked:  data/ext/icd_categories.txt
+    Untracked:  t1_wflow.R
+    Untracked:  t2_clar_case_merges.R
+    Untracked:  t3_export_dashboard.R
+    Untracked:  t4_treatment_sum.R
+    Untracked:  variable_names.txt
+    Untracked:  variable_names_clarify.txt
+    Untracked:  variables_unify_per_case.txt
+
+</code></pre>
+<p>
+Note that any generated files, e.g. HTML, png, CSS, etc., are not
+included in this status report because it is ok for generated content to
+have uncommitted changes.
+</p>
+</div>
+</div>
+</div>
+</div>
+<hr>
+</div>
+<div id="versions" class="tab-pane fade">
+
+<p>
+These are the previous versions of the repository in which changes were
+made to the R Markdown (<code>analysis/99_to_discuss.Rmd</code>) and
+HTML (<code>docs/99_to_discuss.html</code>) files. If you’ve configured
+a remote Git repository (see <code>?wflow_git_remote</code>), click on
+the hyperlinks in the table below to view the files as they were in that
+past version.
+</p>
+<div class="table-responsive">
+<table class="table table-condensed table-hover">
+<thead>
+<tr>
+<th>
+File
+</th>
+<th>
+Version
+</th>
+<th>
+Author
+</th>
+<th>
+Date
+</th>
+<th>
+Message
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+Rmd
+</td>
+<td>
+<a href="https://github.com/KJPMolgenLab/CoverCHILD/blob/df4002e2110d00aa07668351a92cb28aa6947ecd/analysis/99_to_discuss.Rmd" target="_blank">df4002e</a>
+</td>
+<td>
+Simeon Platte
+</td>
+<td>
+2023-07-27
+</td>
+<td>
+Format ED markdowns, update links.
+</td>
+</tr>
+<tr>
+<td>
+Rmd
+</td>
+<td>
+<a href="https://github.com/KJPMolgenLab/CoverCHILD/blob/dd73b8d88d61074ffaf00c18259842a6f9d8f3d0/analysis/99_to_discuss.Rmd" target="_blank">dd73b8d</a>
+</td>
+<td>
+Simeon Platte
+</td>
+<td>
+2023-03-27
+</td>
+<td>
+Update to_discuss collector.
+</td>
+</tr>
+<tr>
+<td>
+Rmd
+</td>
+<td>
+<a href="https://github.com/KJPMolgenLab/CoverCHILD/blob/a7155ca0419663bec0438c30df1130f14293cbf0/analysis/99_to_discuss.Rmd" target="_blank">a7155ca</a>
+</td>
+<td>
+Simeon Platte
+</td>
+<td>
+2023-03-22
+</td>
+<td>
+Add collector Rmarkdown for open issues/questions.
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<hr>
+</div>
+</div>
+</div>
+<div id="falsch-kodierte-icd_labels" class="section level1" number="1">
+<h1><span class="header-section-number">1</span> Falsch kodierte
+icd_labels</h1>
+<pre class="r"><code>icd_label_dict &lt;- data_exp$diagnosis %&gt;%
+  select(icd_code, icd_label) %&gt;%
+  filter(!is.na(icd_label)) %&gt;% 
+  distinct()
+
+icd_label_dict %&gt;%
+  mutate(n_labels = n(), .by = icd_code) %&gt;% 
+  filter(n_labels &gt; 1) %&gt;%
+  arrange(icd_code) %&gt;% 
+  kbl() %&gt;%
+  kable_styling(c(&quot;striped&quot;, &quot;hover&quot;, &quot;condensed&quot;, &quot;responsive&quot;), full_width = FALSE, position = &quot;left&quot;,
+                fixed_thead = TRUE) %&gt;%
+  column_spec(1, bold = T, border_right = T) %&gt;%
+  column_spec(2, width = &quot;30em&quot;)</code></pre>
+<table class="table table-striped table-hover table-condensed table-responsive" style="width: auto !important; ">
+<thead>
+<tr>
+<th style="text-align:left;position: sticky; top:0; background-color: #FFFFFF;">
+icd_code
+</th>
+<th style="text-align:left;position: sticky; top:0; background-color: #FFFFFF;">
+icd_label
+</th>
+<th style="text-align:right;position: sticky; top:0; background-color: #FFFFFF;">
+n_labels
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+F41.0
+</td>
+<td style="text-align:left;width: 30em; ">
+Panikstörung [episodisch paroxysmale Angst]
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+F41.0
+</td>
+<td style="text-align:left;width: 30em; ">
+Mittelgradige depressive Episode
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+F90.0
+</td>
+<td style="text-align:left;width: 30em; ">
+Einfache Aktivitäts- und Aufmerksamkeitsstörung
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+F90.0
+</td>
+<td style="text-align:left;width: 30em; ">
+Störung des Sozialverhaltens mit oppositionellem, aufsässigem Verhalten
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+F43.1
+</td>
+<td style="text-align:left;width: 30em; ">
+Posttraumatische Belastungsstörung
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+F43.1
+</td>
+<td style="text-align:left;width: 30em; ">
+Mittelgradige depressive Episode
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+F91.2
+</td>
+<td style="text-align:left;width: 30em; ">
+Störung des Sozialverhaltens bei vorhandenen sozialen Bindungen
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+F91.2
+</td>
+<td style="text-align:left;width: 30em; ">
+Störung des Sozialverhaltens mit oppositionellem, aufsässigem Verhalten
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+F12.1
+</td>
+<td style="text-align:left;width: 30em; ">
+Psychische und Verhaltensstörungen durch Cannabinoide: Schädlicher
+Gebrauch
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+F12.1
+</td>
+<td style="text-align:left;width: 30em; ">
+Störung des Sozialverhaltens bei fehlenden sozialen Bindungen
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+F40.1
+</td>
+<td style="text-align:left;width: 30em; ">
+Soziale Phobien
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+F40.1
+</td>
+<td style="text-align:left;width: 30em; ">
+Mittelgradige depressive Episode
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+F41.1
+</td>
+<td style="text-align:left;width: 30em; ">
+Generalisierte Angststörung
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+F41.1
+</td>
+<td style="text-align:left;width: 30em; ">
+Mittelgradige depressive Episode
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+F40.2
+</td>
+<td style="text-align:left;width: 30em; ">
+Spezifische (isolierte) Phobien
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+F40.2
+</td>
+<td style="text-align:left;width: 30em; ">
+Mittelgradige depressive Episode
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+F12.2
+</td>
+<td style="text-align:left;width: 30em; ">
+Psychische und Verhaltensstörungen durch Cannabinoide:
+Abhängigkeitssyndrom
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+F12.2
+</td>
+<td style="text-align:left;width: 30em; ">
+Störung des Sozialverhaltens bei fehlenden sozialen Bindungen
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+E66.09
+</td>
+<td style="text-align:left;width: 30em; ">
+Adipositas durch übermäßige Kalorienzufuhr: Body-Mass-Index [BMI] nicht
+näher bezeichnet
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+E66.09
+</td>
+<td style="text-align:left;width: 30em; ">
+Adipositas durch übermäßige Kalorienzufuhr: Grad oder Ausmaß der
+Adipositas nicht näher bezeichnet
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+F34.1
+</td>
+<td style="text-align:left;width: 30em; ">
+Dysthymia
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+F34.1
+</td>
+<td style="text-align:left;width: 30em; ">
+Mittelgradige depressive Episode
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+E66.02
+</td>
+<td style="text-align:left;width: 30em; ">
+Adipositas durch übermäßige Kalorienzufuhr: Body-Mass-Index [BMI] von 40
+und mehr
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+E66.02
+</td>
+<td style="text-align:left;width: 30em; ">
+Adipositas durch übermäßige Kalorienzufuhr: Adipositas Grad III (WHO)
+bei Patienten von 18 Jahren und älter
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+E66.00
+</td>
+<td style="text-align:left;width: 30em; ">
+Adipositas durch übermäßige Kalorienzufuhr: Adipositas Grad I (WHO) bei
+Patienten von 18 Jahren und älter
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+E66.00
+</td>
+<td style="text-align:left;width: 30em; ">
+Adipositas durch übermäßige Kalorienzufuhr: Body-Mass-Index [BMI] von 30
+bis unter 35
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+E66.01
+</td>
+<td style="text-align:left;width: 30em; ">
+Adipositas durch übermäßige Kalorienzufuhr: Body-Mass-Index [BMI] von 35
+bis unter 40
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+E66.01
+</td>
+<td style="text-align:left;width: 30em; ">
+Adipositas durch übermäßige Kalorienzufuhr: Adipositas Grad II (WHO) bei
+Patienten von 18 Jahren und älter
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+E66.04
+</td>
+<td style="text-align:left;width: 30em; ">
+Adipositas durch übermäßige Kalorienzufuhr: Adipositas bei Kindern und
+Jugendlichen von 3 Jahren bis unter 18 Jahren
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+E66.04
+</td>
+<td style="text-align:left;width: 30em; ">
+Störung des Sozialverhaltens mit oppositionellem, aufsässigem Verhalten
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+E66.99
+</td>
+<td style="text-align:left;width: 30em; ">
+Adipositas, nicht näher bezeichnet: Body-Mass-Index [BMI] nicht näher
+bezeichnet
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+E66.99
+</td>
+<td style="text-align:left;width: 30em; ">
+Adipositas, nicht näher bezeichnet: Grad oder Ausmaß der Adipositas
+nicht näher bezeichnet
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+I31.3
+</td>
+<td style="text-align:left;width: 30em; ">
+Anorexia nervosa
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+I31.3
+</td>
+<td style="text-align:left;width: 30em; ">
+Perikarderguss (nichtentzündlich)
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+R79.8
+</td>
+<td style="text-align:left;width: 30em; ">
+Sonstige näher bezeichnete abnorme Befunde der Blutchemie
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+R79.8
+</td>
+<td style="text-align:left;width: 30em; ">
+Anorexia nervosa
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+H66.0
+</td>
+<td style="text-align:left;width: 30em; ">
+Akute eitrige Otitis media
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+H66.0
+</td>
+<td style="text-align:left;width: 30em; ">
+Sonstige emotionale Störungen des Kindesalters
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+F50.00
+</td>
+<td style="text-align:left;width: 30em; ">
+Anorexia nervosa, restriktiver Typ
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+F50.00
+</td>
+<td style="text-align:left;width: 30em; ">
+Mittelgradige depressive Episode
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+A15.0
+</td>
+<td style="text-align:left;width: 30em; ">
+Störung des Sozialverhaltens bei fehlenden sozialen Bindungen
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+A15.0
+</td>
+<td style="text-align:left;width: 30em; ">
+Lungentuberkulose, durch mikroskopische Untersuchung des Sputums
+gesichert, mit oder ohne Nachweis durch Kultur oder molekularbiologische
+Verfahren
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+L89.00
+</td>
+<td style="text-align:left;width: 30em; ">
+Dekubitus 1. Grades: Kopf
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+L89.00
+</td>
+<td style="text-align:left;width: 30em; ">
+Dekubitus, Stadium 1: Kopf
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+L20.9
+</td>
+<td style="text-align:left;width: 30em; ">
+Atopisches [endogenes] Ekzem, nicht näher bezeichnet
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+L20.9
+</td>
+<td style="text-align:left;width: 30em; ">
+Mittelgradige depressive Episode
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+J03.0
+</td>
+<td style="text-align:left;width: 30em; ">
+Streptokokken-Tonsillitis
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+J03.0
+</td>
+<td style="text-align:left;width: 30em; ">
+Mittelgradige depressive Episode
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+L50.2
+</td>
+<td style="text-align:left;width: 30em; ">
+Sonstige emotionale Störungen des Kindesalters
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;border-right:1px solid;">
+L50.2
+</td>
+<td style="text-align:left;width: 30em; ">
+Urtikaria durch Kälte oder Wärme
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="f-codes-ohne-cluster" class="section level1" number="2">
+<h1><span class="header-section-number">2</span> F-Codes ohne
+Cluster</h1>
+<pre class="r"><code>data_exp$diagnosis %&gt;%
+  filter(icd_cat_l1 == &quot;F Sonst.&quot;) %&gt;%
+  use_series(icd_code) %&gt;%
+  fct_drop() %&gt;% 
+  fct_count(sort = T, prop = T) %&gt;% 
+  rename(icd_code = f) %&gt;% 
+  left_join(icd_label_dict, multiple = &quot;all&quot;)</code></pre>
+<pre><code>Joining with `by = join_by(icd_code)`</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":["icd_code"],"name":[1],"type":["fct"],"align":["left"]},{"label":["n"],"name":[2],"type":["int"],"align":["right"]},{"label":["p"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["icd_label"],"name":[4],"type":["fct"],"align":["left"]}],"data":[{"1":"F98.49","2":"5","3":"0.41666667","4":"Stereotype Bewegungsstörungen: Ohne Angabe einer Selbstverletzung"},{"1":"F98.40","2":"2","3":"0.16666667","4":"Stereotype Bewegungsstörungen: Ohne Selbstverletzung"},{"1":"F39","2":"2","3":"0.16666667","4":"Nicht näher bezeichnete affektive Störung"},{"1":"F99","2":"1","3":"0.08333333","4":"Psychische Störung ohne nähere Angabe"},{"1":"F69","2":"1","3":"0.08333333","4":"Nicht näher bezeichnete Persönlichkeits- und Verhaltensstörung"},{"1":"F53.8","2":"1","3":"0.08333333","4":"Sonstige psychische und Verhaltensstörungen im Wochenbett, anderenorts nicht klassifiziert"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+</div>
+<div id="kein-dis_date-bei-ambulanten-patienten" class="section level1"
+number="3">
+<h1><span class="header-section-number">3</span> kein dis_date bei
+ambulanten Patienten</h1>
+<p>Kriterien für Abgrenzung von Fällen gegeneinander</p>
+<pre class="r"><code>data_exp$case %&gt;% mutate(has_dis_date = !is.na(dis_date)) %&gt;% tabyl(has_dis_date, case_state)</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":["has_dis_date"],"name":[1],"type":["lgl"],"align":["right"]},{"label":["ambulant"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["teilstationär"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["stationär"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["NA_"],"name":[5],"type":["dbl"],"align":["right"]}],"data":[{"1":"FALSE","2":"5831","3":"0","4":"2","5":"5"},{"1":"TRUE","2":"8","3":"571","4":"2357","5":"16"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+</div>
+<div id="regarding-cluster-adoleszenten-bezogene-substanzstörungen"
+class="section level1" number="4">
+<h1><span class="header-section-number">4</span> Regarding cluster
+“adoleszenten-bezogene Substanzstörungen”</h1>
+<p>distribution of abuse disorders by substance</p>
+<pre class="r"><code>data_exp$diagnosis %&gt;%
+  filter(icd_cat_l1 == &quot;Substanzbezogene Störung&quot;) %&gt;%
+  use_series(icd_cat_l3) %&gt;% 
+  fct_drop() %&gt;% 
+  fct_count(sort = T, prop = T) %&gt;%
+  rename(icd_cat_l3 = f) %&gt;% 
+  mutate(current_cluster = case_when(!!!icd_cats_l2[2]))</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":["icd_cat_l3"],"name":[1],"type":["fct"],"align":["left"]},{"label":["n"],"name":[2],"type":["int"],"align":["right"]},{"label":["p"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["current_cluster"],"name":[4],"type":["chr"],"align":["left"]}],"data":[{"1":"Cannabinoide Sonst.","2":"1355","3":"0.3806179775","4":"Adoleszenten-assoziierte Substanz"},{"1":"schwerer zug. Substanzen Sonst.","2":"851","3":"0.2390449438","4":"NA"},{"1":"Alkohol Sonst.","2":"596","3":"0.1674157303","4":"Adoleszenten-assoziierte Substanz"},{"1":"Alkohol Intoxikation","2":"279","3":"0.0783707865","4":"Adoleszenten-assoziierte Substanz"},{"1":"Tabak Sonst.","2":"215","3":"0.0603932584","4":"Adoleszenten-assoziierte Substanz"},{"1":"schwerer zug. Substanzen Intoxikation","2":"213","3":"0.0598314607","4":"NA"},{"1":"Cannabinoide Intoxikation","2":"32","3":"0.0089887640","4":"Adoleszenten-assoziierte Substanz"},{"1":"F Sonst.","2":"18","3":"0.0050561798","4":"NA"},{"1":"Lösungsmittel Sonst.","2":"1","3":"0.0002808989","4":"Adoleszenten-assoziierte Substanz"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+</div>
+<div id="viele-fälle-ohne-entlassdiagnose" class="section level1"
+number="5">
+<h1><span class="header-section-number">5</span> Viele Fälle ohne
+Entlassdiagnose</h1>
+<pre class="r"><code>data_exp$diagnosis %&gt;%
+  slice_head(n = 1, by = c(case_id, icd_type)) %&gt;% 
+  left_join(data_exp$case %&gt;% select(case_id, case_state)) %&gt;%
+  tabyl(icd_type, case_state) %&gt;% 
+  adorn_totals(&quot;col&quot;)</code></pre>
+<pre><code>Joining with `by = join_by(case_id)`</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":["icd_type"],"name":[1],"type":["ord"],"align":["right"]},{"label":["ambulant"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["teilstationär"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["stationär"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["NA_"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["Total"],"name":[6],"type":["dbl"],"align":["right"]}],"data":[{"1":"Einw.","2":"22","3":"1","4":"9","5":"0","6":"32"},{"1":"Aufn.","2":"7","3":"571","4":"2335","5":"0","6":"2913"},{"1":"Beh.","2":"5827","3":"289","4":"1188","5":"0","6":"7304"},{"1":"FA En","2":"7","3":"571","4":"2336","5":"0","6":"2914"},{"1":"Abr","2":"0","3":"14","4":"67","5":"0","6":"81"},{"1":"Entl.","2":"7","3":"571","4":"2336","5":"0","6":"2914"},{"1":"NA","2":"0","3":"21","4":"148","5":"13","6":"182"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+<pre class="r"><code>data_exp$diagnosis %&gt;% filter(!is.na(icd_code)) %&gt;% use_series(case_id) %&gt;% n_distinct()</code></pre>
+<pre><code>[1] 8771</code></pre>
+</div>
+<div id="concerning-readmissions" class="section level1" number="6">
+<h1><span class="header-section-number">6</span> concerning
+readmissions</h1>
+<ul>
+<li>when splitting into pre_cov/dur_cov, where to count patients with
+discharge pre_cov and readmission dur_cov? Options: exclude / assign to
+pre_cov / <strong>assign to dur_cov</strong></li>
+<li>results could be skewed since dur_cov has variance restriction -
+should the pre_cov period be restricted for this stat?</li>
+</ul>
+</div>
+<div id="ed-fälle-in-tagesklinik" class="section level1" number="7">
+<h1><span class="header-section-number">7</span> ED Fälle in
+Tagesklinik?</h1>
+<ul>
+<li>Maybe this is an artifact of merging cases. Should we change
+case_state merging strategy from first() to max(stationär &gt;
+teilstationär &gt; ambulant)?</li>
+</ul>
+<pre class="r"><code>df_ed %&gt;% tabyl(case_state, icd_f50)</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":["case_state"],"name":[1],"type":["ord"],"align":["right"]},{"label":["F50-"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["F50+"],"name":[3],"type":["dbl"],"align":["right"]}],"data":[{"1":"ambulant","2":"0","3":"0"},{"1":"teilstationär","2":"536","3":"28"},{"1":"stationär","2":"1954","3":"331"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+<hr />
+<p>Notes</p>
+<pre class="r"><code># non-F
+# Diabetes, Asthma, Adipositas, Epilepsie, Schädel-Hirn-Trauma
+
+# Self-Harm
+# X60-84</code></pre>
+<br>
+<p>
+<button type="button" class="btn btn-default btn-workflowr btn-workflowr-sessioninfo" data-toggle="collapse" data-target="#workflowr-sessioninfo" style="display: block;">
+<span class="glyphicon glyphicon-wrench" aria-hidden="true"></span>
+Session information
+</button>
+</p>
+<div id="workflowr-sessioninfo" class="collapse">
+<pre class="r"><code>sessionInfo()</code></pre>
+<pre><code>R version 4.3.1 (2023-06-16)
+Platform: x86_64-pc-linux-gnu (64-bit)
+Running under: Ubuntu 22.04.2 LTS
+
+Matrix products: default
+BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
+
+locale:
+ [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C              
+ [3] LC_TIME=de_DE.UTF-8        LC_COLLATE=en_US.UTF-8    
+ [5] LC_MONETARY=de_DE.UTF-8    LC_MESSAGES=en_US.UTF-8   
+ [7] LC_PAPER=de_DE.UTF-8       LC_NAME=C                 
+ [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+[11] LC_MEASUREMENT=de_DE.UTF-8 LC_IDENTIFICATION=C       
+
+time zone: Europe/Berlin
+tzcode source: system (glibc)
+
+attached base packages:
+[1] tools     stats     graphics  grDevices utils     datasets  methods  
+[8] base     
+
+other attached packages:
+ [1] kableExtra_1.3.4    knitr_1.43          janitor_2.2.0      
+ [4] glue_1.6.2          rlang_1.1.1         DescTools_0.99.49  
+ [7] psych_2.3.6         ggVennDiagram_1.2.2 magrittr_2.0.3     
+[10] lubridate_1.9.2     forcats_1.0.0       stringr_1.5.0      
+[13] dplyr_1.1.2         purrr_1.0.1         readr_2.1.4        
+[16] tidyr_1.3.0         tibble_3.2.1        ggplot2_3.4.2      
+[19] tidyverse_2.0.0     workflowr_1.7.0    
+
+loaded via a namespace (and not attached):
+ [1] tidyselect_1.2.0  Exact_3.2         viridisLite_0.4.2 rootSolve_1.8.2.3
+ [5] fastmap_1.1.1     promises_1.2.0.1  digest_0.6.33     timechange_0.2.0 
+ [9] lifecycle_1.0.3   processx_3.8.2    lmom_2.9          compiler_4.3.1   
+[13] sass_0.4.7        utf8_1.2.3        yaml_2.3.7        data.table_1.14.8
+[17] mnormt_2.1.1      xml2_1.3.5        expm_0.999-7      withr_2.5.0      
+[21] grid_4.3.1        fansi_1.0.4       git2r_0.32.0      e1071_1.7-13     
+[25] colorspace_2.1-0  scales_1.2.1      MASS_7.3-60       cli_3.6.1        
+[29] mvtnorm_1.2-2     rmarkdown_2.23    generics_0.1.3    rstudioapi_0.15.0
+[33] httr_1.4.6        tzdb_0.4.0        readxl_1.4.3      gld_2.6.6        
+[37] cachem_1.0.8      proxy_0.4-27      rvest_1.0.3       parallel_4.3.1   
+[41] cellranger_1.1.0  vctrs_0.6.3       webshot_0.5.5     boot_1.3-28      
+[45] Matrix_1.6-0      jsonlite_1.8.7    callr_3.7.3       hms_1.1.3        
+[49] systemfonts_1.0.4 jquerylib_0.1.4   ps_1.7.5          stringi_1.7.12   
+[53] gtable_0.3.3      RVenn_1.1.0       later_1.3.1       munsell_0.5.0    
+[57] pillar_1.9.0      htmltools_0.5.5   R6_2.5.1          rprojroot_2.0.3  
+[61] evaluate_0.21     lattice_0.21-8    highr_0.9         snakecase_0.11.0 
+[65] httpuv_1.6.11     bslib_0.5.0       class_7.3-22      Rcpp_1.0.11      
+[69] svglite_2.1.1     nlme_3.1-162      whisker_0.4       xfun_0.39        
+[73] fs_1.6.3          getPass_0.2-2     pkgconfig_2.0.3  </code></pre>
+</div>
+</div>
+
+
+<!-- Adjust MathJax settings so that all math formulae are shown using
+TeX fonts only; see
+https://docs.mathjax.org/en/latest/web/configuration.html. This will make
+the presentation more consistent at the cost of the webpage sometimes
+taking slightly longer to load. Note that this only works because the
+footer is added to webpages before the MathJax javascript. -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    "HTML-CSS": { availableFonts: ["TeX"] }
+  });
+</script>
+
+
+
+
+</div>
+</div>
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.odd').parent('tbody').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open');
+  });
+});
+</script>
+
+<!-- code folding -->
+
+<script>
+$(document).ready(function ()  {
+
+    // temporarily add toc-ignore selector to headers for the consistency with Pandoc
+    $('.unlisted.unnumbered').addClass('toc-ignore')
+
+    // move toc-ignore selectors from section div to header
+    $('div.section.toc-ignore')
+        .removeClass('toc-ignore')
+        .children('h1,h2,h3,h4,h5').addClass('toc-ignore');
+
+    // establish options
+    var options = {
+      selectors: "h1,h2,h3",
+      theme: "bootstrap3",
+      context: '.toc-content',
+      hashGenerator: function (text) {
+        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_');
+      },
+      ignoreSelector: ".toc-ignore",
+      scrollTo: 0
+    };
+    options.showAndHide = true;
+    options.smoothScroll = true;
+
+    // tocify
+    var toc = $("#TOC").tocify(options).data("toc-tocify");
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
