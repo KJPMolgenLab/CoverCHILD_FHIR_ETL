@@ -10,6 +10,7 @@ if(do_source_data_creation) {
   source("code/data_etl.R") # creates "data_exp" & "data_exp_sum" from scratch from raw data
 } else {
   load("output/CoverCHILD_data_ETL_2023-07-25.RData.xz")
+  source("code/functions.R")
   load_inst_pkgs("tidyverse", "tools", "magrittr", "lubridate", "ggVennDiagram", "psych", "DescTools", "rlang", "glue",
                  "janitor")
   do_save_objects <- FALSE

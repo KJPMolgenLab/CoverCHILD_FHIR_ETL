@@ -149,3 +149,8 @@ gen_tabyl <- function(df, ...){
 # rgb() function with maxColorValue = 255 as default
 rgb256 <- function(..., maxColorValue = 255) rgb(..., maxColorValue = maxColorValue)
 
+# factor labeller: use only every nth label for plotting
+label_seq <- function(fac, n) {
+  lvls <- levels(droplevels(fac))
+  return(lvls[seq(1, length(lvls), n)])
+}

@@ -50,7 +50,7 @@ gu_pref_colours <- set_names(list_c(gu_colours)[c("gu_lichtblau", "gu_gruen", "g
 plotdir <- file.path(outdir, "ed_plots")
 dir.create(plotdir, recursive = TRUE, showWarnings = FALSE)
 # customise ggsave function with different defaults if necessary
-ed_ggsave <- function(filename, path = plotdir, device = "tiff", scale = 1, dpi = 300, ...) {
+ed_ggsave <- function(filename, path = plotdir, device = "tiff", scale = 0.8, dpi = 400, ...) {
   ggsave(path = path, filename = paste(filename, device, sep = "."), device = device, scale = scale, dpi = dpi, ...)
 }
 ```
@@ -59,11 +59,12 @@ ed_ggsave <- function(filename, path = plotdir, device = "tiff", scale = 1, dpi 
 
 ## full study period {.tabset .tabset-pills}
 ```{r}
-ed_subcat_label <- "ED Type"
+ed_subcat_label <- "ED subtype"
 ed_labels <- c("AN", "BN", "oED")
 trend_y_label_share <- "share of cases with ED diagnosis [%]"
 trend_y_label_abs <- "number of cases with ED diagnosis"
 covid_onset_label <- "Onset of\nCOVID-19\npandemic"
+use_nth_labels <- 2
 ```
 
 ### relative
@@ -74,7 +75,8 @@ covid_onset_label <- "Onset of\nCOVID-19\npandemic"
     geom_area() +
     # geom_col() +
     scale_fill_discrete(type = gu_pref_colours, name = ed_subcat_label, labels = ed_labels) +
-    guides(x = guide_axis(angle = -90)) + 
+    scale_x_discrete(breaks = label_seq(df_ed_monthly_long$adm_year_month, use_nth_labels),
+                     guide = guide_axis(angle = -90)) +
     geom_vline(aes(xintercept = "2020.3"), show.legend = FALSE) +
     labs(# title = "monthly share of cases with ED diagnosis", 
          x = "Year.Month", y = trend_y_label_share) +
@@ -92,7 +94,8 @@ covid_onset_label <- "Onset of\nCOVID-19\npandemic"
     geom_area() +
     # geom_col() +
     scale_fill_discrete(type = gu_pref_colours, name = ed_subcat_label, labels = ed_labels) +
-    guides(x = guide_axis(angle = -90)) + 
+    scale_x_discrete(breaks = label_seq(df_ed_monthly_long$adm_year_month, use_nth_labels),
+                     guide = guide_axis(angle = -90)) +
     geom_vline(aes(xintercept = "2020.3"), show.legend = FALSE) +
     labs(# title = "number of monthly cases with ED diagnosis", 
          x = "Year.Month", y = trend_y_label_abs) +
@@ -104,10 +107,10 @@ covid_onset_label <- "Onset of\nCOVID-19\npandemic"
 
 ## covid pandemic with school closure periods {.tabset .tabset-pills}
 ```{r}
-school_closure_label <- "School closure periods"
+school_closure_label <- "School closure\nperiods"
 school_closure_severity_labels <- c("1" = "partial", "2" = "full (incl. holidays)")
-covid_phase_labels <- list(NULL = "1", "1st school\nclosure" = "2", "1st open period" = "3",
-                           "2nd school closure" = "4", "2nd open period" = "5")
+covid_phase_labels <- list(NULL = "1", "1st school\nclosure" = "2", "1st open\nperiod" = "3",
+                           "2nd school\nclosure" = "4", "2nd open\nperiod" = "5")
 ```
 
 ### relative
@@ -134,10 +137,8 @@ covid_phase_labels <- list(NULL = "1", "1st school\nclosure" = "2", "1st open pe
                   label = as_factor(period_i_is_lockd) %>% fct_recode(!!!covid_phase_labels)),
               y = 103, hjust = "left", vjust = "top", nudge_x = 0.75,
               data = df_covid_periods_is_lockd, inherit.aes = FALSE, na.rm = TRUE) +
-    scale_x_discrete(
-      breaks = 
-        levels(df_ed_covid_weekly_long$adm_year_week)[seq(1, length(levels(df_ed_covid_weekly_long$adm_year_week)), 2)],
-      guide = guide_axis(angle = -90)) +
+    scale_x_discrete(breaks = label_seq(df_ed_covid_weekly_long$adm_year_week, use_nth_labels),
+                     guide = guide_axis(angle = -90)) +
     labs(# title = "weekly share of cases with ED diagnosis during Covid pandemic", 
          x = "Year.Week", y = trend_y_label_share) +
     theme_classic()} %T>% 
@@ -168,10 +169,8 @@ covid_phase_labels <- list(NULL = "1", "1st school\nclosure" = "2", "1st open pe
                   label = as_factor(period_i_is_lockd) %>% fct_recode(!!!covid_phase_labels)),
               y = 5.15, hjust = "left", vjust = "top", nudge_x = 0.75,
               data = df_covid_periods_is_lockd, inherit.aes = FALSE, na.rm = TRUE) +
-    scale_x_discrete(
-      breaks =
-        levels(df_ed_covid_weekly_long$adm_year_week)[seq(1, length(levels(df_ed_covid_weekly_long$adm_year_week)), 2)],
-      guide = guide_axis(angle = -90)) +
+    scale_x_discrete(breaks = label_seq(df_ed_covid_weekly_long$adm_year_week, use_nth_labels),
+                     guide = guide_axis(angle = -90)) +
     labs(# title = "number of weekly cases with ED diagnosis during Covid pandemic", 
          x = "Year.Week", y = trend_y_label_abs) +
     theme_classic()} %T>% 
@@ -228,12 +227,13 @@ df_ed_monthly_baseline %>%
     stat_smooth(aes(colour = icd_f50, fill = icd_f50), span = 0.3) +
     scale_colour_discrete(aesthetics = c("colour", "fill"), 
                           type = gu_pref_colours, name = "ED Diagnosis", labels = c("no ED", "ED")) +
-    guides(x = guide_axis(angle = -90)) +
+    scale_x_discrete(breaks = label_seq(df_ed$adm_year_month, use_nth_labels),
+                     guide = guide_axis(angle = -90)) +
     geom_vline(aes(xintercept = "2020.3"), show.legend = FALSE) +
     labs(# title = "Share of readmissions within 6 months for cases with and without ED",
          x = "Year.Month", y = "Share of readmissions within 6 months [%]") +
-    geom_text(aes(x = "2020.3", y = 100, label = covid_onset_label, hjust = "left", vjust = "top"),
-              nudge_x = 0.3, nudge_y = 0.5, check_overlap = TRUE) +
+    geom_text(aes(x = "2020.3", y = -10, label = covid_onset_label, hjust = "left", vjust = "top"),
+              nudge_x = 0.3, nudge_y = 0, check_overlap = TRUE) +
     theme_classic()} %T>% 
   {if (do_save_objects) ed_ggsave("Fig2A_Readmission_whole_period_monthly_share", plot = .)}
 ```
