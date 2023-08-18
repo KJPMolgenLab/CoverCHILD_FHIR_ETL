@@ -1,6 +1,6 @@
 ---
 title: "Eating disorder paper inference statistics"
-author: "SP"
+author: "simeonplatte"
 date: "`r Sys.Date()`"
 output: 
   workflowr::wflow_html: 

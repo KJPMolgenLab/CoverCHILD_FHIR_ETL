@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 # CoverCHILD data ETL
-# @author: SP
+# @author: simeonplatte
 # @date: 2022-11-04
 
 # setup ----------------------------------------------------------------------------------------------------------------

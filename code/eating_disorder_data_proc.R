@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 # CoverCHILD eating disorder data processing
-# @author: SP
+# @author: simeonplatte
 # @date: 2023-02-09
 
 # setup ----------------------------------------------------------------------------------------------------------------

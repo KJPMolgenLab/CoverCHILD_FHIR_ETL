@@ -1,6 +1,6 @@
 ---
 title: "Points to discuss"
-author: "SP"
+author: "simeonplatte"
 date: "`r Sys.Date()`"
 output: 
   workflowr::wflow_html: 
