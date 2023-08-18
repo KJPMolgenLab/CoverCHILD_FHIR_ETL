@@ -1,0 +1,28 @@
+---
+default:
+  # general behavior ---------------------------------------------------------------------------------------------------
+  do_search: true
+  get_all_elements: false
+  keep_all_elements: false
+  n_cores: 12
+  max_bundles: 3 # limit value for testing/debugging, else use .inf
+  max_bundle_size: 100 # set max. bundle size using _count parameter in FHIR search, e.g. 1000
+  
+  # server settings ----------------------------------------------------------------------------------------------------
+#  hospital_name: 'UKDD'
+#  hospital_zip: '01307'
+
+  filebase: 'data/FHIR_patient_examples' # if !do_search, XML FHIR resources/bundles will be read from this folder
+  serverbase: 'https://hapi.fhir.org/baseR4'
+  username: null
+  password: null
+  token: null
+  http_proxy: null
+  https_proxy: null
+  no_proxy: null # put fhir server adress here, if you need to bypass the proxy for accessing it locally
+  ssl_verify_peer: false
+  
+  # server coding customization ----------------------------------------------------------------------------------------
+  sep: ":::" # could probably be hardcoded in R, doesn't need to be customized by a site
+  brackets: ["[", "]"] # same
+

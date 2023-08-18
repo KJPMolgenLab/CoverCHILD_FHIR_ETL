@@ -1,0 +1,198 @@
+---
+default:
+  # FHIR search parameters ---------------------------------------------------------------------------------------------
+#  query_link: '&' # deprecated, as resource search parameters are dis- and readjointed in R
+  resource:
+    # Patient-based approach as suggested by Stephan Wojke. I'd rather go for Encounter, 
+    #  assuming that forward-chaining is faster than reverse chaining see below.
+#    patient:
+#      - "birthdate=ge1998"
+#      - "address-country=de,ger"
+
+#      #TODO: Documentation says that each _has parameter is processed independently of other _has parameters.
+#      #      So is this really the intersection of date limits or does it query all dates as a result?
+#      - "_has:Encounter:patient:date=ge2016-01-01"
+#      - "_has:Encounter:patient:date=le2022-02-28"
+#      
+#      #TODO: serviceType needs to be implemented on FHIR server as custom SearchParameter.
+#      #      Or can this be done via "_has:encounter.location:identifier="?
+#      #      UKF does not seem to have location implemented.
+#      #- "_has:Encounter:patient:servicetype=1000,3000" 
+
+#      #TODO: Better to use forward or reverse inclusion when querying resources (_include vs _revinclude)?
+#      #      I.e. can we be sure that every encounter has the links present to all its conditions in 
+#      #      diagnosis.condition.reference?
+#      #TODO: filter requests to included resources, e.g. condition only if coding system is ICD-10
+#      - "_revinclude=Encounter:subject"
+#      - "_revinclude=Condition:subject"
+#      - "_revinclude=Procedure:subject"
+#      
+    # Encounter-based approach
+    encounter:
+      - "date=ge2016-01-01"
+      - "date=le2022-02-28"
+      #- "servicetype=1000,3000"
+      #- "servicetype=https://www.medizininformatik-initiative.de/fhir/core/modul-fall/CodeSystem/Fachabteilungsschluessel|1000,3000"
+      #TODO: Also include parent-Encounters of matched encounters as they are Abteilungskontakte
+      #      and their respective Einrichtungskontakte hold more info.
+      #- "_include:Encounter:encounter" ?
+      
+      - "patient.birthdate=ge1998"
+      - "patient.address-country=de,ger"
+      
+      - "_include=Encounter:subject"
+      - "_revinclude=Condition:encounter" # or _include:Encounter:(diagnosis.?)condition ?
+      - "_revinclude=Procedure:encounter"
+      
+
+  # elements to include in fhir search ---------------------------------------------------------------------------------
+  elements:
+    patient:
+      ## to extract
+      - "address/postalCode" # "6", "63", "0xxxx"
+      - "birthDate" # "2001-01-01", "1958-04"
+      - "deceasedBoolean" # "false"
+      - "deceasedDateTime"
+      - "gender" # "female", "male"
+      - "id"
+      - "identifier/assigner/identifier/value"
+      - "identifier/value"
+
+      ## for QC only, discarded before export
+      - "address/country" # "DE"
+      #- "address/type" # "both"
+      #- "identifier/assigner/identifier/system"
+      #- "identifier/assigner/identifier/type/coding/code"
+      #- "identifier/assigner/identifier/type/coding/system"
+      - "identifier/system"
+      #- "identifier/type/coding/code"
+      #- "identifier/type/coding/system"
+      #- "identifier/use"
+      - "meta/lastUpdated"
+      - "meta/profile"
+      #- "meta/security/code"
+      #- "meta/security/display"
+      #- "meta/security/system"
+      - "meta/source"
+      #- "meta/versionId"
+      #- "name/extension"
+      #- "name/extension/valueCoding/code"
+      #- "name/extension/valueCoding/display"
+      #- "name/extension/valueCoding/system"
+
+    encounter:
+      ## to extract
+      - "class/display"
+      - "hospitalization/admitSource/coding/code"
+      - "hospitalization/admitSource/coding/display"
+      - "hospitalization/admitSource/text"
+      - "hospitalization/dischargeDisposition/coding/code"
+      - "hospitalization/dischargeDisposition/coding/display"
+      - "hospitalization/dischargeDisposition/text"
+      - "id"
+      - "identifier/value"
+      - "period/end"
+      - "period/start"
+      - "reasonCode/coding/code"
+      - "reasonCode/coding/display"
+      - "serviceType/coding/code"
+      - "serviceType/coding/display"
+      - "serviceType/text"
+      - "status"
+      - "subject/reference"
+      - "type/coding/code"
+      - "type/coding/display"
+      - "type/text"
+
+      ## mappings & info about conditions
+      #- "diagnosis/condition/identifier/system"
+      #- "diagnosis/condition/identifier/value"
+      - "diagnosis/condition/reference"
+      - "diagnosis/rank"
+      - "diagnosis/use/coding/code"
+      - "diagnosis/use/coding/display"
+      #- "diagnosis/use/coding/system"
+
+      ## locations, might need to be unpacked
+      #- "location/location/identifier/system"
+      - "location/location/identifier/value"
+      - "location/period/end"
+      - "location/period/start"
+      - "location/physicalType/coding/code"
+      - "location/physicalType/coding/display"
+      - "location/physicalType/coding/system"
+      - "location/status"
+      - "partOf/reference"
+
+      ## for QC only, discarded before export
+      #- "class/code"
+      - "class/system"
+      - "hospitalization/admitSource/coding/system"
+      - "hospitalization/dischargeDisposition/coding/system"
+      #- "identifier/assigner/identifier/system"
+      #- "identifier/assigner/identifier/value"
+      - "identifier/system"
+      #- "identifier/type/coding/code"
+      #- "identifier/type/coding/system"
+      #- "identifier/use"
+      - "meta/lastUpdated"
+      #- "meta/profile"
+      #- "meta/security/code"
+      #- "meta/security/display"
+      #- "meta/security/system"
+      - "meta/source"
+      #- "meta/versionId"
+      - "reasonCode/coding/system"
+      #- "serviceProvider/identifier/system"
+      - "serviceProvider/identifier/value"
+      - "serviceType/coding/system"
+      #- "subject/identifier/system"
+      #- "subject/identifier/value"
+      #- "type/coding/system"
+
+    condition:
+      ## to extract
+      - "code/coding/code"
+      - "code/coding/display"
+      - "code/coding/system"
+      - "code/coding/version"
+      - "code/text" # duplicate of coding/display
+      - "encounter/reference"
+      - "id" # contains also info about diagnosis type at the end
+      - "onsetDateTime"
+      - "onsetPeriod/end"
+      - "onsetPeriod/start"
+      - "recordedDate"
+      - "subject/reference"
+      - "verificationStatus/coding/code" # is potentially a modifier of condition, but does not need to be supported
+      - "verificationStatus/coding/display"
+      - "verificationStatus/coding/system"
+      - "verificationStatus/text"
+
+      ## bodySite, if not handled as code.coding:icd10-gm.extension Seitenlokalisation
+      - "bodySite/coding/code"
+      - "bodySite/coding/display"
+      - "bodySite/coding/system"
+      - "bodySite/text"
+
+      ## Extensions - need extra handling
+      ##  (Seitenlokalisation, Diagnosesicherheit, Mehrfachkodierungen, Neben-/2.-Diagnosen "condition-related")
+      - "code/coding/extension"
+      - "code/coding/extension/valueCoding/code"
+      - "code/coding/extension/valueCoding/display"
+      - "code/coding/extension/valueCoding/system"
+      - "extension"
+      - "extension/valueReference/reference"
+
+      ## for QC only, discarded before export
+      #- "identifier/system"
+      #- "identifier/use"
+      - "identifier/value" # same as ID in UKF data
+      - "meta/lastUpdated"
+      - "meta/profile"
+      #- "meta/security/code"
+      #- "meta/security/display"
+      #- "meta/security/system"
+      - "meta/source"
+      #- "meta/versionId"
+

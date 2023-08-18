@@ -165,8 +165,6 @@ label_seq <- function(fac, n) {
   lvls <- levels(droplevels(fac))
   return(lvls[seq(1, length(lvls), n)])
 }
-<<<<<<< Updated upstream
-=======
 
 ## FHIR handling #######################################################################################################
 # find in a df columns with entries which have multiple indices and need to be fhir_melted
@@ -242,4 +240,4 @@ ctoc_log <- function(log = TRUE,
   toc(log = log, quiet = quiet, func.toc = func.toc, ...)
   ctic.log(show = show, save = save, append_current_only = append_current_only)
 }
->>>>>>> Stashed changes
+
