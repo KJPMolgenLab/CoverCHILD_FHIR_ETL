@@ -1,6 +1,17 @@
 # helper functions -----------------------------------------------------------------------------------------------------
 
 ## package installation & loading ######################################################################################
+# installation only
+inst_pkgs <- function(..., silent = FALSE) {
+  pkgs <- list(...)
+  for (pkg in pkgs) if (identical(system.file(package = pkg), "")) {
+    install.packages(pkg)
+  } else {
+    cat(paste0("Package '", pkg, "' already installed."), "\n")
+  }
+}
+
+# loading or installation & loading
 load_inst_pkgs <- function(..., silent = FALSE){
   pkgs <- list(...) # arguments must be of type char
   for (pkg in pkgs){
