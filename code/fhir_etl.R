@@ -81,8 +81,6 @@ fhir_dfs <- fhir_crack(bundles = fhir_bundles,
 gc()
 gc()
 
-length(find_melt_col_groups(fhir_dfs$encounter, cfg$brackets))
-
 # melt
 #TODO: This needs debugging/expansion, if multiple melt-groups per DF are present
 #      or when grouping attribute is not on level 1.
@@ -102,6 +100,8 @@ molten_dfs <- imap(fhir_dfs, \(df, df_name) {
     }
   fhir_rm_indices(df, brackets = cfg$brackets)
   })
+gc()
+gc()
 
 # bring dfs to global env for easier inspection
-for (x in names(fhir_dfs)) assign(paste0("df_", x), fhir_dfs[[x]])
+for (x in names(molten_dfs)) assign(paste0("df_", x), fhir_dfs[[x]])
