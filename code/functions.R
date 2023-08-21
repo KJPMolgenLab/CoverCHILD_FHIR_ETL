@@ -165,3 +165,81 @@ label_seq <- function(fac, n) {
   lvls <- levels(droplevels(fac))
   return(lvls[seq(1, length(lvls), n)])
 }
+<<<<<<< Updated upstream
+=======
+
+## FHIR handling #######################################################################################################
+# find in a df columns with entries which have multiple indices and need to be fhir_melted
+find_melt_col_groups <- function(df, brackets) {
+  pattern <- paste0("\\", brackets[[1]], ".*[02-9].*\\", brackets[[2]])
+  melt_group_df <- df %>%
+    summarise(across(everything(), \(x) any(str_detect(x, pattern), na.rm = TRUE))) %>%
+    data.table::transpose(keep.names = "source") %>%
+    filter(V1)
+  if (nrow(melt_group_df) == 0) return(list())
+  melt_group_df %<>%
+    separate_wider_delim(source, ".", names = paste0("grouplvl", 1:max_na(str_count(.$source, "\\."))),
+                         too_few = "align_start", too_many = "drop", cols_remove = FALSE) %>%
+    mutate(across(starts_with("grouplvl"), as.factor))
+  melt_group_df %>% select(source, grouplvl1) %>% chop(source) %>% deframe()
+  #TODO: expand to be able to use lower grouping levels. Lower lvl groups need to include higher lvls.
+  #      str_split(., "\\.")...
+}
+
+## Timing via tictoc ###################################################################################################
+tictoc_msg_prefix <- "TIMING"
+tictoc_msg_pad_len <- 7L
+
+# messages to r console
+msg.tic <- function(tic, msg) {
+  if (is.null(msg) || is.na(msg) || length(msg) == 0) msg <- "next step"
+  str_c(tictoc_msg_prefix, ": ", str_pad(round(tic, 1), tictoc_msg_pad_len), "s - Starting '", msg, "'...")
+}
+msg.toc <- function(tic, toc, msg) {
+  if (is.null(msg) || is.na(msg) || length(msg) == 0) msg <- "last step"
+  str_c(tictoc_msg_prefix, ": ", str_pad(round(tic, 1), tictoc_msg_pad_len), "s - Finished '", msg, "'. ",
+        round(toc-tic, 1), "s elapsed.")
+}
+
+# logging function that saves to file
+ctic.log <- function(show = FALSE,
+                     save = paste0("Timings_", format(Sys.time(), "%y%m%d"), ".csv"),
+                     append_current_only = TRUE) {
+  log_df <- map(tic.log(format = FALSE), \(x) {
+    if (length(x$msg) == 0) x$msg <- NA
+    as_tibble_row(x)
+  }) %>%
+    bind_rows() %>%
+    rename(s_start = tic, s_finish = toc)
+  if (show) print(log_df)
+
+  if (is.character(save) && !is.na(save)) {
+    if ((length(save) == 0) || identical(save, "")) {
+      stop("Saving of timing log was requested, but no valid filepath was provided.")
+    } else {
+      dir.create(dirname(save), showWarnings = FALSE, recursive = TRUE)
+      write_excel_csv2(if(append_current_only) slice_tail(log_df, n = 1) else log_df,
+                       file = save,
+                       append = append_current_only,
+                       col_names = (!append_current_only) || (!file.exists(save)))
+    }
+  }
+  invisible(log_df)
+}
+
+# custom tic, toc, log with project defaults
+ctic <-
+  function(msg = NULL, quiet = FALSE, func.tic = msg.tic, ...) tic(msg = msg, quiet = quiet, func.tic = func.tic, ...)
+ctoc <-
+  function(log = TRUE, quiet = FALSE, func.toc = msg.toc, ...) toc(log = log, quiet = quiet, func.toc = func.toc, ...)
+ctoc_log <- function(log = TRUE,
+                     quiet = FALSE,
+                     func.toc = msg.toc,
+                     show = FALSE,
+                     save = FALSE,
+                     append_current_only = TRUE,
+                     ...) {
+  toc(log = log, quiet = quiet, func.toc = func.toc, ...)
+  ctic.log(show = show, save = save, append_current_only = append_current_only)
+}
+>>>>>>> Stashed changes
