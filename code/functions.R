@@ -186,7 +186,7 @@ msg.tic <- function(tic, msg) {
 }
 msg.toc <- function(tic, toc, msg) {
   if (!is_useful_string(msg)) msg <- "last step"
-  str_c(tictoc_msg_prefix, ": ", str_pad(round(tic, 1), tictoc_msg_pad_len), "s - Finished '", msg, "'. ",
+  str_c(tictoc_msg_prefix, ": ", str_pad(round(toc, 1), tictoc_msg_pad_len), "s - Finished '", msg, "'. ",
         round(toc-tic, 1), "s elapsed.")
 }
 
@@ -312,36 +312,47 @@ remove_ref_prefix <- function(refs, resource = NULL, ref_col = NULL, ref_prefix 
 ## modified fhircrackr functions with default values read from config ----
 #TODO: add tictoc-logging to functions. Use decorators if possible?
 
-# create named fhir_url with default values read from config
-fhir_url_w_cfg <- function(search_name, parameters = NULL,
+# create list with $url named fhir_url and (if 'use_post') $body fhir_body (else NULL) elements,
+#  both with default values read from config
+fhir_url_w_cfg <- function(search_name,
+                           parameters = NULL,
                            include_cfg_params = TRUE,
                            url = NULL,
+                           use_post = NULL,
                            get_all_elements = NULL,
                            max_bundle_size = NULL,
                            config = cfg) {
   # config
   if (is.null(url)) url <- config$serverbase
+  if (is.null(use_post)) use_post <- config$use_post
   if (is.null(get_all_elements)) get_all_elements <- config$get_all_elements
   if (is.null(max_bundle_size)) max_bundle_size <- config$max_bundle_size
 
   resource <- search_name_to_resource(search_name)
+  parameters = as.list(c(parameters,
+                         if (include_cfg_params) search_cfg$named_params[[search_name]],
+                         "_elements" = if (!get_all_elements) {
+                           elements <- paste0(search_cfg$base_elements[[search_name]], collapse = ",")
+                           if (identical(elements, "")) NULL else elements
+                         },
+                         "_count" = as.character(max_bundle_size)))
 
-  x <- fhir_url(url = url,
-                resource = resource,
-                parameters = c(parameters,
-                               if (include_cfg_params) search_cfg$named_params[[search_name]],
-                               "_elements" = if (!get_all_elements) {
-                                 elements <- paste0(search_cfg$base_elements[[search_name]], collapse = ",")
-                                 if (identical(elements, "")) NULL else elements
-                               },
-                               "_count" = as.character(max_bundle_size)))
-  names(x) <- search_name
-  attr(x, "resource") <- resource
-  return(x)
+  if (!use_post) {
+    search_url <- fhir_url(url = url, resource = resource, parameters = parameters)
+    search_body <- NULL
+  } else {
+    search_url <- fhir_url(url = url, resource = resource)
+    search_body <- fhir_body(content = parameters)
+    attr(search_body, "names") <- search_name
+    attr(search_body, "resource") <- resource
+  }
+  names(search_url) <- search_name
+  attr(search_url, "resource") <- resource
+  return(list(url = search_url, body = search_body))
 }
 
 # fhir_search with defaults: values read from config, log_errors path, save_to_disc path
-fhir_search_w_cfg <- function(fhir_search_url = fhir_current_request(), # fhir_url object which should be named
+fhir_search_w_cfg <- function(fhir_search_url = fhir_current_request(),
                               body = NULL,
                               username = NULL,
                               password = NULL,
@@ -358,14 +369,19 @@ fhir_search_w_cfg <- function(fhir_search_url = fhir_current_request(), # fhir_u
   if (is.null(token)) token <- config$token
   if (is.null(max_bundles)) max_bundles <- config$max_bundles
 
-  if (!is.null(search_name) && !is.null(fhir_search_urls[[search_name]])) {
-    fhir_search_url <- fhir_search_urls[[search_name]]
-    cat(str_glue("Provided search_name. fhir_url '{search_name}' used, argument 'fhir_search_url' is ignored."), "\n")
+  if (!is.null(search_name) && !is.null(fhir_search_urls[[search_name]][["url"]])) {
+    fhir_search_url <- fhir_search_urls[[search_name]][["url"]]
+    body <- fhir_search_urls[[search_name]][["body"]]
+    cat(str_glue("Provided search_name. Found fhir_url {body_msg1}'{search_name}' to be used, ",
+                 "argument 'fhir_search_url' {body_msg2}will be ignored even if provided.",
+                 body_msg1 = if (is.null(body)) "" else "and fhir_body ",
+                 body_msg2 = if (is.null(body)) "" else "and 'body' "),
+        "\n")
   }
 
   # set name & resource of search
   resource <- attr(fhir_search_url, "resource")
-  if (is.null(resource)) resource <- str_extract(fhir_search_url, "/(\\w+)\\?", 1)
+  if (is.null(resource)) resource <- str_extract(fhir_search_url, ".*\\/(\\w+)\\??", group = 1)
   if (is.null(search_name)) search_name <- names(fhir_search_url)
   if (is.null(search_name)) search_name <- resource
 
@@ -482,7 +498,7 @@ fhir_melt_w_cfg <- function(indexed_df = NULL,
       warning(str_glue("Separator '{sep}' not found in DF '{search_name}', returning unmodified DF."))
       return(indexed_df)
     }
-    if (length(cols) > 1) message(str_glue("Found more than 1 melt group for FHIR DF '{search_name}': '",
+    if (length(cols) > 1) message(str_glue("Found {length(cols)} melt groups for FHIR DF '{search_name}': '",
                                            paste0(names(cols), collapse = "', '"),
                                            "'. Using only the first group."))
     cols <- cols[1]
@@ -538,6 +554,9 @@ fhir_melt_loop_w_cfg <- function(indexed_df = NULL,
                      search_name_msg = if (is_useful_string(search_name)) " '{search_name}'" else "",
                      rm_indices_msg = if (rm_indices) "DF with only indices removed" else "unmodified DF"))
   } else {
+    cat(str_glue("Found {length(col_group_list)} melt group(s) for FHIR DF '{search_name}': '",
+                     paste0(names(col_group_list), collapse = "', '"),
+                     "'. Melting sequentially."), "\n")
     for (melt_group in names(col_group_list)) {
       molten_df <- fhir_melt_w_cfg(indexed_df = molten_df,
                                    cols = col_group_list[melt_group],

@@ -127,8 +127,8 @@ underage_patients <- out_dfs$patient %>%
   distinct() %>%
   inner_join(out_dfs$encounter %>% select(encounter_id = id, period.start, subject.reference) %>% distinct(),
              by = c(patient_id = "subject.reference")) %>%
-  mutate(is_under_18 = as_date(period.start) < (as_date(birthDate) + years(18))) %>%
-  filter(is_under_18)
+  mutate(is_underage = as_date(period.start) < (as_date(birthDate) + years(18))) %>%
+  filter(is_underage)
 encounter_ids_to_keep <- unique(na.omit(underage_patients$encounter_id))
 # extract encounter ids for next FHIR searches
 encounter_ids_to_keep_string <- paste0(encounter_ids_to_keep, collapse = ",")

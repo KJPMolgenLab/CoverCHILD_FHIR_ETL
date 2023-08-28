@@ -2,6 +2,7 @@
 default:
   # general behavior ---------------------------------------------------------------------------------------------------
   do_search: true
+  use_post: true
   get_all_elements: false
   keep_all_elements: false
   n_cores: 12
