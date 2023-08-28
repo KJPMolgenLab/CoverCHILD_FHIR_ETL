@@ -1,33 +1,7 @@
 ---
 default:
   # FHIR search parameters ---------------------------------------------------------------------------------------------
-#  query_link: '&' # deprecated, as resource search parameters are dis- and readjointed in R
-  resource:
-    # Patient-based approach as suggested by Stephan Wojke. I'd rather go for Encounter, 
-    #  assuming that forward-chaining is faster than reverse chaining see below.
-#    patient:
-#      - "birthdate=ge1998"
-#      - "address-country=de,ger"
-
-#      #TODO: Documentation says that each _has parameter is processed independently of other _has parameters.
-#      #      So is this really the intersection of date limits or does it query all dates as a result?
-#      - "_has:Encounter:patient:date=ge2016-01-01"
-#      - "_has:Encounter:patient:date=le2022-02-28"
-#      
-#      #TODO: serviceType needs to be implemented on FHIR server as custom SearchParameter.
-#      #      Or can this be done via "_has:encounter.location:identifier="?
-#      #      UKF does not seem to have location implemented.
-#      #- "_has:Encounter:patient:servicetype=1000,3000" 
-
-#      #TODO: Better to use forward or reverse inclusion when querying resources (_include vs _revinclude)?
-#      #      I.e. can we be sure that every encounter has the links present to all its conditions in 
-#      #      diagnosis.condition.reference?
-#      #TODO: filter requests to included resources, e.g. condition only if coding system is ICD-10
-#      - "_revinclude=Encounter:subject"
-#      - "_revinclude=Condition:subject"
-#      - "_revinclude=Procedure:subject"
-#      
-    # Encounter-based approach
+  parameters:
     encounter:
       - "date=ge2016-01-01"
       - "date=le2022-02-28"
@@ -36,14 +10,11 @@ default:
       #TODO: Also include parent-Encounters of matched encounters as they are Abteilungskontakte
       #      and their respective Einrichtungskontakte hold more info.
       #- "_include:Encounter:encounter" ?
-      
       - "patient.birthdate=ge1998"
       - "patient.address-country=de,ger"
-      
-      - "_include=Encounter:subject"
-      - "_revinclude=Condition:encounter" # or _include:Encounter:(diagnosis.?)condition ?
-      - "_revinclude=Procedure:encounter"
-      
+    patient: null
+    condition: null
+    procedure: null
 
   # elements to include in fhir search ---------------------------------------------------------------------------------
   elements:

@@ -1,7 +1,11 @@
-# helper functions -----------------------------------------------------------------------------------------------------
+#!/usr/bin/env Rscript
 
-## package installation & loading ######################################################################################
-# installation only
+# CoverCHILD helper functions
+# @author: simeonplatte
+# @date: 2022-12-02
+
+# setup helpers --------------------------------------------------------------------------------------------------------
+# package installation only
 inst_pkgs <- function(..., silent = FALSE) {
   pkgs <- list(...)
   for (pkg in pkgs) if (identical(system.file(package = pkg), "")) {
@@ -11,7 +15,7 @@ inst_pkgs <- function(..., silent = FALSE) {
   }
 }
 
-# loading or installation & loading
+# package loading or installation & loading
 load_inst_pkgs <- function(..., silent = FALSE){
   pkgs <- list(...) # arguments must be of type char
   for (pkg in pkgs){
@@ -26,7 +30,7 @@ load_inst_pkgs <- function(..., silent = FALSE){
   if (!silent) cat("Done: Load libraries\n")
 }
 
-## set correct working dir if not working with RStudio #################################################################
+# set correct working dir if not working with RStudio
 set_wd <- function() {
   if (basename(getwd()) != "CoverCHILD") {
     old_wd <- getwd()
@@ -37,7 +41,7 @@ set_wd <- function() {
   }
 }
 
-## DataFrame inspection helper functions ###############################################################################
+# DataFrame inspection helpers -----------------------------------------------------------------------------------------
 # create codebook of input df
 create_codebook <- function(df, lvl_threshold=10) {
   if(!("tidyverse" %in% loadedNamespaces())) library(tidyverse)
@@ -127,7 +131,7 @@ colname_grep <- function(df, ..., value = TRUE) {
   grep(..., x = names(df), value = value)
 }
 
-## misc ################################################################################################################
+# functions with modified defaults -------------------------------------------------------------------------------------
 # function versions with na.rm=T as default
 sum_na <- function(..., na.rm = TRUE) sum(..., na.rm = na.rm)
 mean_na <- function(..., na.rm = TRUE) mean(..., na.rm = na.rm)
@@ -145,6 +149,7 @@ collapse_na <- function(x, sum_fun = "glue", ...) {
   na.omit(x) %>% {if(length(.) == 0) NA else sum_fun(unique(.), ...)}
 }
 
+# pretty printing / visualisation --------------------------------------------------------------------------------------
 # generate a prettier tabyl
 gen_tabyl <- function(df, ...){
   library(janitor)
@@ -166,35 +171,21 @@ label_seq <- function(fac, n) {
   return(lvls[seq(1, length(lvls), n)])
 }
 
-## FHIR handling #######################################################################################################
-# find in a df columns with entries which have multiple indices and need to be fhir_melted
-find_melt_col_groups <- function(df, brackets) {
-  pattern <- paste0("\\", brackets[[1]], ".*[02-9].*\\", brackets[[2]])
-  melt_group_df <- df %>%
-    summarise(across(everything(), \(x) any(str_detect(x, pattern), na.rm = TRUE))) %>%
-    data.table::transpose(keep.names = "source") %>%
-    filter(V1)
-  if (nrow(melt_group_df) == 0) return(list())
-  melt_group_df %<>%
-    separate_wider_delim(source, ".", names = paste0("grouplvl", 1:max_na(str_count(.$source, "\\."))),
-                         too_few = "align_start", too_many = "drop", cols_remove = FALSE) %>%
-    mutate(across(starts_with("grouplvl"), as.factor))
-  melt_group_df %>% select(source, grouplvl1) %>% chop(source) %>% deframe()
-  #TODO: expand to be able to use lower grouping levels. Lower lvl groups need to include higher lvls.
-  #      str_split(., "\\.")...
-}
+# tests for input usability --------------------------------------------------------------------------------------------
+is_useful_string <- function(x) ((is.character(x) || is.factor(x)) && length(x) == 1 && !identical(x, "") && !is.na(x))
+is_nonempty_df <- function(df) (is.data.frame(df) && nrow(df) != 0)
 
-## Timing via tictoc ###################################################################################################
+# timing via tictoc ----------------------------------------------------------------------------------------------------
 tictoc_msg_prefix <- "TIMING"
 tictoc_msg_pad_len <- 7L
 
 # messages to r console
 msg.tic <- function(tic, msg) {
-  if (is.null(msg) || is.na(msg) || length(msg) == 0) msg <- "next step"
+  if (!is_useful_string(msg)) msg <- "next step"
   str_c(tictoc_msg_prefix, ": ", str_pad(round(tic, 1), tictoc_msg_pad_len), "s - Starting '", msg, "'...")
 }
 msg.toc <- function(tic, toc, msg) {
-  if (is.null(msg) || is.na(msg) || length(msg) == 0) msg <- "last step"
+  if (!is_useful_string(msg)) msg <- "last step"
   str_c(tictoc_msg_prefix, ": ", str_pad(round(tic, 1), tictoc_msg_pad_len), "s - Finished '", msg, "'. ",
         round(toc-tic, 1), "s elapsed.")
 }
@@ -208,7 +199,10 @@ ctic.log <- function(show = FALSE,
     as_tibble_row(x)
   }) %>%
     bind_rows() %>%
-    rename(s_start = tic, s_finish = toc)
+    rename(start_s = tic, finish_s = toc) %>%
+    mutate(dur_s = finish_s - start_s,
+           dur_m = dur_s / 60,
+           .after = finish_s)
   if (show) print(log_df)
 
   if (is.character(save) && !is.na(save)) {
@@ -239,5 +233,322 @@ ctoc_log <- function(log = TRUE,
                      ...) {
   toc(log = log, quiet = quiet, func.toc = func.toc, ...)
   ctic.log(show = show, save = save, append_current_only = append_current_only)
+}
+
+# FHIR handling --------------------------------------------------------------------------------------------------------
+## helper functions ----
+# find in a df columns with entries which have multiple indices and need to be fhir_melted
+find_melt_col_groups <- function(df, brackets = cfg$brackets) {
+  if (!is_nonempty_df(df)) stop("DF must be a dataframe with at least 1 row.")
+
+  pattern <- paste0("\\", brackets[[1]], ".*[02-9].*\\", brackets[[2]])
+  melt_group_df <- df %>%
+    summarise(across(everything(), \(x) any(str_detect(x, pattern), na.rm = TRUE))) %>%
+    data.table::transpose(keep.names = "source") %>%
+    filter(V1)
+  if (nrow(melt_group_df) == 0) return(list())
+  melt_group_df %<>%
+    separate_wider_delim(source, ".", names = paste0("grouplvl", 1:max_na(str_count(.$source, "\\."))),
+                         too_few = "align_start", too_many = "drop", cols_remove = FALSE) %>%
+    mutate(across(starts_with("grouplvl"), as.factor))
+  melt_group_df %>% select(source, grouplvl1) %>% chop(source) %>% deframe()
+  #TODO: expand to be able to use lower grouping levels. Lower lvl groups need to include higher lvls.
+  #      str_split(., "\\.")...
+}
+
+# convert fhir_search_cfg$parameters resource name to actual resource name
+search_name_to_resource <- function(x) {
+  x <- str_to_title(str_remove(x, "[\\_\\-\\d]*$"))
+  if (!is_useful_string(x)) x <- NULL
+  return(x)
+}
+
+# remove reference resource prefix of columns linking to other resources
+remove_ref_prefix <- function(refs, resource = NULL, ref_col = NULL, ref_prefix = NULL, config = cfg) {
+  # default hierarchy:
+  # 1) use provided ref_prefix
+  # 2) look up ref_prefix in config
+  # 3) automatically detect ref_prefix
+
+  # get column name if it's not provided
+  if (is.null(ref_col)) {
+    ref_col_name <- deparse1(substitute(refs))
+    ref_col <- tryCatch(cur_column(), error = function(e) ref_col_name)
+  }
+
+  if (is_useful_string(ref_prefix)) {
+    prefix_src <- "manually provided"
+  } else {
+    # try to look up ref_prefix in config
+    if (is_useful_string(resource)) ref_prefix <- config$ref_prefixes[[tolower(resource)]][[ref_col]]
+    if (is_useful_string(ref_prefix)) {
+      prefix_src <- "read from config"
+    } else {
+      ref_prefix <- na.omit(dirname(refs))
+      ref_prefix <- ref_prefix[ref_prefix != "."]
+      ref_prefix_mode <- names(which.max(table(ref_prefix)))
+      ref_prefix <- unique(ref_prefix)
+
+      if (length(ref_prefix) == 0) {
+        warning(str_glue("No prefix found in column '{ref_col}', no filtering done. Provide prefix manually in ",
+                         "config file or function call if there is one that was not detected."))
+        return(refs)
+      } else if (length(ref_prefix) > 1) {
+        warning(str_glue("More than 1 prefix found in column '{ref_col}': '", paste0(ref_prefix, collapse = "', '"),
+                         "'. Using the most common: '{ref_prefix_mode}'. If that is not the wanted behaviour, ",
+                         "provide correct prefix manually in config file or function call."))
+        ref_prefix <- ref_prefix_mode
+      }
+      prefix_src <- "automatically detected"
+    }
+  }
+  if (!any(str_detect(refs, str_glue("^{ref_prefix}/")))) {
+    stop(str_glue("Prefix '{ref_prefix}/' ({prefix_src}) not found in data. Please check!"))
+  }
+  cat(str_glue("Removed ({prefix_src}) reference prefix '{ref_prefix}/' in column '{ref_col}'."), "\n")
+  str_remove(refs, str_glue("^{ref_prefix}/"))
+}
+
+## modified fhircrackr functions with default values read from config ----
+#TODO: add tictoc-logging to functions. Use decorators if possible?
+
+# create named fhir_url with default values read from config
+fhir_url_w_cfg <- function(search_name, parameters = NULL,
+                           include_cfg_params = TRUE,
+                           url = NULL,
+                           get_all_elements = NULL,
+                           max_bundle_size = NULL,
+                           config = cfg) {
+  # config
+  if (is.null(url)) url <- config$serverbase
+  if (is.null(get_all_elements)) get_all_elements <- config$get_all_elements
+  if (is.null(max_bundle_size)) max_bundle_size <- config$max_bundle_size
+
+  resource <- search_name_to_resource(search_name)
+
+  x <- fhir_url(url = url,
+                resource = resource,
+                parameters = c(parameters,
+                               if (include_cfg_params) search_cfg$named_params[[search_name]],
+                               "_elements" = if (!get_all_elements) {
+                                 elements <- paste0(search_cfg$base_elements[[search_name]], collapse = ",")
+                                 if (identical(elements, "")) NULL else elements
+                               },
+                               "_count" = as.character(max_bundle_size)))
+  names(x) <- search_name
+  attr(x, "resource") <- resource
+  return(x)
+}
+
+# fhir_search with defaults: values read from config, log_errors path, save_to_disc path
+fhir_search_w_cfg <- function(fhir_search_url = fhir_current_request(), # fhir_url object which should be named
+                              body = NULL,
+                              username = NULL,
+                              password = NULL,
+                              token = NULL,
+                              max_bundles = NULL,
+                              verbose = 2L,
+                              log_errors = TRUE, # TRUE/NULL, or string for path to logfile
+                              save_to_disc = NULL,
+                              config = cfg,
+                              search_name = NULL) {
+  # config
+  if (is.null(username)) username <- config$username
+  if (is.null(password)) password <- config$password
+  if (is.null(token)) token <- config$token
+  if (is.null(max_bundles)) max_bundles <- config$max_bundles
+
+  if (!is.null(search_name) && !is.null(fhir_search_urls[[search_name]])) {
+    fhir_search_url <- fhir_search_urls[[search_name]]
+    cat(str_glue("Provided search_name. fhir_url '{search_name}' used, argument 'fhir_search_url' is ignored."), "\n")
+  }
+
+  # set name & resource of search
+  resource <- attr(fhir_search_url, "resource")
+  if (is.null(resource)) resource <- str_extract(fhir_search_url, "/(\\w+)\\?", 1)
+  if (is.null(search_name)) search_name <- names(fhir_search_url)
+  if (is.null(search_name)) search_name <- resource
+
+  # create default path to logfile for http errors
+  if (isTRUE(log_errors)) log_errors <-
+      file.path(cfg$log_dir, paste0("FHIR_search_errors_", search_name, "_", format(Sys.time(), "%y%m%d-%H%M"), ".log"))
+  if (is_useful_string(log_errors)) {
+    dir.create(dirname(log_errors), showWarnings = FALSE, recursive = TRUE)
+    if (verbose > 0) cat("HTTP errors for this '", search_name, "' FHIR search will be saved to: ", log_errors,
+                         "\n", sep = '')
+  }
+
+  # create default folder to save downloaded bundles to disc
+  if (isTRUE(save_to_disc)) {
+    save_to_disc <- file.path(cfg$tmp_dir, paste0("FHIR_bundles_", search_name, "_", format(Sys.time(), "%y%m%d")))
+    if (verbose > 0) cat("Downloaded bundles of this '", search_name, "' FHIR search will be saved to: ", save_to_disc,
+                         "\n", sep = '')
+  }
+
+  x <- fhir_search(request = fhir_search_url,
+                   body = body,
+                   username = username,
+                   password = password,
+                   token = token,
+                   max_bundles = max_bundles,
+                   verbose = verbose,
+                   log_errors = log_errors,
+                   save_to_disc = save_to_disc)
+  attr(x, "search_name") <- search_name
+  attr(x, "search_resource") <- resource
+  return(x)
+}
+
+# fhir_crack with defaults: values read from config, log_errors path, save_to_disc path
+fhir_crack_w_cfg <- function(bundles = NULL,
+                             design = NULL,
+                             sep = NULL,
+                             brackets = NULL,
+                             keep_all_elements = NULL,
+                             rm_empty_cols = NULL,
+                             verbose = 2,
+                             data.table = FALSE,
+                             format = NULL,
+                             keep_attr = NULL,
+                             n_cores = NULL,
+                             config = cfg,
+                             search_name = NULL,
+                             resource = NULL) {
+  # config
+  if (is.null(sep)) sep <- config$sep
+  if (is.null(brackets)) brackets <- config$brackets
+  if (is.null(n_cores)) n_cores <- config$n_cores
+  if (is.null(keep_all_elements)) keep_all_elements <- config$keep_all_elements
+
+  if (!is.null(search_name) && !is.null(fhir_bundles[[search_name]])) {
+    cat(str_glue("Provided 'search_name'. FHIR bundles '{search_name}' used, argument 'bundles' is ignored."), "\n")
+    bundles <- fhir_bundles[[search_name]]
+  }
+  if (is.null(design)) {
+    if (is.null(resource)) resource <- attr(bundles, "search_resource")
+    if (is.null(resource)) resource <- search_name_to_resource(search_name)
+    if (!is.null(resource)) {
+      message(str_glue("FHIR 'design' not provided, defaulting to design for resource '{resource}' from config."))
+      design <- fhir_table_description(resource = resource,
+                                       cols = if (!keep_all_elements) tryCatch(
+                                         search_cfg$elements[[search_name]],
+                                         error = \(e) search_cfg$elements[[tolower(resource)]]))
+    } else {
+      stop("FHIR 'design' not provided, but 'resource' was not provided and could not be read from 'bundles' or ",
+           "'search_name'. Please provide 'resource' argument or FHIR 'design'.")
+    }
+  }
+  x <- fhir_crack(bundles = bundles, design = design, sep = sep, brackets = brackets, rm_empty_cols = rm_empty_cols,
+                  verbose = verbose, data.table = data.table, format = format, keep_attr = keep_attr, ncores = n_cores)
+  attr(x, "search_name") <- search_name
+  attr(x, "search_resource") <- resource
+  # arguments <- as.list(environment())
+  # do.call(fhir_crack, arguments)
+  return(x)
+}
+
+# fhir_melt with defaults from config
+fhir_melt_w_cfg <- function(indexed_df = NULL,
+                            cols = NULL,
+                            sep = NULL,
+                            brackets = NULL,
+                            id_name = NULL,
+                            all_columns = TRUE,
+                            config = cfg,
+                            search_name = NULL) {
+  # config
+  if (is.null(sep)) sep <- config$sep
+  if (is.null(brackets)) brackets <- config$brackets
+
+  if (!is.null(search_name)) {
+    if (!is.null(fhir_dfs[[search_name]])) {
+      cat(str_glue("Provided 'search_name'. FHIR DF '{search_name}' used, argument 'indexed_df' is ignored."), "\n")
+      indexed_df <- fhir_dfs[[search_name]]
+    }
+  } else {
+    search_name <- attr(indexed_df, "search_name")
+  }
+
+  if (!is_nonempty_df(indexed_df)) {
+    warning("'indexed_df' is not a dataframe with at least 1 row. No melting done, object returned unmodified.")
+    return(indexed_df)
+  }
+
+  if (is.null(search_name)) search_name <- deparse1(substitute(indexed_df))
+
+  if (is.null(cols)) {
+    cols <- find_melt_col_groups(indexed_df, brackets)
+    if (length(cols) == 0) {
+      warning(str_glue("Separator '{sep}' not found in DF '{search_name}', returning unmodified DF."))
+      return(indexed_df)
+    }
+    if (length(cols) > 1) message(str_glue("Found more than 1 melt group for FHIR DF '{search_name}': '",
+                                           paste0(names(cols), collapse = "', '"),
+                                           "'. Using only the first group."))
+    cols <- cols[1]
+  }
+
+  melt_group_name <- names(cols)[1]
+  if (!is_useful_string(id_name) && is_useful_string(melt_group_name)) {
+    id_name <- paste0("resource_id_", melt_group_name)
+  } else {
+    id_name <- "resource_id"
+  }
+  if (is.list(cols)) cols <- cols [[1]]
+
+  cat(str_glue("Melting DF '{search_name}', group{melt_group_name_msg}: '", paste0(cols, collapse = "', '"), "'.",
+               melt_group_name_msg = if (!is.null(melt_group_name)) {
+                 str_glue(" from attribute '{melt_group_name}'")
+               } else ""), "\n")
+  molten_df <- fhir_melt(indexed_data_frame = indexed_df, columns = cols, brackets = brackets, sep = sep,
+                         id_name = id_name, all_columns = all_columns)
+  attr(molten_df, "search_name") <- attr(indexed_df, "search_name")
+  attr(molten_df, "search_resource") <- attr(indexed_df, "search_resource")
+  return(molten_df)
+}
+
+# fhir_melt_w_cfg loop over all existing melt_groups
+fhir_melt_loop_w_cfg <- function(indexed_df = NULL,
+                                 col_group_list = NULL,
+                                 brackets = NULL,
+                                 sep = NULL,
+                                 id_name_template = NULL,
+                                 all_columns = TRUE,
+                                 rm_indices = TRUE,
+                                 config = cfg,
+                                 search_name = NULL) {
+  # config
+  if (is.null(sep)) sep <- config$sep
+  if (is.null(brackets)) brackets <- config$brackets
+
+  if (!is.null(search_name) && !is.null(fhir_dfs[[search_name]])) {
+    cat(str_glue("Provided 'search_name'. FHIR DF '{search_name}' used, argument 'indexed_df' is ignored."), "\n")
+    indexed_df <- fhir_dfs[[search_name]]
+  }
+
+  if (!is_nonempty_df(indexed_df)) {
+    warning("'indexed_df' is not a dataframe with at least 1 row. No melting done, object returned unmodified.")
+    return(indexed_df)
+  }
+
+  if (is.null(col_group_list)) col_group_list <- find_melt_col_groups(indexed_df, brackets)
+  molten_df <- indexed_df
+  if (length(col_group_list) == 0) {
+    warning(str_glue("Separator '{sep}' not found in DF{search_name_msg}, returning {rm_indices_msg}.",
+                     search_name_msg = if (is_useful_string(search_name)) " '{search_name}'" else "",
+                     rm_indices_msg = if (rm_indices) "DF with only indices removed" else "unmodified DF"))
+  } else {
+    for (melt_group in names(col_group_list)) {
+      molten_df <- fhir_melt_w_cfg(indexed_df = molten_df,
+                                   cols = col_group_list[melt_group],
+                                   brackets = brackets,
+                                   sep = sep,
+                                   id_name = paste0("resource_id_", melt_group),
+                                   all_columns = all_columns,
+                                   search_name = NULL)
+    }
+  }
+  if (rm_indices) molten_df <- fhir_rm_indices(molten_df, brackets = brackets)
+  return(molten_df)
 }
 

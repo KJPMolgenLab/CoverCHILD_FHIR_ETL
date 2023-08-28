@@ -5,8 +5,12 @@ default:
   get_all_elements: false
   keep_all_elements: false
   n_cores: 12
-  max_bundles: 3 # limit value for testing/debugging, else use .inf
+  max_bundles: 10 # limit value for testing/debugging, else use .inf
   max_bundle_size: 100 # set max. bundle size using _count parameter in FHIR search, e.g. 1000
+  
+  save_to_disc: false #TODO: not yet implemented, has to be false for now.
+  log_dir: 'logs' # directory for logfiles
+  tmp_dir: 'tmp' # directory to store downloaded bundles / intermediate results, if applicable
   
   # server settings ----------------------------------------------------------------------------------------------------
 #  hospital_name: 'UKDD'
@@ -23,6 +27,12 @@ default:
   ssl_verify_peer: false
   
   # server coding customization ----------------------------------------------------------------------------------------
+  # set custom reference prefixes if they can't be detected automatically
+  ref_prefixes:
+    encounter:
+      subject.reference: null
+      diagnosis.condition.reference: null
+  
   sep: ":::" # could probably be hardcoded in R, doesn't need to be customized by a site
   brackets: ["[", "]"] # same
 
