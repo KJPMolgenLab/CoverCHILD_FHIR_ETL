@@ -108,6 +108,15 @@ fhir_dfs[[this_search]] <- fhir_melt_loop_w_cfg(search_name = this_search)
 # remove reference prefixes
 fhir_dfs[[this_search]] <- fhir_dfs[[this_search]] %>%
   {mutate(., across(contains("reference"), \(x) remove_ref_prefix(x, resource = attr(., "search_name"))))}
+
+# limit to encounters with contact to selected departments
+encounter_ids_department <- fhir_dfs[[this_search]] %>%
+  select(id, serviceType.coding.code, partOf.reference) %>%
+  filter(serviceType.coding.code %in% cfg$department_contacts) %>%
+  reframe(ids = unique(na.omit(c(id, partOf.reference)))) %>%
+  use_series(ids)
+fhir_dfs[[this_search]] <- fhir_dfs[[this_search]] %>% filter(id %in% encounter_ids_department)
+
 # extract subject ids for next FHIR search
 encounter_subject_id_string <- fhir_dfs[[this_search]]$subject.reference %>%
   {if_else(str_detect(., "/"), NA, .)} %>%

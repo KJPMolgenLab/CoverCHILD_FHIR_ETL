@@ -6,13 +6,17 @@ default:
   get_all_elements: false
   keep_all_elements: false
   n_cores: 12
-  max_bundles: 100 # limit value for testing/debugging, else use .inf
+  max_bundles: 50 # limit value for an iteration of paged search
   max_bundle_size: 1000 # set max. bundle size using _count parameter in FHIR search, e.g. 1000
   
   save_to_disc: false #TODO: not yet implemented, has to be false for now.
   log_dir: 'logs' # directory for logfiles
   tmp_dir: 'tmp' # directory to store downloaded bundles / intermediate results, if applicable
-  clear_tmp_dir: true # clear downloaded bundles from tmp_dir after running the script
+  clear_tmp_dir: true # clear temporary cracked fhir_dfs from tmp_dir after running the script
+  
+  department_contacts: # (un-) comment to extract only cases with contact to 1 or both departments
+    - 1000 # pediatrics
+    - 3000 # child and adolescent psychiatry
   
   # server settings ----------------------------------------------------------------------------------------------------
 #  hospital_name: 'UKDD'
