@@ -381,13 +381,15 @@ fhir_search_w_cfg <- function(fhir_search_url = fhir_current_request(),
 
   # set name & resource of search
   resource <- attr(fhir_search_url, "resource")
+  if (is.null(resource)) resource <- search_name_to_resource(names(fhir_search_url))
   if (is.null(resource)) resource <- str_extract(fhir_search_url, ".*\\/(\\w+)\\??", group = 1)
   if (is.null(search_name)) search_name <- names(fhir_search_url)
   if (is.null(search_name)) search_name <- resource
 
   # create default path to logfile for http errors
   if (isTRUE(log_errors)) log_errors <-
-      file.path(cfg$log_dir, paste0("FHIR_search_errors_", search_name, "_", format(Sys.time(), "%y%m%d-%H%M"), ".log"))
+      file.path(config$log_dir,
+                paste0("FHIR_search_errors_", search_name, "_", format(Sys.time(), "%y%m%d-%H%M"), ".log"))
   if (is_useful_string(log_errors)) {
     dir.create(dirname(log_errors), showWarnings = FALSE, recursive = TRUE)
     if (verbose > 0) cat("HTTP errors for this '", search_name, "' FHIR search will be saved to: ", log_errors,
@@ -396,7 +398,7 @@ fhir_search_w_cfg <- function(fhir_search_url = fhir_current_request(),
 
   # create default folder to save downloaded bundles to disc
   if (isTRUE(save_to_disc)) {
-    save_to_disc <- file.path(cfg$tmp_dir, paste0("FHIR_bundles_", search_name, "_", format(Sys.time(), "%y%m%d")))
+    save_to_disc <- file.path(config$tmp_dir, paste0("FHIR_bundles_", search_name, "_", format(Sys.time(), "%y%m%d")))
     if (verbose > 0) cat("Downloaded bundles of this '", search_name, "' FHIR search will be saved to: ", save_to_disc,
                          "\n", sep = '')
   }
@@ -551,7 +553,7 @@ fhir_melt_loop_w_cfg <- function(indexed_df = NULL,
   molten_df <- indexed_df
   if (length(col_group_list) == 0) {
     warning(str_glue("Separator '{sep}' not found in DF{search_name_msg}, returning {rm_indices_msg}.",
-                     search_name_msg = if (is_useful_string(search_name)) " '{search_name}'" else "",
+                     search_name_msg = if (is_useful_string(search_name)) str_glue(" '{search_name}'") else "",
                      rm_indices_msg = if (rm_indices) "DF with only indices removed" else "unmodified DF"))
   } else {
     cat(str_glue("Found {length(col_group_list)} melt group(s) for FHIR DF '{search_name}': '",
