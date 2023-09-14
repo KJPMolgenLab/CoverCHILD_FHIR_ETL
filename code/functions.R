@@ -203,7 +203,7 @@ ctic.log <- function(show = FALSE,
     mutate(dur_s = finish_s - start_s,
            dur_m = dur_s / 60,
            .after = finish_s)
-  if (show) print(log_df)
+  if (show) print(log_df, n = Inf)
 
   if (is.character(save) && !is.na(save)) {
     if ((length(save) == 0) || identical(save, "")) {
@@ -320,13 +320,13 @@ fhir_url_w_cfg <- function(search_name,
                            url = NULL,
                            use_post = NULL,
                            get_all_elements = NULL,
-                           max_bundle_size = NULL,
+                           bundle_size = NULL,
                            config = cfg) {
   # config
   if (is.null(url)) url <- config$serverbase
   if (is.null(use_post)) use_post <- config$use_post
   if (is.null(get_all_elements)) get_all_elements <- config$get_all_elements
-  if (is.null(max_bundle_size)) max_bundle_size <- config$max_bundle_size
+  if (is.null(bundle_size)) bundle_size <- config$bundle_size
 
   resource <- search_name_to_resource(search_name)
   parameters = as.list(c(parameters,
@@ -335,7 +335,7 @@ fhir_url_w_cfg <- function(search_name,
                            elements <- paste0(search_cfg$base_elements[[search_name]], collapse = ",")
                            if (identical(elements, "")) NULL else elements
                          },
-                         "_count" = as.character(max_bundle_size)))
+                         "_count" = as.character(bundle_size)))
 
   if (!use_post) {
     search_url <- fhir_url(url = url, resource = resource, parameters = parameters)
@@ -358,6 +358,7 @@ fhir_search_w_cfg <- function(fhir_search_url = fhir_current_request(),
                               password = NULL,
                               token = NULL,
                               max_bundles = NULL,
+                              batch_mode = FALSE,
                               verbose = 2L,
                               log_errors = TRUE, # TRUE/NULL, or string for path to logfile
                               save_to_disc = NULL,
@@ -367,7 +368,7 @@ fhir_search_w_cfg <- function(fhir_search_url = fhir_current_request(),
   if (is.null(username)) username <- config$username
   if (is.null(password)) password <- config$password
   if (is.null(token)) token <- config$token
-  if (is.null(max_bundles)) max_bundles <- config$max_bundles
+  if (is.null(max_bundles)) max_bundles <- if (batch_mode) config$bundles_per_batch else config$max_bundles
 
   if (!is.null(search_name) && !is.null(fhir_search_urls[[search_name]][["url"]])) {
     fhir_search_url <- fhir_search_urls[[search_name]][["url"]]
@@ -412,6 +413,10 @@ fhir_search_w_cfg <- function(fhir_search_url = fhir_current_request(),
                    verbose = verbose,
                    log_errors = log_errors,
                    save_to_disc = save_to_disc)
+  if (is.null(x) && is_useful_string(save_to_disc)) {
+    x <- save_to_disc
+    names(x) <- "save_to_disc_path"
+  }
   attr(x, "search_name") <- search_name
   attr(x, "search_resource") <- resource
   return(x)

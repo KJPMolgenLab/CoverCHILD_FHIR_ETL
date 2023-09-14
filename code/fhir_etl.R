@@ -50,15 +50,17 @@ cat("Timings of this FHIR ETL run will be saved to:", tlog_path, "\n")
 # retrieve & crack bundles  --------------------------------------------------------------------------------------------
 ctic("Retrieve FHIR bundles (load or sequential searches).")
 #TODO: update do_search logic
-# if (!cfg$do_search) fhir_bundles <- fhir_load(cfg$filebase, pattern = "\\.xml$")
+if (!cfg$do_search) {
+  loaded_df_encounter <- fhir_load(cfg$filebase, pattern = "\\.xml$") %>%
+    fhir_crack_w_cfg(resource = "Encounter") %>%
+    fhir_melt_loop_w_cfg()
+}
 
 # gather all fhir_urls and downloaded bundles from subsequent searches
 #TODO: Move to disk if necessary
 fhir_search_urls <- list()
-fhir_bundles <- list()
+fhir_bundles <- list() # TODO doesn't need to be a list if sequential searches are employed
 fhir_dfs <- list()
-# molten_dfs <- list()
-# out_dfs <- list()
 
 ## FHIR search 1: encounters ----
 ctic("FHIR search 1: encounters")
@@ -70,9 +72,10 @@ fhir_search_urls[[this_search]] <- fhir_url_w_cfg(search_name = this_search)
 fhir_page_count <- 1
 save_path <- file.path(cfg$tmp_dir, "FHIR_DFs", paste0(this_search, "_", format(Sys.time(), "%y%m%d")))
 dir.create(save_path, showWarnings = FALSE, recursive = TRUE)
-while(is_useful_string(fhir_search_urls[[this_search]][["url"]])) {
+while(is_useful_string(fhir_search_urls[[this_search]][["url"]]) &&
+      (fhir_page_count * cfg$bundles_per_batch < cfg$max_bundles)) {
   ctic(str_glue("FHIR search 1: encounters - Download bundle set {fhir_page_count}"))
-  fhir_bundles[[this_search]] <- fhir_search_w_cfg(search_name = this_search)
+  fhir_bundles[[this_search]] <- fhir_search_w_cfg(search_name = this_search, batch_mode = TRUE)
   ctoc_log(save = tlog_path)
 
   # crack encounters
@@ -88,8 +91,9 @@ while(is_useful_string(fhir_search_urls[[this_search]][["url"]])) {
     names(fhir_search_urls[[this_search]][["url"]]) <- this_search
   }
   fhir_search_urls[[this_search]][["body"]] <- NULL
+  cat(str_glue("Downloaded {fhir_page_count * cfg$bundles_per_batch} bundles so far. ",
+               "Stopping without exceeding {cfg$max_bundles}."), "\n")
   fhir_page_count <- fhir_page_count + 1
-  # if (fhir_page_count > 2) break
 }
 fhir_bundles[[this_search]] <- NULL
 gc(); gc()
@@ -210,3 +214,4 @@ ctoc_log(save = tlog_path)
 
 if (cfg$clear_tmp_dir) file.remove(Sys.glob(file.path(save_path, "*")))
 ctoc_log(save = tlog_path)
+ctic.log(show = TRUE, save = FALSE)

@@ -6,10 +6,11 @@ default:
   get_all_elements: false
   keep_all_elements: false
   n_cores: 12
-  max_bundles: 50 # limit value for an iteration of paged search
-  max_bundle_size: 1000 # set max. bundle size using _count parameter in FHIR search, e.g. 1000
+  bundle_size: 1000 # set max. bundle size using _count parameter in FHIR search, e.g. 1000
+  bundles_per_batch: 50 # number of bundles per paged fhir search
+  max_bundles: .inf # limit total number of bundles for testing/debugging, else set to .inf
   
-  save_to_disc: false #TODO: not yet implemented, has to be false for now.
+  save_to_disc: false #TODO: not yet implemented, has to be false for now
   log_dir: 'logs' # directory for logfiles
   tmp_dir: 'tmp' # directory to store downloaded bundles / intermediate results, if applicable
   clear_tmp_dir: true # clear temporary cracked fhir_dfs from tmp_dir after running the script
