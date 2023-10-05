@@ -718,3 +718,124 @@ fhir_melt_loop_w_cfg <- function(indexed_df = NULL,
   if (rm_indices) indexed_df <- fhir_rm_indices(indexed_df, brackets = brackets)
   return(indexed_df)
 }
+
+# run batched fhir_search_w_cfg & fhir_crack_w_cfg, then fhir_melt_loop_w_cfg & remove_ref_prefix
+#TODO: fine-res Sys.time calls for filenames, move save_path default to fhir_search_w_cfg
+fhir_batched_w_cfg <- function(search_url = NULL,
+                               search_body = NULL,
+                               bundles_per_batch = NULL,
+                               max_bundles = NULL,
+                               do_melt = TRUE,
+                               remove_ref_prefixes = TRUE,
+                               tlog_path = NULL,
+                               verbose = 2,
+                               save_to_disc = TRUE,
+                               search_name = NULL,
+                               config = cfg) {
+  # config
+  if (!is.null(config)) {
+    if (is.null(bundles_per_batch)) bundles_per_batch <- config$bundles_per_batch
+    if (is.null(max_bundles)) max_bundles <- config$max_bundles
+  }
+  #TODO implement verbose instead of do_log, split logging & console printing
+  do_log <- verbose > 0
+
+  # search_url default hierarchy
+  # 1) provided by function arguments
+  url_list <- fhir_url_to_url_w_cfg(search_url, search_body, verbose = 0)
+  if (!is_useful_string(url_list[["url"]])) {
+    # 2) from search_name
+    if (is_useful_string(search_name) && !is.null(fhir_search_urls[[search_name]])) {
+      url_list <- fhir_url_to_url_w_cfg(fhir_search_urls[[search_name]], verbose = 0)
+      if (is_useful_string(url_list[["url"]])) {
+        if (verbose > 1) message(str_glue(
+          "Arguments 'search_url' and 'search_body' not useable, but found fhir_url {body_msg} from ",
+          "provided search_name '{search_name}', which will be used.",
+          body_msg = if (is.null(url_list[["body"]])) "" else "and fhir_body"))
+      }
+    }
+    if (!is_useful_string(url_list[["url"]])) {
+      warning("Neither search_url nor search_name useable, falling back on URL from 'fhir_current_request()'. ",
+              "This only works for GET-requests as HTML bodies are not included.")
+      url_list <- fhir_url_to_url_w_cfg(fhir_current_request(), verbose = 0)
+    }
+  }
+
+  # resource default hierarchy
+  resource <- attr(url_list[["url"]], "resource")
+  if (is.null(resource)) resource <- search_name_to_resource(names(url_list[["url"]]))
+  if (is.null(resource)) resource <- str_extract(url_list[["url"]], ".*\\/(\\w+)\\??", group = 1)
+  # search_name default hierarchy
+  if (!is_useful_string(search_name)) search_name <- names(url_list[["url"]])
+  if (!is_useful_string(search_name)) search_name <- attr(url_list[["url"]], "search_name")
+  if (!is_useful_string(search_name)) search_name <- resource
+
+  if (do_log) ctic(str_glue("Batched FHIR search: {search_name} - Download & crack bundles"))
+
+  # set path for saving downloaded files
+  save_path <- save_to_disc_path_w_cfg(save_to_disc = save_to_disc,
+                                       save_type = "cracked_DFs",
+                                       search_name = search_name,
+                                       config = config,
+                                       verbose = verbose)
+  save_to_disc <- is_useful_string(save_path)
+  save_mask <- file.path(save_path, paste0("DF_", search_name, "_{id}.rds"))
+
+  fhir_page_count <- 1
+  fhir_dfs <- list()
+  if (verbose > 0) cat(str_glue("Batched settings: Downloading {bundles_per_batch} bundles per batch, ",
+                                "maximum of {max_bundles} bundles in total."), "\n")
+  while(is_useful_string(url_list[["url"]]) && (fhir_page_count * bundles_per_batch < max_bundles)) {
+    # search
+    if (do_log) ctic(str_glue("Batched FHIR search: {search_name} - Download bundle set {fhir_page_count}"))
+    fhir_bundles <- fhir_search_w_cfg(search_url = url_list,
+                                      max_bundles = bundles_per_batch,
+                                      verbose = verbose,
+                                      search_name = search_name,
+                                      config = config)
+    if (do_log) ctoc_log(save = tlog_path)
+
+    # crack
+    if (do_log) ctic(str_glue("Batched FHIR search: {search_name} - Crack bundle set {fhir_page_count}"))
+    fhir_dfs[[fhir_page_count]] <- fhir_crack_w_cfg(bundles = fhir_bundles, verbose = verbose, config = config)
+    rm(fhir_bundles)
+    gc(); gc()
+    if (do_log) ctoc_log(save = tlog_path)
+
+    # save if requested
+    if (save_to_disc) {
+      saveRDS(fhir_dfs[[fhir_page_count]], str_glue(save_mask, id = fhir_page_count))
+      fhir_dfs[fhir_page_count] <- NULL
+      gc(); gc()
+    }
+
+    url_list[["url"]] <- fhir_next_bundle_url()
+    if (is_useful_string(url_list[["url"]])) names(url_list[["url"]]) <- search_name
+    url_list[["body"]] <- NULL
+    cat(str_glue("Downloaded {fhir_page_count * bundles_per_batch} bundles so far. ",
+                 "Stopping without exceeding {max_bundles}."), "\n")
+    fhir_page_count <- fhir_page_count + 1
+  }
+  if (do_log) ctoc_log(save = tlog_path)
+
+  # load downloaded FHIR DFs if requested
+  if (do_log) ctic(str_glue("Batched FHIR search: {search_name} - Combine downloaded DFs"))
+  if (save_to_disc) fhir_dfs <- map(Sys.glob(str_glue(save_mask, id = "*")), readRDS)
+  fhir_dfs <- bind_rows(fhir_dfs)
+  if (do_log) ctoc_log()
+
+  # melt & remove reference prefixes if requested
+  if (do_melt) {
+    if (do_log) ctic(str_glue("Batched FHIR search: {search_name} - Melt DF"))
+    fhir_dfs <- fhir_melt_loop_w_cfg(indexed_df = fhir_dfs, config = config)
+    if (remove_ref_prefixes && is_nonempty_df(fhir_dfs)) fhir_dfs <- fhir_dfs %>%
+      {mutate(., across(contains("reference"),
+                        \(x) remove_ref_prefix(refs = x, resource = attr(., "resource"), config = config)))}
+    if (do_log) ctoc_log()
+  } else if (remove_ref_prefixes) {
+     warning("Reference prefix removal was requested, but they will only be removed from a molten DF. Melting was ",
+             "not requested so prefix removal will not be done (remove_ref_prefixes=T, but do_melt=F).")
+  }
+
+  return(fhir_dfs)
+}
