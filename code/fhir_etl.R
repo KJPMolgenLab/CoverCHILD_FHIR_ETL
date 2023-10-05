@@ -10,7 +10,7 @@ options(warn = 1L)
 ## load & install ----
 source("code/functions.R")
 inst_pkgs("config", "httr")
-load_inst_pkgs("tidyverse", "magrittr", "fhircrackr", "data.table", "tictoc", "rlang")
+load_inst_pkgs("tidyverse", "lubridate", "magrittr", "fhircrackr", "data.table", "tictoc", "rlang")
 
 cfg <- config::get(file = file.path("config", "fhir_cfg.yml"))
 search_cfg <- config::get(file = file.path("config", "fhir_search_cfg.yml"))
@@ -32,7 +32,6 @@ walk(c("http_proxy", "https_proxy", "no_proxy"),
 # ssl peer verification
 if (!cfg$ssl_verify_peer) httr::set_config(httr::config(ssl_verifypeer = 0L))
 
-
 #TODO: use parallel backend, e.g. doParallel for parallelization of searches
 # - add config options for parallelization
 # - Where will these scripts be executed? Single node only?
@@ -47,76 +46,30 @@ ctic("Run FHIR ETL.")
 cat("Timings of this FHIR ETL run will be saved to:", tlog_path, "\n")
 
 
-# retrieve & crack bundles  --------------------------------------------------------------------------------------------
-ctic("Retrieve FHIR bundles (load or sequential searches).")
+# retrieve, crack & melt bundles  --------------------------------------------------------------------------------------
+ctic("Retrieve, crack, melt FHIR data (load or sequential searches).")
 #TODO: update do_search logic
-if (!cfg$do_search) {
-  loaded_df_encounter <- fhir_load(cfg$filebase, pattern = "\\.xml$") %>%
-    fhir_crack_w_cfg(resource = "Encounter") %>%
-    fhir_melt_loop_w_cfg()
-}
+# if (!cfg$do_search) {
+#   loaded_df_encounter <- fhir_load(cfg$filebase, pattern = "\\.xml$") %>%
+#     fhir_crack_w_cfg(resource = "Encounter") %>%
+#     fhir_melt_loop_w_cfg()
+# }
 
 # gather all fhir_urls and downloaded bundles from subsequent searches
-#TODO: Move to disk if necessary
 fhir_search_urls <- list()
-fhir_bundles <- list() # TODO doesn't need to be a list if sequential searches are employed
 fhir_dfs <- list()
 
 ## FHIR search 1: encounters ----
 ctic("FHIR search 1: encounters")
 this_search <- "encounter"
-
-# url & search
-ctic("FHIR search 1: encounters - Download & crack bundles")
+# url & batched search
 fhir_search_urls[[this_search]] <- fhir_url_w_cfg(search_name = this_search)
-fhir_page_count <- 1
-save_path <- file.path(cfg$tmp_dir, "FHIR_DFs", paste0(this_search, "_", format(Sys.time(), "%y%m%d")))
-dir.create(save_path, showWarnings = FALSE, recursive = TRUE)
-while(is_useful_string(fhir_search_urls[[this_search]][["url"]]) &&
-      (fhir_page_count * cfg$bundles_per_batch < cfg$max_bundles)) {
-  ctic(str_glue("FHIR search 1: encounters - Download bundle set {fhir_page_count}"))
-  fhir_bundles[[this_search]] <- fhir_search_w_cfg(search_name = this_search, batch_mode = TRUE)
-  ctoc_log(save = tlog_path)
-
-  # crack encounters
-  ctic(str_glue("FHIR search 1: encounters - Crack bundle set {fhir_page_count}"))
-  fhir_dfs[[this_search]] <- fhir_crack_w_cfg(search_name = this_search)
-  gc(); gc()
-  ctoc_log(save = tlog_path)
-
-  saveRDS(fhir_dfs[[this_search]], file.path(save_path, paste0("DF_", this_search, "_", fhir_page_count, ".rds")))
-
-  fhir_search_urls[[this_search]][["url"]] <- fhir_next_bundle_url()
-  if (is_useful_string(fhir_search_urls[[this_search]][["url"]])) {
-    names(fhir_search_urls[[this_search]][["url"]]) <- this_search
-  }
-  fhir_search_urls[[this_search]][["body"]] <- NULL
-  cat(str_glue("Downloaded {fhir_page_count * cfg$bundles_per_batch} bundles so far. ",
-               "Stopping without exceeding {cfg$max_bundles}."), "\n")
-  fhir_page_count <- fhir_page_count + 1
-}
-fhir_bundles[[this_search]] <- NULL
-gc(); gc()
-ctoc_log(save = tlog_path)
-
-# load downloaded FHIR DFs
-ctic("FHIR search 1: encounters - Load & combine downloaded DFs")
-fhir_dfs[[this_search]] <- map(Sys.glob(file.path(save_path, "DF_encounter_*.rds")), readRDS) %>%
-  bind_rows()
-ctoc_log()
-
-# melt encounters
-ctic("FHIR search 1: encounters - Melt DF, extract subject IDs")
-fhir_dfs[[this_search]] <- fhir_melt_loop_w_cfg(search_name = this_search)
-
-# remove reference prefixes
-fhir_dfs[[this_search]] <- fhir_dfs[[this_search]] %>%
-  {mutate(., across(contains("reference"), \(x) remove_ref_prefix(x, resource = attr(., "search_name"))))}
+fhir_dfs[[this_search]] <- fhir_batched_w_cfg(search_name = this_search, tlog_path = tlog_path)
 
 # limit to encounters with contact to selected departments
 encounter_ids_department <- fhir_dfs[[this_search]] %>%
   select(id, serviceType.coding.code, partOf.reference) %>%
-  filter(serviceType.coding.code %in% cfg$department_contacts) %>%
+  filter(serviceType.coding.code %in% cfg$department_contacts) %>% #TODO only if not NULL, Inf, etc.
   reframe(ids = unique(na.omit(c(id, partOf.reference)))) %>%
   use_series(ids)
 fhir_dfs[[this_search]] <- fhir_dfs[[this_search]] %>% filter(id %in% encounter_ids_department)
@@ -129,38 +82,20 @@ encounter_subject_id_string <- fhir_dfs[[this_search]]$subject.reference %>%
   paste0(collapse = ",")
 gc(); gc()
 ctoc_log(save = tlog_path)
-ctoc_log(save = tlog_path)
+
 
 ## FHIR search 2: patients belonging to encounters ----
 ctic("FHIR search 2: patients")
 this_search <- "patient"
-
-# url & search
-ctic("FHIR search 2: patients - Download bundles")
+# url & batched search
 fhir_search_urls[[this_search]] <- fhir_url_w_cfg(search_name = this_search,
                                                   parameters = c("_id" = encounter_subject_id_string))
-fhir_bundles[[this_search]] <- fhir_search_w_cfg(search_name = this_search)
-gc(); gc()
+fhir_dfs[[this_search]] <- fhir_batched_w_cfg(search_name = this_search, tlog_path = tlog_path)
 ctoc_log(save = tlog_path)
 
-# crack patients
-ctic("FHIR search 2: patients - Crack bundles")
-fhir_dfs[[this_search]] <- fhir_crack_w_cfg(search_name = this_search)
-fhir_bundles[[this_search]] <- NULL
-gc(); gc()
-ctoc_log(save = tlog_path)
-
-# melt patients
-ctic("FHIR search 2: patients - Melt DF")
-fhir_dfs[[this_search]] <- fhir_melt_loop_w_cfg(search_name = this_search)
-# remove reference prefixes
-fhir_dfs[[this_search]] <- fhir_dfs[[this_search]] %>%
-  {mutate(., across(contains("reference"), \(x) remove_ref_prefix(x, resource = attr(., "search_name"))))}
-gc(); gc()
-ctoc_log(save = tlog_path)
-ctoc_log(save = tlog_path)
 
 ## filter encounters & patients to age criterion ----
+ctic("Filtering encounters & patients to age criterion")
 underage_patients <- fhir_dfs$patient %>%
   select(patient_id = id, birthDate) %>%
   distinct() %>%
@@ -171,13 +106,14 @@ underage_patients <- fhir_dfs$patient %>%
 encounter_ids_to_keep <- unique(na.omit(underage_patients$encounter_id))
 # extract encounter ids for next FHIR searches
 encounter_ids_to_keep_string <- paste0(encounter_ids_to_keep, collapse = ",")
-# encounter_ids_to_keep_string <- paste0("Encounter/", encounter_ids_to_keep, collapse = ",")
 
 # filter encounter DF
-fhir_dfs$encounter %<>% filter(id %in% encounter_ids_to_keep)
+fhir_dfs$encounter <- fhir_dfs$encounter %>% filter(id %in% encounter_ids_to_keep)
 # filter patient DF
-fhir_dfs$patient %<>% filter(id %in% unique(underage_patients$patient_id))
+fhir_dfs$patient <- fhir_dfs$patient %>% filter(id %in% unique(underage_patients$patient_id))
 gc(); gc()
+ctoc_log(save = tlog_path)
+
 
 ## FHIR search 3 & 4: conditions / procedures ----
 fhir_searches <- c("condition", "procedure")
@@ -185,33 +121,21 @@ for (i in seq_along(fhir_searches)) {
   this_search <- fhir_searches[[i]]
   ctic(str_glue("FHIR search {i+2}: {this_search}s"))
 
-  # url & search
-  ctic(str_glue("FHIR search {i+2}: {this_search}s - Download bundles"))
+  # url & batched search
   fhir_search_urls[[this_search]] <- fhir_url_w_cfg(search_name = this_search,
                                                     parameters = c("encounter" = encounter_ids_to_keep_string))
-  fhir_bundles[[this_search]] <- fhir_search_w_cfg(search_name = this_search)
-  gc(); gc()
-  ctoc_log(save = tlog_path)
-
-  # crack
-  ctic(str_glue("FHIR search {i+2}: {this_search}s - Crack bundles"))
-  fhir_dfs[[this_search]] <- fhir_crack_w_cfg(search_name = this_search)
-  fhir_bundles[[this_search]] <- NULL
-  gc(); gc()
-  ctoc_log(save = tlog_path)
-
-  # melt
-  ctic(str_glue("FHIR search {i+2}: {this_search}s - Melt DF"))
-  fhir_dfs[[this_search]] <- fhir_melt_loop_w_cfg(search_name = this_search)
-  gc(); gc()
-  ctoc_log(save = tlog_path)
+  fhir_dfs[[this_search]] <- fhir_batched_w_cfg(search_name = this_search,
+                                                remove_ref_prefixes = FALSE,
+                                                tlog_path = tlog_path)
   ctoc_log(save = tlog_path)
 }
 ctoc_log(save = tlog_path)
 
-# bring dfs to global env for easier inspection
-# for (x in names(fhir_dfs)) assign(paste0("df_", x), fhir_dfs[[x]])
+# save results ---------------------------------------------------------------------------------------------------------
 
-if (cfg$clear_tmp_dir) file.remove(Sys.glob(file.path(save_path, "*")))
+
+
+# cleanup --------------------------------------------------------------------------------------------------------------
+if (cfg$clear_tmp_dir) unlink(file.path(cfg$tmp_dir, "*"), recursive = TRUE, expand = TRUE)
 ctoc_log(save = tlog_path)
-ctic.log(show = TRUE, save = FALSE)
+ctic.log(show = TRUE, save = FALSE) %>% arrange(start_s, finish_s) %>% print(n = Inf)

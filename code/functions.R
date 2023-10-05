@@ -837,5 +837,6 @@ fhir_batched_w_cfg <- function(search_url = NULL,
              "not requested so prefix removal will not be done (remove_ref_prefixes=T, but do_melt=F).")
   }
 
+  gc(); gc()
   return(fhir_dfs)
 }
