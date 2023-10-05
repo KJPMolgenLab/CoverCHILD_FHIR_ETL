@@ -12,7 +12,7 @@ default:
   
   save_to_disc: false #TODO: not yet implemented, has to be false for now
   log_dir: 'logs' # directory for logfiles
-  tmp_dir: 'tmp' # directory to store downloaded bundles / intermediate results, if applicable
+  tmp_dir: 'tmp' # directory to store downloaded bundles / intermediate results, if applicable. Set to null to use default per-session R temporary directory (usually /tmp/RtmpABCDEF)
   clear_tmp_dir: true # clear temporary cracked fhir_dfs from tmp_dir after running the script
   
   department_contacts: # (un-) comment to extract only cases with contact to 1 or both departments
