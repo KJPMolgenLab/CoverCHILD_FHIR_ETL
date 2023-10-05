@@ -69,7 +69,7 @@ fhir_dfs[[this_search]] <- fhir_batched_w_cfg(search_name = this_search, tlog_pa
 # limit to encounters with contact to selected departments
 encounter_ids_department <- fhir_dfs[[this_search]] %>%
   select(id, serviceType.coding.code, partOf.reference) %>%
-  filter(serviceType.coding.code %in% cfg$department_contacts) %>% #TODO only if not NULL, Inf, etc.
+  {if (!is.null(cfg$department_contacts)) filter(., serviceType.coding.code %in% cfg$department_contacts) else .} %>%
   reframe(ids = unique(na.omit(c(id, partOf.reference)))) %>%
   use_series(ids)
 fhir_dfs[[this_search]] <- fhir_dfs[[this_search]] %>% filter(id %in% encounter_ids_department)

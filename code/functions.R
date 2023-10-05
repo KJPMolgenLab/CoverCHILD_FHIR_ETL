@@ -729,13 +729,14 @@ fhir_batched_w_cfg <- function(search_url = NULL,
                                remove_ref_prefixes = TRUE,
                                tlog_path = NULL,
                                verbose = 2,
-                               save_to_disc = TRUE,
+                               save_batches_to_disc = NULL,
                                search_name = NULL,
                                config = cfg) {
   # config
   if (!is.null(config)) {
     if (is.null(bundles_per_batch)) bundles_per_batch <- config$bundles_per_batch
     if (is.null(max_bundles)) max_bundles <- config$max_bundles
+    if (is.null(save_batches_to_disc)) save_batches_to_disc <- config$save_batches_to_disc
   }
   #TODO implement verbose instead of do_log, split logging & console printing
   do_log <- verbose > 0
@@ -773,12 +774,12 @@ fhir_batched_w_cfg <- function(search_url = NULL,
   if (do_log) ctic(str_glue("Batched FHIR search: {search_name} - Download & crack bundles"))
 
   # set path for saving downloaded files
-  save_path <- save_to_disc_path_w_cfg(save_to_disc = save_to_disc,
+  save_path <- save_to_disc_path_w_cfg(save_to_disc = save_batches_to_disc,
                                        save_type = "cracked_DFs",
                                        search_name = search_name,
                                        config = config,
                                        verbose = verbose)
-  save_to_disc <- is_useful_string(save_path)
+  save_batches_to_disc <- is_useful_string(save_path)
   save_mask <- file.path(save_path, paste0("DF_", search_name, "_{id}.rds"))
 
   fhir_page_count <- 1
@@ -803,7 +804,7 @@ fhir_batched_w_cfg <- function(search_url = NULL,
     if (do_log) ctoc_log(save = tlog_path)
 
     # save if requested
-    if (save_to_disc) {
+    if (save_batches_to_disc) {
       saveRDS(fhir_dfs[[fhir_page_count]], str_glue(save_mask, id = fhir_page_count))
       fhir_dfs[fhir_page_count] <- NULL
       gc(); gc()
@@ -820,7 +821,7 @@ fhir_batched_w_cfg <- function(search_url = NULL,
 
   # load downloaded FHIR DFs if requested
   if (do_log) ctic(str_glue("Batched FHIR search: {search_name} - Combine downloaded DFs"))
-  if (save_to_disc) fhir_dfs <- map(Sys.glob(str_glue(save_mask, id = "*")), readRDS)
+  if (save_batches_to_disc) fhir_dfs <- map(Sys.glob(str_glue(save_mask, id = "*")), readRDS)
   fhir_dfs <- bind_rows(fhir_dfs)
   if (do_log) ctoc_log()
 

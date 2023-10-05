@@ -1,28 +1,25 @@
 ---
 default:
-  # general behavior ---------------------------------------------------------------------------------------------------
+  # general behavior -----------------------------------------------------------
   do_search: true
   use_post: true
   get_all_elements: false
   keep_all_elements: false
-  n_cores: 12
+  n_cores: 10
   bundle_size: 1000 # set max. bundle size using _count parameter in FHIR search, e.g. 1000
   bundles_per_batch: 50 # number of bundles per paged fhir search
+  save_batches_to_disc: true
   max_bundles: .inf # limit total number of bundles for testing/debugging, else set to .inf
   
-  save_to_disc: false #TODO: not yet implemented, has to be false for now
   log_dir: 'logs' # directory for logfiles
   tmp_dir: 'tmp' # directory to store downloaded bundles / intermediate results, if applicable. Set to null to use default per-session R temporary directory (usually /tmp/RtmpABCDEF)
   clear_tmp_dir: true # clear temporary cracked fhir_dfs from tmp_dir after running the script
   
-  department_contacts: # (un-) comment to extract only cases with contact to 1 or both departments
+  department_contacts: # (un-) comment to extract only cases with contact to 1 or both departments or no filtering if no uncommented value
     - 1000 # pediatrics
     - 3000 # child and adolescent psychiatry
   
-  # server settings ----------------------------------------------------------------------------------------------------
-#  hospital_name: 'UKDD'
-#  hospital_zip: '01307'
-
+  # server settings ------------------------------------------------------------
   filebase: 'data/FHIR_patient_examples' # if !do_search, XML FHIR resources/bundles will be read from this folder
   serverbase: 'https://hapi.fhir.org/baseR4'
   username: null
@@ -33,12 +30,13 @@ default:
   no_proxy: null # put fhir server adress here, if you need to bypass the proxy for accessing it locally
   ssl_verify_peer: false
   
-  # server coding customization ----------------------------------------------------------------------------------------
+  # server coding customization ------------------------------------------------
   # set custom reference prefixes if they can't be detected automatically
   ref_prefixes:
     encounter:
       subject.reference: null
       diagnosis.condition.reference: null
+      #TODO: expand?
   
   sep: ":::" # could probably be hardcoded in R, doesn't need to be customized by a site
   brackets: ["[", "]"] # same
