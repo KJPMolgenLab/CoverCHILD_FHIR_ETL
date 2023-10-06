@@ -803,6 +803,13 @@ fhir_batched_w_cfg <- function(search_url = NULL,
     gc(); gc()
     if (do_log) ctoc_log(save = tlog_path)
 
+    # melt if requested
+    if (do_melt) {
+      if (do_log) ctic(str_glue("Batched FHIR search: {search_name} - Melt DF"))
+      fhir_dfs[[fhir_page_count]] <- fhir_melt_loop_w_cfg(indexed_df = fhir_dfs[[fhir_page_count]], config = config)
+      if (do_log) ctoc_log()
+    }
+
     # save if requested
     if (save_batches_to_disc) {
       saveRDS(fhir_dfs[[fhir_page_count]], str_glue(save_mask, id = fhir_page_count))
@@ -825,17 +832,16 @@ fhir_batched_w_cfg <- function(search_url = NULL,
   fhir_dfs <- bind_rows(fhir_dfs)
   if (do_log) ctoc_log()
 
-  # melt & remove reference prefixes if requested
-  if (do_melt) {
-    if (do_log) ctic(str_glue("Batched FHIR search: {search_name} - Melt DF"))
-    fhir_dfs <- fhir_melt_loop_w_cfg(indexed_df = fhir_dfs, config = config)
-    if (remove_ref_prefixes && is_nonempty_df(fhir_dfs)) fhir_dfs <- fhir_dfs %>%
-      {mutate(., across(contains("reference"),
-                        \(x) remove_ref_prefix(refs = x, resource = attr(., "resource"), config = config)))}
-    if (do_log) ctoc_log()
-  } else if (remove_ref_prefixes) {
-     warning("Reference prefix removal was requested, but they will only be removed from a molten DF. Melting was ",
-             "not requested so prefix removal will not be done (remove_ref_prefixes=T, but do_melt=F).")
+  # remove reference prefixes if requested
+  if (remove_ref_prefixes) {
+    if (do_melt) {
+      if (is_nonempty_df(fhir_dfs)) fhir_dfs <- fhir_dfs %>%
+          {mutate(., across(contains("reference"),
+                            \(x) remove_ref_prefix(refs = x, resource = attr(., "resource"), config = config)))}
+    } else {
+      warning("Reference prefix removal was requested, but they will only be removed from a molten DF. Melting was ",
+              "not requested so prefix removal will not be done (remove_ref_prefixes=T, but do_melt=F).")
+    }
   }
 
   gc(); gc()
