@@ -782,11 +782,16 @@ fhir_batched_w_cfg <- function(search_url = NULL,
   save_batches_to_disc <- is_useful_string(save_path)
   save_mask <- file.path(save_path, paste0("DF_", search_name, "_{id}.rds"))
 
+  # enforce max_bundles as upper limit, even if bundles_per_batch would be larger
+  if (max_bundles < bundles_per_batch) bundles_per_batch <- max_bundles
   fhir_page_count <- 1
+  downloaded_bundle_count <- 0
   fhir_dfs <- list()
-  if (verbose > 0) cat(str_glue("Batched settings: Downloading {bundles_per_batch} bundles per batch, ",
+  if (verbose > 0) cat(str_glue("Batched settings: Processing {bundles_per_batch} bundles per batch, ",
                                 "maximum of {max_bundles} bundles in total."), "\n")
-  while(is_useful_string(url_list[["url"]]) && (fhir_page_count * bundles_per_batch < max_bundles)) {
+  while(is_useful_string(url_list[["url"]]) &&
+        (bundles_per_batch > 0) &&
+        ((downloaded_bundle_count + bundles_per_batch) <= max_bundles)) {
     # search
     if (do_log) ctic(str_glue("Batched FHIR search: {search_name} - Download bundle set {fhir_page_count}"))
     fhir_bundles <- fhir_search_w_cfg(search_url = url_list,
@@ -820,8 +825,14 @@ fhir_batched_w_cfg <- function(search_url = NULL,
     url_list[["url"]] <- fhir_next_bundle_url()
     if (is_useful_string(url_list[["url"]])) names(url_list[["url"]]) <- search_name
     url_list[["body"]] <- NULL
-    cat(str_glue("Downloaded {fhir_page_count * bundles_per_batch} bundles so far. ",
-                 "Stopping without exceeding {max_bundles}."), "\n")
+
+    downloaded_bundle_count <- downloaded_bundle_count + bundles_per_batch
+    cat(str_glue("Processed {downloaded_bundle_count} bundles so far. Stopping after {max_bundles} bundles max."),
+        "\n")
+    # enforce max_bundles as upper limit if it would be exceeded in the next batch
+    if (max_bundles < (downloaded_bundle_count + bundles_per_batch)) {
+      bundles_per_batch <- max_bundles - downloaded_bundle_count
+    }
     fhir_page_count <- fhir_page_count + 1
   }
   if (do_log) ctoc_log(save = tlog_path)
