@@ -10,7 +10,9 @@ default:
   bundles_per_batch: 50 # number of bundles per paged fhir search
   save_batches_to_disc: true
   max_bundles: .inf # limit total number of bundles for testing/debugging, else set to .inf
+  save_output: true
   
+  out_dir: 'output'
   log_dir: 'logs' # directory for logfiles
   tmp_dir: 'tmp' # directory to store downloaded bundles / intermediate results, if applicable. Set to null to use default per-session R temporary directory (usually /tmp/RtmpABCDEF)
   clear_tmp_dir: true # clear temporary cracked fhir_dfs from tmp_dir after running the script

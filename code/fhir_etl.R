@@ -131,8 +131,11 @@ for (i in seq_along(fhir_searches)) {
 }
 ctoc_log(save = tlog_path)
 
-# save results ---------------------------------------------------------------------------------------------------------
 
+# save results ---------------------------------------------------------------------------------------------------------
+#TODO adapt save_to_disc_path_w_cfg() to accommodate this use case
+if (cfg$save_output) iwalk(fhir_dfs, \(x, x_name) write_csv(
+  x, file.path(cfg$out_dir, paste0("DF_", x_name, "_", format(Sys.time(), "%y%m%d"), ".csv"))))
 
 
 # cleanup --------------------------------------------------------------------------------------------------------------
