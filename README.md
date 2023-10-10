@@ -47,7 +47,7 @@ For further information and instructions, see the documentation within the confi
 
 ### 2) Executing the script
 
-- in an interactive R session by opening the 'CoverCHILD.Rproj' R project and running the 'code/fhir_etl.R' script
+- in an interactive R session by opening the 'CoverCHILD_FHIR_ETL.Rproj' R project and running the 'code/fhir_etl.R' script
 
 or by
 
