@@ -32,6 +32,8 @@ Missing R packages are installed automatically from the R package repository (CR
 ├── logs/                            # log files (timings, http errors)
 ├── output/                          # final output of the script
 ├── tmp/                             # temporary files
+│
+├── CoverCHILD_FHIR_ETL.Rproj        # RStudio project file for running the script interactively
 ├── create_fresh_config.sh           # creates/resets configuration files by copying from TEMPLATES
 └── run_fhir_etl.sh                  # runs the script (fhir_etl.R) while logging output
 ```
