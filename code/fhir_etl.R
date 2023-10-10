@@ -1,11 +1,14 @@
 #!/usr/bin/env Rscript
 
-# CoverCHILD FHIR ETL (JSON FHIR-Bundles -> normal-form list of DFs)
+# CoverCHILD data integration FHIR ETL (FHIR server queries -> normal-form list of DFs)
 # @author: simeonplatte
-# @date: 2023-07-28
+# @date: 2023-10-09
 
 # setup ----------------------------------------------------------------------------------------------------------------
 options(warn = 1L)
+# set working directory if script is run from shell
+cl_args <- commandArgs(TRUE)
+if (length(cl_args) > 0) setwd(cl_args[[1]])
 
 ## load & install ----
 source("code/functions.R")
@@ -32,7 +35,7 @@ walk(c("http_proxy", "https_proxy", "no_proxy"),
 # ssl peer verification
 if (!cfg$ssl_verify_peer) httr::set_config(httr::config(ssl_verifypeer = 0L))
 
-#TODO: use parallel backend, e.g. doParallel for parallelization of searches
+#TODO: use parallel backend e.g., doParallel for parallelization of searches
 # - add config options for parallelization
 # - Where will these scripts be executed? Single node only?
 

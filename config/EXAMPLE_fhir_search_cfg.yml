@@ -1,36 +1,62 @@
+# Configuration of FHIR search parameters and resource element selection.
+# - FHIR search parameters
+# - FHIR elements to include in FHIR search
+
 ---
 default:
-  # FHIR search parameters ---------------------------------------------------------------------------------------------
+  # FHIR search parameters -------------------------------------------------------------------------
+
   parameters:
+    # FHIR searches will be performed sequentially as they appear in this 'parameters' section.
+    # type: list of strings of the form SearchParameter=SearchValue
+    
     encounter:
+      # admission date greater or equal to 2016-01-01
       - "date=ge2016-01-01"
+      # admission date less or equal to 2016-01-01
       - "date=le2022-02-28"
-      #- "servicetype=1000,3000"
-      #- "servicetype=https://www.medizininformatik-initiative.de/fhir/core/modul-fall/CodeSystem/Fachabteilungsschluessel|1000,3000"
-      #TODO: Also include parent-Encounters of matched encounters as they are Abteilungskontakte
-      #      and their respective Einrichtungskontakte hold more info.
-      #- "_include:Encounter:encounter" ?
+      # birthdate greater or equal to 1998-01-01 (upper limit for underage patients at the begin 
+      # of the study interval)
       - "patient.birthdate=ge1998"
-      - "patient.address-country=de,ger"
+      # patients with a german address
+      - "patient.address-country=d,ger"
+      
+      # If the FHIR server has implemented a custom SearchParameter for ServiceType, uncomment the 
+      # servicetype parameter below. This will improve performance, reducing load on the FHIR 
+      # server by only querying encounters with contact to the specified departments (example 
+      # implementation can be found at https://fshschool.org/FSHOnline/#/share/3KrPtLc)
+      #- "servicetype=https://www.medizininformatik-initiative.de/fhir/core/modul-fall/CodeSystem/Fachabteilungsschluessel|1000,3000"
+    
+    # At the current state, further search parameters are generated only within the script.
     patient: null
     condition: null
     procedure: null
 
-  # elements to include in fhir search ---------------------------------------------------------------------------------
+  # FHIR elements to include in FHIR searches ------------------------------------------------------
+  
   elements:
+  # This section defines per resource a list of FHIR elements (in XPath format) to control which 
+  # elements of the respective FHIR resource are a) downloaded for the respective FHIR search 
+  # and/or b) kept during processing.
+  # a) to limit downloads to the elements specified below (default setting), set 'get_all_elements'
+  #    in 'fhir_cfg.yml' to false.
+  # b) to constrict processed data to the elements specified below (default setting), set 
+  #    'keep_all_elements' in 'fhir_cfg.yml' to false.
+  # See respective settings in 'fhir_cfg.yml' for additional information. type: list of strings
+  
     patient:
       ## to extract
-      - "address/postalCode" # "6", "63", "0xxxx"
-      - "birthDate" # "2001-01-01", "1958-04"
-      - "deceasedBoolean" # "false"
+      - "address/postalCode"
+      - "birthDate"
+      - "deceasedBoolean"
       - "deceasedDateTime"
-      - "gender" # "female", "male"
+      - "gender"
       - "id"
       - "identifier/assigner/identifier/value"
       - "identifier/value"
 
-      ## for QC only, discarded before export
-      - "address/country" # "DE"
+      ## for QC only, to be discarded before export
+      - "address/country"
       #- "address/type" # "both"
       #- "identifier/assigner/identifier/system"
       #- "identifier/assigner/identifier/type/coding/code"
@@ -127,15 +153,15 @@ default:
       - "code/coding/display"
       - "code/coding/system"
       - "code/coding/version"
-      - "code/text" # duplicate of coding/display
+      - "code/text"
       - "encounter/reference"
-      - "id" # contains also info about diagnosis type at the end
+      - "id"
       - "onsetDateTime"
       - "onsetPeriod/end"
       - "onsetPeriod/start"
       - "recordedDate"
       - "subject/reference"
-      - "verificationStatus/coding/code" # is potentially a modifier of condition, but does not need to be supported
+      - "verificationStatus/coding/code"
       - "verificationStatus/coding/display"
       - "verificationStatus/coding/system"
       - "verificationStatus/text"
@@ -147,7 +173,8 @@ default:
       - "bodySite/text"
 
       ## Extensions - need extra handling
-      ##  (Seitenlokalisation, Diagnosesicherheit, Mehrfachkodierungen, Neben-/2.-Diagnosen "condition-related")
+      ##  (Seitenlokalisation, Diagnosesicherheit, Mehrfachkodierungen, 
+      ##  Neben-/2.-Diagnosen "condition-related")
       - "code/coding/extension"
       - "code/coding/extension/valueCoding/code"
       - "code/coding/extension/valueCoding/display"
@@ -158,7 +185,7 @@ default:
       ## for QC only, discarded before export
       #- "identifier/system"
       #- "identifier/use"
-      - "identifier/value" # same as ID in UKF data
+      - "identifier/value"
       - "meta/lastUpdated"
       - "meta/profile"
       #- "meta/security/code"
