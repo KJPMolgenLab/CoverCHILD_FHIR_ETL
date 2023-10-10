@@ -27,6 +27,8 @@ if (!cfg$get_all_elements) search_cfg$base_elements <- map(search_cfg$elements, 
 
 # create filepath for logging of timings
 tlog_path <- file.path(cfg$log_dir, paste0("FHIR_timings_", format(Sys.time(), "%y%m%d-%H%M"), ".csv"))
+# create output folders if not existing
+for (dir in c(cfg$log_dir, cfg$out_dir, cfg$tmp_dir)) dir.create(dir, showWarnings = FALSE, recursive = TRUE)
 
 ## network settings ----
 # proxy
@@ -86,7 +88,6 @@ encounter_subject_id_string <- fhir_dfs[[this_search]]$subject.reference %>%
 gc(); gc()
 ctoc_log(save = tlog_path)
 
-
 ## FHIR search 2: patients belonging to encounters ----
 ctic("FHIR search 2: patients")
 this_search <- "patient"
@@ -95,7 +96,6 @@ fhir_search_urls[[this_search]] <- fhir_url_w_cfg(search_name = this_search,
                                                   parameters = c("_id" = encounter_subject_id_string))
 fhir_dfs[[this_search]] <- fhir_batched_w_cfg(search_name = this_search, tlog_path = tlog_path)
 ctoc_log(save = tlog_path)
-
 
 ## filter encounters & patients to age criterion ----
 ctic("Filtering encounters & patients to age criterion")
@@ -116,7 +116,6 @@ fhir_dfs$encounter <- fhir_dfs$encounter %>% filter(id %in% encounter_ids_to_kee
 fhir_dfs$patient <- fhir_dfs$patient %>% filter(id %in% unique(underage_patients$patient_id))
 gc(); gc()
 ctoc_log(save = tlog_path)
-
 
 ## FHIR search 3 & 4: conditions / procedures ----
 fhir_searches <- c("condition", "procedure")
