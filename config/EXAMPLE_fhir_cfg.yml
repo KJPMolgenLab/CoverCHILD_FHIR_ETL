@@ -8,150 +8,154 @@
 ---
 default:
   # Server settings --------------------------------------------------------------------------------
-  
+
   # Base address of the FHIR server. type: string
   serverbase: 'https://hapi.fhir.org/baseR4'
-  
+
   # Username & password, if the server uses basic authentification. type: string | null
   username: null
   password: null
-  
-  # Token if the FHIR server is protected with bearer token authentication (e.g. OAuth2). See 
+
+  # Token if the FHIR server is protected with bearer token authentication (e.g. OAuth2). See
   # fhircrackr::fhir_authenticate() for further details and troubleshooting. type: string | null
   token: null
-  
-  # Proxy configuration, if a proxy server is needed (e.g., http://proxy:port). Will be set as 
+
+  # Proxy configuration, if a proxy server is needed (e.g., http://proxy:port). Will be set as
   # system environment variables. type: string | null
   http_proxy: null
   https_proxy: null
   # FHIR server address, if there is need to bypass the proxy for accessing it locally.
   # type: string | null
   no_proxy: null
-  
+
   # Enable/disable verification of the peer's SSL certificate. For more details see
   # https://curl.se/libcurl/c/CURLOPT_SSL_VERIFYPEER.html. type: boolean
   #   true:  peer verification enabled
   #   false: peer verification disabled
   ssl_verify_peer: false
-  
-  
+
+
   # General behavior -------------------------------------------------------------------------------
-  
-  # Number of CPU cores to use for processing. At the moment, only fhir_crack() makes use of this 
+
+  # Number of CPU cores to use for processing. At the moment, only fhir_crack() makes use of this
   # parameter. type: integer > 0
   n_cores: 10
-  
+
   # Query FHIR server or load existing bundle files. type: boolean
   #   true:  Perform searches as configured
   #   false: Load existing FHIR bundles (XML) from directory specified under 'filebase'
   # NOTE: must be true for now, loading of already existing bundles is not yet implemented.
   do_search: true
-  
-  # Use POST or GET requests to query the FHIR server. Use POST if possible, as search strings 
+
+  # Use POST or GET requests to query the FHIR server. Use POST if possible, as search strings
   # can potentially get too long for GET requests. type: boolean (true: use POST; false: use GET)
   use_post: true
-  
-  # Download all existing elements of a FHIR resource or only elements specified in 
-  # 'fhir_search_cfg.yml'? Limiting the elements improves performance, but could be disabled for 
+
+  # Download all existing elements of a FHIR resource or only elements specified in
+  # 'fhir_search_cfg.yml'? Limiting the elements improves performance, but could be disabled for
   # debugging purposes. type: boolean
   #   true:  download all elements of a resource
   #   false: limit downloaded elements of a resource to those specified in 'fhir_search_cfg.yml'
   get_all_elements: false
-  
-  # Keep all available elements when cracking bundles of a downloaded FHIR resource, or keep only 
-  # those elements specified in 'fhir_search_cfg.yml'? Can be enabled for debugging purposes. 
-  # Dependency: elements/variables can only be kept if they were downloaded i.e., 
+
+  # Keep all available elements when cracking bundles of a downloaded FHIR resource, or keep only
+  # those elements specified in 'fhir_search_cfg.yml'? Can be enabled for debugging purposes.
+  # Dependency: elements/variables can only be kept if they were downloaded i.e.,
   # 'get_all_elements' was set to true. type: boolean
   #   true:  Keep all available elements when cracking bundles of a downloaded FHIR resource
-  #   false: Keep keep only the elements specified in 'fhir_search_cfg.yml' when cracking bundles 
+  #   false: Keep keep only the elements specified in 'fhir_search_cfg.yml' when cracking bundles
   #          of a downloaded FHIR resource
   keep_all_elements: false
-  
-  # Filter to only keep encounters with contact to the uncommented department identifiers. 
-  # Comment, add, or remove department identifiers to filter if necessary. If all entries are 
+
+  # Filter to only keep encounters with contact to the uncommented department identifiers.
+  # Comment, add, or remove department identifiers to filter if necessary. If all entries are
   # commented or removed, no department-filtering will be applied. type: list of integers.
   department_contacts:
     - 1000 # pediatrics
     - 3000 # child and adolescent psychiatry
-  
-  
+
+
   # Server coding customization --------------------------------------------------------------------
-  
-  # Resource reference prefix customization. If a resource contains references to IDs in another 
-  # resource, those will usually be prepended with the corresponding reference prefix. E.g., the 
-  # 'subject.reference' element of an 'encounter' resource links an encounter to a subject ID and 
-  # usually is prefixed with either 'Patient/' or 'Subject/'. These prefixes are detected and 
-  # removed automatically. If automatic detection of the most common prefix of a column/element 
-  # is not the wanted behavior (indicated by a warning or error), please provide the correct 
+
+  # Resource reference prefix customization. If a resource contains references to IDs in another
+  # resource, those will usually be prepended with the corresponding reference prefix. E.g., the
+  # 'subject.reference' element of an 'encounter' resource links an encounter to a subject ID and
+  # usually is prefixed with either 'Patient/' or 'Subject/'. These prefixes are detected and
+  # removed automatically. If automatic detection of the most common prefix of a column/element
+  # is not the wanted behavior (indicated by a warning or error), please provide the correct
   # reference prefix(es) manually below. type: string | null/commented/no entry
-  #   null/commented/no entry: automatic detection and removal of the most common prefix per 
+  #   null/commented/no entry: automatic detection and removal of the most common prefix per
   #                            reference column.
   ref_prefixes:
     encounter:
       subject.reference: null
-  
-  # Separator and brackets for separating multiple entries within a single Dataframe cell before 
-  # unnesting. Only need to be changed in unlikely cases that the pre-set separator or brackets 
+
+  # Separator and brackets for separating multiple entries within a single Dataframe cell before
+  # unnesting. Only need to be changed in unlikely cases that the pre-set separator or brackets
   # are part of an element. type: string
   sep: ':::'
   # type: list of 2 single-character strings
   brackets: ["[", "]"]
-  
-  
+
+
   # Size of batches for batched resource processing ------------------------------------------------
-  
-  # FHIR resources are processed in batches. Each batch consists of a downlaod of a portion of 
-  # FHIR bundles followed by converting and unnesting to Dataframes/tables. Batch results can 
+
+  # FHIR resources are processed in batches. Each batch consists of a downlaod of a portion of
+  # FHIR bundles followed by converting and unnesting to Dataframes/tables. Batch results can
   # either be stored to disc temporarily or kept in memory. Batches are then concatenated.
-  # 
-  # Setting optimal batch size for a given machine improves performance and avoids running into 
-  # main memory issues. The size of a batch is determined by the number of downloaded entries, 
-  # which is the number of entries per bundle times the number of bundles per batch: 
+  #
+  # Setting optimal batch size for a given machine improves performance and avoids running into
+  # main memory issues. The size of a batch is determined by the number of downloaded entries,
+  # which is the number of entries per bundle times the number of bundles per batch:
   # 'bundle_size' x 'bundles_per_batch' = number of entries per batch.
-  # From experience, up to 50000 entries per batch seem to work fine on a VM with 4 CPUs and 16 GB 
-  # of RAM. This is pre-set below (1000x50). Increasing 'bundles_per_batch' will decrease 
-  # runtime given sufficient working memory. 
-  
+  # From experience, up to 50000 entries per batch seem to work fine on a VM with 4 CPUs and 16 GB
+  # of RAM. This is pre-set below (1000x50). Increasing 'bundles_per_batch' will decrease
+  # runtime given sufficient working memory.
+
   # Maximum number of entries per downloaded FHIR bundle (entries per downloaded FHIR page)
   # type: integer > 0; e.g., 1000
   bundle_size: 1000
-  
+
   # Number of FHIR bundles (/pages) downloaded and processed per batch e.g., 50
   # type: integer > 0 | .inf
   #   .inf: process all available bundles in a single batch (i.e., no batching)
   bundles_per_batch: 50
-  
-  # Maximum number of bundles processed per resource, possibly accumulated over multiple batches. 
-  # This should be .inf, but can be limited for testing and debugging purposes. Takes precedence 
+
+  # Maximum number of bundles processed per resource, possibly accumulated over multiple batches.
+  # This should be .inf, but can be limited for testing and debugging purposes. Takes precedence
   # over 'bundles_per_batch' if necessary.
   # type: .inf | integer
-  #   .inf:    batch-process all available bundles of a queried resource 
+  #   .inf:    batch-process all available bundles of a queried resource
   #   integer: stop batch-processing without exceeding the given number of bundles
   max_bundles: .inf
-  
-  
+
+
   # Saving to disc, directory paths ----------------------------------------------------------------
-  
-  # Save processed Dataframe/table per batch to temporary directory specified under 'tmp_dir' 
-  # below. This saves on main memory but can be disabled if (even temporary) storing of 
+
+  # Save processed Dataframe/table per batch to temporary directory specified under 'tmp_dir'
+  # below. This saves on main memory but can be disabled if (even temporary) storing of
   # un-anonymized data on the filesystem is not wanted.
   # type: boolean
   save_batches_to_disc: true
-  
-  # Save processed tables in 'out_dir' specified below. Can be disabled for testing/debugging 
-  # to not leak data to the filesystem.
-  # type: boolean
-  save_output: true
-  
-  # Relative of absolute path to directory to save the processed tables
-  # type: string
+
+  # Relative or absolute path to directory to save the processed tables. (Saving can also be
+  # disabled for testing/debugging to not leak data to the filesystem, by modifying the
+  # 'save_output' parameter below.) type: string
   out_dir: 'output'
-  
+
+  # Output file format(s) for saving the processed tables. Can be a single format, all, or null
+  # to disable saving. type: string | null
+  #   'rds':     Save results as R Data structure files only
+  #   'csv':     Save results as csv only
+  #   'all':     Save results in every format specified above
+  #   '' | null: Do not save results
+  save_output: 'all'
+
   # Relative of absolute path to directory to save logfiles (e.g., timings, http error responses)
   # type: string
   log_dir: 'logs'
-  
-  # Relative of absolute path to directory to store temporary files (e.g. FHIR bundles, 
+
+  # Relative of absolute path to directory to store temporary files (e.g. FHIR bundles,
   # per-batch Dataframes/tables). If not set, defaults to per-session R temp directory.
   # type: string | null
   #   null: Use default per-session R temporary directory (usually /tmp/RtmpABCDEF)
@@ -159,8 +163,7 @@ default:
   # Remove everything from 'tmp_dir' after running the script.
   # type: boolean
   clear_tmp_dir: true
-  
+
   # Relative of absolute path to directory which contains already existing FHIR bundles (XML)
   # to be read if 'do_search' is false, instead of performing FHIR searches queries to the server.
   filebase: 'data/FHIR_patient_examples'
-

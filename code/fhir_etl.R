@@ -15,8 +15,10 @@ source("code/functions.R")
 inst_pkgs("config", "httr")
 load_inst_pkgs("tidyverse", "lubridate", "magrittr", "fhircrackr", "data.table", "tictoc", "rlang")
 
+### load & postprocess config ----
 cfg <- config::get(file = file.path("config", "fhir_cfg.yml"))
 search_cfg <- config::get(file = file.path("config", "fhir_search_cfg.yml"))
+
 # separate config entries so fhir_url() can check the elements
 search_cfg$named_params <-
   map(search_cfg$parameters, \(x) {
@@ -27,8 +29,17 @@ if (!cfg$get_all_elements) search_cfg$base_elements <- map(search_cfg$elements, 
 
 # create filepath for logging of timings
 tlog_path <- file.path(cfg$log_dir, paste0("FHIR_timings_", format(Sys.time(), "%y%m%d-%H%M"), ".csv"))
+
 # create output folders if not existing
 for (dir in c(cfg$log_dir, cfg$out_dir, cfg$tmp_dir)) dir.create(dir, showWarnings = FALSE, recursive = TRUE)
+
+# select saving methods & unnest save_output if it is "all"
+# (also treat TRUE as "all" for backwards compatibility)
+save_as <- c(csv = write_csv, rds = saveRDS) # available save functions, format: file extension = function
+# subset
+if (is.null(cfg$save_output) || !(tolower(cfg$save_output) %in% c(names(save_as), "all"))) {
+  save_as <- NULL
+} else if (!(cfg$save_output == "all" || isTRUE(cfg$save_output))) save_as <- save_as[cfg$save_output]
 
 ## network settings ----
 # proxy
@@ -88,6 +99,7 @@ encounter_subject_id_string <- fhir_dfs[[this_search]]$subject.reference %>%
 gc(); gc()
 ctoc_log(save = tlog_path)
 
+
 ## FHIR search 2: patients belonging to encounters ----
 ctic("FHIR search 2: patients")
 this_search <- "patient"
@@ -96,6 +108,7 @@ fhir_search_urls[[this_search]] <- fhir_url_w_cfg(search_name = this_search,
                                                   parameters = c("_id" = encounter_subject_id_string))
 fhir_dfs[[this_search]] <- fhir_batched_w_cfg(search_name = this_search, tlog_path = tlog_path)
 ctoc_log(save = tlog_path)
+
 
 ## filter encounters & patients to age criterion ----
 ctic("Filtering encounters & patients to age criterion")
@@ -117,6 +130,7 @@ fhir_dfs$patient <- fhir_dfs$patient %>% filter(id %in% unique(underage_patients
 gc(); gc()
 ctoc_log(save = tlog_path)
 
+
 ## FHIR search 3 & 4: conditions / procedures ----
 fhir_searches <- c("condition", "procedure")
 for (i in seq_along(fhir_searches)) {
@@ -136,8 +150,8 @@ ctoc_log(save = tlog_path)
 
 # save results ---------------------------------------------------------------------------------------------------------
 #TODO adapt save_to_disc_path_w_cfg() to accommodate this use case
-if (cfg$save_output) iwalk(fhir_dfs, \(x, x_name) write_csv(
-  x, file.path(cfg$out_dir, paste0("DF_", x_name, "_", format(Sys.time(), "%y%m%d"), ".csv"))))
+for (i in seq_along(save_as)) iwalk(fhir_dfs, \(x, x_name) save_as[[i]](
+  x, file.path(cfg$out_dir, paste0("DF_", x_name, "_", format(Sys.time(), "%y%m%d"), ".", names(save_as)[i]))))
 
 
 # cleanup --------------------------------------------------------------------------------------------------------------
