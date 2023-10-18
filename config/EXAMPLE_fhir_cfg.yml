@@ -144,11 +144,11 @@ default:
   out_dir: 'output'
 
   # Output file format(s) for saving the processed tables. Can be a single format, all, or null
-  # to disable saving. type: string | null
-  #   'rds':     Save results as R Data structure files only
-  #   'csv':     Save results as csv only
-  #   'all':     Save results in every format specified above
-  #   '' | null: Do not save results
+  # to disable saving. type: string | true | null
+  #   'rds':        Save results as R Data structure files only
+  #   'csv':        Save results as csv only
+  #   'all' | true: Save results in every format specified above
+  #   '' | null:    Do not save results
   save_output: 'all'
 
   # Relative of absolute path to directory to save logfiles (e.g., timings, http error responses)

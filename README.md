@@ -1,21 +1,28 @@
-# CoverCHILD data integration FHIR ETL 
-last updated: 2023-10-10
+# CoverCHILD data integration FHIR ETL
+
+last updated: 2023-10-17
 ---
 
+
 ## Purpose
-This repository contains code for the CoverCHILD data integration project. Patient data is queried from a FHIR server on-site and transformed into flat tables corresponding to FHIR resources for further anonymisation and processing (e.g., the monitoring dashboard use case).
+
+This repository contains code for the CoverCHILD data integration project. Patient data is queried from a FHIR server on-site and transformed into flat tables corresponding to FHIR resources for further anonymisation, processing, and analysis (e.g., the monitoring dashboard use case).
+
 
 ## Dependencies
-This script uses R (≥ 4.1.0), the following R packages and their respective dependencies:
 
-- config (≥ 0.3.2)
-- fhircrackr (≥ 2.1.1)
-- tictoc (≥ 1.2)
-- tidyverse (≥ 2.0.0)
+This script uses [R](https://www.r-project.org/) (≥ 4.1.0), the following R packages and their respective dependencies:
 
-Missing R packages are installed automatically from the R package repository (CRAN). If that is not wanted or possible, install packages manually prior to running the script. Please note that the script does try to install missing packages, but does not yet check whether versions of already installed packages are matching.
+- [config](https://cran.r-project.org/web/packages/config/index.html) (≥ 0.3.2)
+- [fhircrackr](https://cran.r-project.org/package=fhircrackr) (≥ 2.1.1)
+- [tictoc](https://cran.r-project.org/package=tictoc) (≥ 1.2)
+- [tidyverse](https://cran.r-project.org/package=tidyverse) (≥ 2.0.0)
+
+Missing R packages are installed automatically from the R package repository ([CRAN](https://cran.r-project.org/)). If that is not wanted or possible, install packages manually prior to running the script. Please note that the script does try to install missing packages, but does not yet check whether versions of already installed packages are matching.
+
 
 ## Folder structure
+
 ```
 ├── code/
 │   ├── fhir_etl.R                   # main R script
@@ -38,39 +45,61 @@ Missing R packages are installed automatically from the R package repository (CR
 └── run_fhir_etl.sh                  # runs the script (fhir_etl.R) while logging output
 ```
 
+
 ## Steps for running the script
+
 ### 1) Configuration
 
-- Run 'create_fresh_config.sh' to create the two necessary configuration files from the templates in the `config/` directory, or copy & rename them manually to 'fhir_cfg.yml' and 'fhir_search_cfg.yml' as shown in the folder structure
-- configure 'config/fhir_cfg.yml': server settings and general behaviour of the script.
-- configure 'fhir_search_cfg.yml': FHIR search parameters and resource element selection. This file only needs to be modified in special cases e.g., if your FHIR server supports a custom 'ServiceType' SearchParameter for Encounter resources.
+- Run '`create_fresh_config.sh`' to create the two necessary configuration files from the templates in the '`config/`' directory, or copy & rename them manually to '`fhir_cfg.yml`' and '`fhir_search_cfg.yml`' as shown in the folder structure
+- configure '`config/fhir_cfg.yml`': server settings and general behaviour of the script.
+- configure '`config/fhir_search_cfg.yml`': FHIR search parameters and resource element selection. This file only needs to be modified in special cases e.g., if the FHIR server supports a custom 'ServiceType' *SearchParameter* for *Encounter resources*.
 
 For further information and instructions, see the documentation within the configuration files.
 
 ### 2) Executing the script
 
-- in an interactive R session by opening the 'CoverCHILD_FHIR_ETL.Rproj' R project and running the 'code/fhir_etl.R' script
+- in an interactive R session by opening the '`CoverCHILD_FHIR_ETL.Rproj`' R project and running the '`code/fhir_etl.R`' script
 
 or by
 
-- running 'run_fhir_etl.sh'. Here, all output will be logged to folder specified for log files in 'fhir_cfg.yml' 
+- running '`run_fhir_etl.sh`'. Here, all output will be logged to folder specified for log files in '`config/fhir_cfg.yml`'
+
+
+## Default filter criteria
+
+This script queries all *Patient*, *Condition*, *Procedure*, and *Observation resources* belonging to *Encounters* which:
+
+- have admission dates between 2016-01-01 and 2022-03-31
+- have contact to the pediatrics or child and adolescence psychiatry departments
+- are under 18 years of age at admission
+- have a German address
+
+Filter criteria can be inspected and modified in '`config/fhir_search_cfg.yml`'.
+
 
 ## Check for success / Troubleshooting
+
 If the script ran through successfully
 
-- the last entry of the corresponding 'FHIR_timings_*.csv' in the log directory is 'Run FHIR ETL.'
-- the output directory contains one .csv table per resource i.e., Patient, Encounter, Condition, Procedure (if 'save_output' was set to true in fhir_cfg.yml)
+- the last entry of the corresponding '`FHIR_timings_*.csv`' in the log directory is 'Run FHIR ETL.'
+- the output directory contains one file per *resource* i.e., *Patient*, *Encounter*, *Condition*, *Procedure*, *Observation* (if 'save_output' was not set to null in '`config/fhir_cfg.yml`')
 - no http error file was generated in the log directory
 
+
+## FAQ
+
+- will be filled accompanying the test phase
+
+
 ## Contact
-We're very interested in your experience running the script and would be happy to receive any feedback regarding comments, troubleshooting, questions, improvements, etc.
+
+We're very interested in your experience running the script and would be happy to receive any feedback regarding comments, troubleshooting, questions, improvements, etc.  
 Especially useful to us is feedback on performance i.e.,
 
 - the generated 'FHIR_timings_*.csv' log files, which do not contain sensitive data
 - optimal/feasible batch size configuration on the used hardware
 
-Please feel free to message us on github, open issues, or write a mail to simeon.platte@kgu.de.
+Please feel free to message us on github, open issues, or write a mail to splatte@uni-frankfurt.de.
 
 ---
 Published under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/).
-

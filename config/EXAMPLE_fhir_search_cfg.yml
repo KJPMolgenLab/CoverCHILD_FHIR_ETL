@@ -9,41 +9,41 @@ default:
   parameters:
     # FHIR searches will be performed sequentially as they appear in this 'parameters' section.
     # type: list of strings of the form SearchParameter=SearchValue
-    
+
     encounter:
       # admission date greater or equal to 2016-01-01
       - "date=ge2016-01-01"
-      # admission date less or equal to 2016-01-01
-      - "date=le2022-02-28"
-      # birthdate greater or equal to 1998-01-01 (upper limit for underage patients at the begin 
+      # admission date less or equal to 2022-03-31
+      - "date=le2022-03-31"
+      # birthdate greater or equal to 1998-01-01 (upper limit for underage patients at the begin
       # of the study interval)
       - "patient.birthdate=ge1998"
       # patients with a german address
       - "patient.address-country=d,ger"
-      
-      # If the FHIR server has implemented a custom SearchParameter for ServiceType, uncomment the 
-      # servicetype parameter below. This will improve performance, reducing load on the FHIR 
-      # server by only querying encounters with contact to the specified departments (example 
+
+      # If the FHIR server has implemented a custom SearchParameter for ServiceType, uncomment the
+      # servicetype parameter below. This will improve performance, reducing load on the FHIR
+      # server by only querying encounters with contact to the specified departments (example
       # implementation can be found at https://fshschool.org/FSHOnline/#/share/3KrPtLc)
       #- "servicetype=https://www.medizininformatik-initiative.de/fhir/core/modul-fall/CodeSystem/Fachabteilungsschluessel|1000,3000"
-    
+
     # At the current state, further search parameters are generated only within the script.
     patient: null
     condition: null
     procedure: null
 
   # FHIR elements to include in FHIR searches ------------------------------------------------------
-  
+
   elements:
-  # This section defines per resource a list of FHIR elements (in XPath format) to control which 
-  # elements of the respective FHIR resource are a) downloaded for the respective FHIR search 
+  # This section defines per resource a list of FHIR elements (in XPath format) to control which
+  # elements of the respective FHIR resource are a) downloaded for the respective FHIR search
   # and/or b) kept during processing.
   # a) to limit downloads to the elements specified below (default setting), set 'get_all_elements'
   #    in 'fhir_cfg.yml' to false.
-  # b) to constrict processed data to the elements specified below (default setting), set 
+  # b) to constrict processed data to the elements specified below (default setting), set
   #    'keep_all_elements' in 'fhir_cfg.yml' to false.
   # See respective settings in 'fhir_cfg.yml' for additional information. type: list of strings
-  
+
     patient:
       ## to extract
       - "address/postalCode"
@@ -173,7 +173,7 @@ default:
       - "bodySite/text"
 
       ## Extensions - need extra handling
-      ##  (Seitenlokalisation, Diagnosesicherheit, Mehrfachkodierungen, 
+      ##  (Seitenlokalisation, Diagnosesicherheit, Mehrfachkodierungen,
       ##  Neben-/2.-Diagnosen "condition-related")
       - "code/coding/extension"
       - "code/coding/extension/valueCoding/code"
