@@ -117,8 +117,8 @@ fhir_dfs$patient <- fhir_dfs$patient %>% filter(id %in% unique(underage_patients
 gc(); gc()
 ctoc_log(save = tlog_path)
 
-## FHIR search 3 & 4: conditions / procedures ----
-fhir_searches <- c("condition", "procedure")
+## FHIR search 3 & 4: conditions / procedures / observations ----
+fhir_searches <- c("condition", "procedure", "observation")
 for (i in seq_along(fhir_searches)) {
   this_search <- fhir_searches[[i]]
   ctic(str_glue("FHIR search {i+2}: {this_search}s"))
