@@ -100,10 +100,10 @@ colnames(encounters_tmp) <- paste('encounter', colnames(encounters_tmp), sep = '
 encounters_tmp$encounter.subject.reference <- sub(subject_reference_prefix, "", encounters_tmp[, "encounter.subject.reference"])
 encounters_tmp <- encounters_tmp[encounters_tmp$encounter.period.start > "2016-01-01", ]
 encounters_tmp$encounter.period.days <- as.numeric(difftime(encounters_tmp$encounter.period.end, encounters_tmp$encounter.period.start, units = "days"))
-encounters_tmp$encounter.location.period.days.normal <- ifelse(!grepl(paste(c("ITS","its"),collapse = '|'),encounters_tmp$encounter.location.location.identifier.value), as.numeric(difftime(encounters_tmp$encounter.location.period.end, encounters_tmp$encounter.location.period.start, units = "days")), NA)
-encounters_tmp$encounter.location.period.days.its <- ifelse(grepl(paste(c("ITS","its"),collapse = '|'),encounters_tmp$encounter.location.location.identifier.value), as.numeric(difftime(encounters_tmp$encounter.location.period.end, encounters_tmp$encounter.location.period.start, units = "days")), NA)
-encounters_tmp$encounter.location.period.days.fall <- as.numeric(difftime(encounters_tmp$encounter.location.period.end, encounters_tmp$encounter.location.period.start, units = "days"))
-encounters_tmp$encounter.location.period.days2 <- ifelse(encounters_tmp$encounter.location.period.days.fall < (encounters_tmp$encounter.location.period.days.its + encounters_tmp$encounter.location.period.days.normal),"+","fall")
+#encounters_tmp$encounter.location.period.days.normal <- ifelse(!grepl(paste(c("ITS","its"),collapse = '|'),encounters_tmp$encounter.location.location.identifier.value), as.numeric(difftime(encounters_tmp$encounter.location.period.end, encounters_tmp$encounter.location.period.start, units = "days")), NA)
+#encounters_tmp$encounter.location.period.days.its <- ifelse(grepl(paste(c("ITS","its"),collapse = '|'),encounters_tmp$encounter.location.location.identifier.value), as.numeric(difftime(encounters_tmp$encounter.location.period.end, encounters_tmp$encounter.location.period.start, units = "days")), NA)
+#encounters_tmp$encounter.location.period.days.fall <- as.numeric(difftime(encounters_tmp$encounter.location.period.end, encounters_tmp$encounter.location.period.start, units = "days"))
+#encounters_tmp$encounter.location.period.days2 <- ifelse(encounters_tmp$encounter.location.period.days.fall < (encounters_tmp$encounter.location.period.days.its + encounters_tmp$encounter.location.period.days.normal),"+","fall")
 encounters_tmp <- encounters_tmp %>% select(-contains(c("resource_id","meta")))
 encounters_tmp <- encounters_tmp[colSums(!is.na(encounters_tmp)) > 0]
 
@@ -140,6 +140,10 @@ rm(observations_tmp2)
 
 df_patients_encounters_conditions_procedures <- base::merge(conditions_tmp, encounters_tmp[ , c("encounter.diagnosis.condition.reference", "encounter.diagnosis.rank", "encounter.diagnosis.use.coding.code","encounter.diagnosis.use.coding.display")], by.x = "condition.id", by.y = "encounter.diagnosis.condition.reference", all.x=FALSE)
 df_patients_encounters_conditions_procedures <- base::merge(df_patients_encounters_conditions_procedures, encounters_tmp[ , c("encounter.serviceType.coding.code", "encounter.serviceType.coding.display", "encounter.location.location.identifier.value", "encounter.location.period.end", "encounter.location.period.start", "encounter.location.period.days.fall", "encounter.location.period.days.normal", "encounter.location.period.days.its", "encounter.location.status", "encounter.partOf.reference","encounter.period.start", "encounter.period.days")], by.x = "condition.encounter.reference", by.y = "encounter.partOf.reference", all.x=FALSE)
+df_patients_encounters_conditions_procedures$encounter.location.period.days.normal <- ifelse(!grepl(paste(c("ITS","its"),collapse = '|'),df_patients_encounters_conditions_procedures$encounter.location.location.identifier.value), as.numeric(difftime(df_patients_encounters_conditions_procedures$encounter.location.period.end, df_patients_encounters_conditions_procedures$encounter.location.period.start, units = "days")), NA)
+df_patients_encounters_conditions_procedures$encounter.location.period.days.its <- ifelse(grepl(paste(c("ITS","its"),collapse = '|'),df_patients_encounters_conditions_procedures$encounter.location.location.identifier.value), as.numeric(difftime(df_patients_encounters_conditions_procedures$encounter.location.period.end, df_patients_encounters_conditions_procedures$encounter.location.period.start, units = "days")), NA)
+df_patients_encounters_conditions_procedures$encounter.location.period.days.fall <- as.numeric(difftime(df_patients_encounters_conditions_procedures$encounter.location.period.end, df_patients_encounters_conditions_procedures$encounter.location.period.start, units = "days"))
+
 
 diagnoses_role <- sort(unique(df_patients_encounters_conditions_procedures$encounter.diagnosis.use.coding.code))
 for (i in seq_along(diagnoses_role)) {
@@ -160,21 +164,35 @@ df_patients_encounters_conditions_procedures <- base::merge(df_patients_encounte
 
 df_patients_encounters_conditions_procedures <- base::merge(patients_tmp, df_patients_encounters_conditions_procedures, by.x = "patient.id", by.y = "condition.subject.reference", all.x = FALSE)
 df_patients_encounters_conditions_procedures$encounter.id <- df_patients_encounters_conditions_procedures$condition.encounter.reference
-df_patients_encounters_conditions_procedures <- df_patients_encounters_conditions_procedures %>% select(-contains(c("resource_id","lastUpdated","meta.source","reference")))
+df_patients_encounters_conditions_procedures <- df_patients_encounters_conditions_procedures %>% 
+  select(-contains(c("resource_id","lastUpdated","meta.source","reference")))
 df_patients_encounters_conditions_procedures <- df_patients_encounters_conditions_procedures[colSums(!is.na(df_patients_encounters_conditions_procedures)) > 0]
 
-df_patients_encounters_conditions_procedures2 <- df_patients_encounters_conditions_procedures %>% distinct(patient.id) %>% group_by(patient.id) %>% summarise(patient.id.pseudonym = paste("Patient",1:n())) %>% mutate(patient.id.pseudonym = paste("Patient",str_pad(1:n(), 3, pad = "0")))
+df_patients_encounters_conditions_procedures2 <- df_patients_encounters_conditions_procedures %>% 
+  distinct(patient.id) %>% 
+  group_by(patient.id) %>% 
+  summarise(patient.id.pseudonym = paste("Patient",1:n())) %>% 
+  mutate(
+    patient.id.pseudonym = paste("Patient",str_pad(1:n(), 3, pad = "0"))
+  )
 
 df_patients_encounters_conditions_procedures2 <- df_patients_encounters_conditions_procedures %>% 
   group_by(encounter.id) %>% 
-  reframe(encounter.location.period.days.normal = (encounter.location.period.days.normal),encounter.location.period.days.its = (encounter.location.period.days.its)) %>% 
+  reframe(
+    encounter.location.period.days.normal = (encounter.location.period.days.normal),
+    encounter.location.period.days.its = (encounter.location.period.days.its)
+  ) %>% 
   distinct() %>%
   group_by(encounter.id) %>% 
-  mutate(encounter.location.period.days.normal = sum(encounter.location.period.days.normal),encounter.location.period.days.its = sum(encounter.location.period.days.its)) %>%
+  mutate(
+    encounter.location.period.days.normal = sum(encounter.location.period.days.normal,na.rm=TRUE),
+    encounter.location.period.days.its = sum(encounter.location.period.days.its,na.rm=TRUE)
+  ) %>%
   distinct()
 
 df_patients_encounters_conditions_procedures2[sapply(df_patients_encounters_conditions_procedures2, is.infinite)] <- NA
-df_patients_encounters_conditions_procedures <- df_patients_encounters_conditions_procedures %>% select(-contains(c("encounter.location.period.days.normal","encounter.location.period.days.its","system","identifier","extension")))
+df_patients_encounters_conditions_procedures <- df_patients_encounters_conditions_procedures %>% 
+  select(-contains(c("encounter.location.period.days.normal","encounter.location.period.days.its","system","identifier","extension")))
 df_patients_encounters_conditions_procedures <- base::merge(df_patients_encounters_conditions_procedures, df_patients_encounters_conditions_procedures2, by = "encounter.id")
 rm(df_patients_encounters_conditions_procedures2)
 
@@ -182,7 +200,8 @@ df_patients_encounters_conditions_procedures <- df_patients_encounters_condition
   mutate(
     encounter.period.start.patient.age = floor(as.double(as.Date(df_patients_encounters_conditions_procedures$encounter.period.start) - as.Date(df_patients_encounters_conditions_procedures$patient.birthDate)) / 365.25),
     encounter.period.start.patient.age_dec = as.numeric(as.double(as.Date(df_patients_encounters_conditions_procedures$encounter.period.start) - as.Date(df_patients_encounters_conditions_procedures$patient.birthDate)) / 365.25),
-    .after=patient.id)
+    .after=patient.id
+    )
 
 df_result <- distinct(as.data.frame(
   df_patients_encounters_conditions_procedures %>% group_by(
@@ -190,10 +209,12 @@ df_result <- distinct(as.data.frame(
     ,Patient.Alter = df_patients_encounters_conditions_procedures$encounter.period.start.patient.age
     ,Patient.Geschlecht = df_patients_encounters_conditions_procedures$patient.gender
     ,Fall.ID = df_patients_encounters_conditions_procedures$encounter.id
-    ,ICD.Primaercode.ED = df_patients_encounters_conditions_procedures$condition.pri_icd_code.dd
-    ,ICD.Sekundaercode.ED = df_patients_encounters_conditions_procedures$condition.sec_icd_code.dd
+    ,ICD.Primaercode.BE = df_patients_encounters_conditions_procedures$condition.pri_icd_code.cc
+    ,ICD.Sekundaercode.BE = df_patients_encounters_conditions_procedures$condition.sec_icd_code.cc
+    ,ICD.Primaercode.EN = df_patients_encounters_conditions_procedures$condition.pri_icd_code.dd
+    ,ICD.Sekundaercode.EN = df_patients_encounters_conditions_procedures$condition.sec_icd_code.dd
     ,Krankenhaus.Tage = coalesce(df_patients_encounters_conditions_procedures$encounter.period.days,NA)
-    ,Normalstation.Tage = coalesce(df_patients_encounters_conditions_procedures$encounter.location.period.days.normal,NA)
+    ,Normalstation.Tage = coalesce(ifelse(df_patients_encounters_conditions_procedures$encounter.period.days < df_patients_encounters_conditions_procedures$encounter.location.period.days.normal,df_patients_encounters_conditions_procedures$encounter.period.days,df_patients_encounters_conditions_procedures$encounter.location.period.days.normal),NA)
     ,Intensivstation.Tage = coalesce(df_patients_encounters_conditions_procedures$encounter.location.period.days.its,NA)
     ,Prozedur.Beatmung = coalesce(df_patients_encounters_conditions_procedures$procedure.ops_code.beatmung,NA)
     ,Prozedur.Blutkreislauf = coalesce(df_patients_encounters_conditions_procedures$procedure.ops_code.blutkreislauf,NA)
@@ -202,7 +223,16 @@ df_result <- distinct(as.data.frame(
   ) %>% summarise(Anzahl = n()) ))
 
 
-df_result2 <- df_result %>% group_by(Patient.ID = as.integer(Patient.ID)) %>% summarise(Patient.ID.Pseudonym = paste("Patient")) %>% mutate(Patient.ID.Pseudonym = paste("Patient",str_pad(1:n(), 3, pad = "0")))
+df_result2 <- df_result %>% 
+  group_by(
+    Patient.ID = as.integer(Patient.ID)
+    ) %>% 
+  summarise(
+    Patient.ID.Pseudonym = paste("Patient")
+    ) %>% 
+  mutate(
+    Patient.ID.Pseudonym = paste("Patient",str_pad(1:n(), 3, pad = "0"))
+    )
 df_result <- base::merge(df_result, df_result2, by = "Patient.ID")
 df_result2 <- df_result %>% 
   group_by(
@@ -220,7 +250,7 @@ df_result$Labor.CRP.max <-round(df_result$Labor.CRP.max,2)
 df_result$Labor.Leuko.max <-round(df_result$Labor.Leuko.max,2)
 df_result <- df_result %>% 
   select(-contains(c("Pseudonym"))) %>% 
-  select("Patient.ID","Fall.ID","Patient.Alter","Patient.Geschlecht","ICD.Primaercode.ED","ICD.Sekundaercode.ED","Krankenhaus.Tage","Normalstation.Tage","Intensivstation.Tage","Prozedur.Beatmung","Prozedur.Blutkreislauf","Labor.CRP.max","Labor.Leuko.max")
+  select("Patient.ID","Fall.ID","Patient.Alter","Patient.Geschlecht","ICD.Primaercode.BE","ICD.Sekundaercode.BE","ICD.Primaercode.EN","ICD.Sekundaercode.EN","Krankenhaus.Tage","Normalstation.Tage","Intensivstation.Tage","Prozedur.Beatmung","Prozedur.Blutkreislauf","Labor.CRP.max","Labor.Leuko.max")
 
 df_result <- df_result[order(df_result$Patient.ID), ]
 
