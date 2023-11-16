@@ -93,7 +93,10 @@ encounters_tmp <- subset(encounters_tmp, grepl(paste0(c("^inpatient encounter","
 if (nrow(encounters_tmp) == 0) {
   encounters_tmp <- subset(encounters_tmp, grepl("stationär", type.text))
   if (nrow(encounters_tmp) == 0) {
-    stop('No conditions found...exiting')
+    encounters_tmp <- subset(encounters_tmp, grepl(paste0(c("^IMP","^SS"), collapse = "|"), class.code))
+    if (nrow(encounters_tmp) == 0) {
+      stop('No conditions found...exiting')
+    }
   }
 }
 colnames(encounters_tmp) <- paste('encounter', colnames(encounters_tmp), sep = '.')
