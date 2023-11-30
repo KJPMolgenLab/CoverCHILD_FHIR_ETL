@@ -1,6 +1,6 @@
 # CoverCHILD data integration FHIR ETL
 
-last updated: 2023-10-17
+last updated: 2023-11-30
 ---
 
 
@@ -52,7 +52,9 @@ Missing R packages are installed automatically from the R package repository ([C
 
 - Run '`create_fresh_config.sh`' to create the two necessary configuration files from the templates in the '`config/`' directory, or copy & rename them manually to '`fhir_cfg.yml`' and '`fhir_search_cfg.yml`' as shown in the folder structure
 - configure '`config/fhir_cfg.yml`': server settings and general behaviour of the script.
-- configure '`config/fhir_search_cfg.yml`': FHIR search parameters and resource element selection. This file only needs to be modified in special cases e.g., if the FHIR server supports a custom 'ServiceType' *SearchParameter* for *Encounter resources*.
+- configure '`config/fhir_search_cfg.yml`': FHIR search parameters and resource element selection. This file only needs to be modified in special cases:
+  - Make sure that all elements of the filter statements are present on the FHIR server and comment out not supported filter elements, for example if patients' addresses are censored.
+  -  If the FHIR server supports a custom 'ServiceType' *SearchParameter* for *Encounter resources*, uncomment the respective statement to enable leaner queries.
 
 For further information and instructions, see the documentation within the configuration files.
 
@@ -89,6 +91,8 @@ If the script ran through successfully
 ## FAQ
 
 - will be filled accompanying the test phase
+- `could not find function "..."` -> package version outdated
+
 
 
 ## Contact
