@@ -1,5 +1,6 @@
 library(dplyr)
 library(stringr)
+library(tidyr)
 #CoverChild
 #ICD-10 zu RSV
 #J20.5  Akute Bronchitis bei Respiratory-Syncytial-Viren (RS-Viren)
@@ -55,8 +56,24 @@ encounters_raw <- fhir_dfs$encounter
 procedures_raw <- fhir_dfs$procedure
 observations_raw <- fhir_dfs$observation
 
-subject_reference_prefix <- "Patient/"
-encounter_reference_prefix <- "Encounter/"
+# check for custom reference_prefix
+if (exists("subject_reference_prefix", where = cfg) && nchar(cfg$subject_reference_prefix) >= 1) {
+  subject_reference_prefix <- cfg$subject_reference_prefix
+} else {
+  subject_reference_prefix <- "Patient/"
+}
+if (exists("encounter_reference_prefix", where = cfg) && nchar(cfg$encounter_reference_prefix) >= 1) {
+  encounter_reference_prefix <- cfg$encounter_reference_prefix
+} else {
+  encounter_reference_prefix <- "Encounter/"
+}
+
+# check for custom icd_code_system
+if (exists("icd_code_system", where = cfg) && nchar(cfg$icd_code_system) >= 1) {
+  icd_code_system_custom <- cfg$icd_code_system
+} else {
+  icd_code_system_custom <- "http://fhir.de/CodeSystem/dimdi/icd-10-gm"
+}
 
 list_pri_icd_codes <- c("J12.1","J20.5", "J21.0", "P23.0")
 list_pri_sec_icd_codes <- c("J00","J01.8","J01.9","J02.8","J02.9","J03.8","J03.9","J04.0","J04.1","J04.2","J05.0","J05.1","J06.0","J06.8","J06.9", "J38.5")
@@ -76,7 +93,14 @@ patients_tmp <- mutate(patients_tmp, patient.birthDate = ifelse(nchar(patients_t
 patients_tmp <- patients_tmp %>% select(-contains(c("resource_id","meta")))
 
 conditions_tmp <- conditions_raw
+if (nrow(conditions_tmp) == 0) {
+  stop('No conditions found...exiting')
+}
+conditions_tmp <- conditions_tmp[colSums(!is.na(conditions_tmp)) > 0]
+conditions_tmp <- conditions_tmp %>% select(-contains(c("resource_id","meta",".extension")))
 colnames(conditions_tmp) <- paste('condition', colnames(conditions_tmp), sep = '.')
+# filter conditions by system to obtain only icd-10-gm system
+conditions_tmp <- conditions_tmp[conditions_tmp$condition.code.coding.system == icd_code_system_custom, ]
 conditions_tmp <- conditions_tmp[conditions_tmp$condition.recordedDate > "2016-01-01", ]
 conditions_tmp <- conditions_tmp %>% filter(grepl(paste(c(list_pri_icd_codes,list_pri_sec_icd_codes_combined),collapse = '|'), condition.code.coding.code))
 conditions_tmp[c('condition.pri_icd_code','condition.sec_icd_code')] <- str_split_fixed(conditions_tmp$condition.code.coding.code, ' ', 2)
@@ -84,43 +108,42 @@ conditions_tmp$condition.sec_icd_code <- na_if(conditions_tmp$condition.sec_icd_
 conditions_tmp <- conditions_tmp %>% filter(condition.sec_icd_code %in% c(NA,list_sec_icd_codes))
 conditions_tmp$condition.subject.reference <- sub(subject_reference_prefix, "", conditions_tmp[, "condition.subject.reference"])
 conditions_tmp$condition.encounter.reference <- sub(encounter_reference_prefix, "", conditions_tmp[, "condition.encounter.reference"])
-conditions_tmp <- conditions_tmp[colSums(!is.na(conditions_tmp)) > 0]
-conditions_tmp <- conditions_tmp %>% select(-contains(c("resource_id","meta")))
 
 
 encounters_tmp <- encounters_raw
 encounters_tmp <- subset(encounters_tmp, grepl(paste0(c("^inpatient encounter","^short stay"), collapse = "|"), class.display))
 if (nrow(encounters_tmp) == 0) {
-  encounters_tmp <- subset(encounters_tmp, grepl("stationär", type.text))
+  encounters_tmp <- subset(encounters_raw, grepl("stationär", type.text))
   if (nrow(encounters_tmp) == 0) {
-    encounters_tmp <- subset(encounters_tmp, grepl(paste0(c("^IMP","^SS"), collapse = "|"), class.code))
+    encounters_tmp <- subset(encounters_raw, grepl(paste0(c("^IMP","^SS"), collapse = "|"), class.code))
     if (nrow(encounters_tmp) == 0) {
       stop('No conditions found...exiting')
     }
   }
 }
+encounters_tmp <- encounters_tmp %>% select(-contains(c("resource_id","meta")))
+encounters_tmp <- encounters_tmp[colSums(!is.na(encounters_tmp)) > 0]
 colnames(encounters_tmp) <- paste('encounter', colnames(encounters_tmp), sep = '.')
 encounters_tmp$encounter.subject.reference <- sub(subject_reference_prefix, "", encounters_tmp[, "encounter.subject.reference"])
 encounters_tmp <- encounters_tmp[encounters_tmp$encounter.period.start > "2016-01-01", ]
+encounters_tmp <- encounters_tmp %>% filter((encounter.diagnosis.use.coding.code != 'AD') %>% replace_na(TRUE))
+#encounters_tmp3 <- encounters_tmp %>% filter((encounter.diagnosis.use.coding.code == 'AD'))
 encounters_tmp$encounter.period.days <- as.numeric(difftime(encounters_tmp$encounter.period.end, encounters_tmp$encounter.period.start, units = "days"))
-#encounters_tmp$encounter.location.period.days.normal <- ifelse(!grepl(paste(c("ITS","its"),collapse = '|'),encounters_tmp$encounter.location.location.identifier.value), as.numeric(difftime(encounters_tmp$encounter.location.period.end, encounters_tmp$encounter.location.period.start, units = "days")), NA)
-#encounters_tmp$encounter.location.period.days.its <- ifelse(grepl(paste(c("ITS","its"),collapse = '|'),encounters_tmp$encounter.location.location.identifier.value), as.numeric(difftime(encounters_tmp$encounter.location.period.end, encounters_tmp$encounter.location.period.start, units = "days")), NA)
-#encounters_tmp$encounter.location.period.days.fall <- as.numeric(difftime(encounters_tmp$encounter.location.period.end, encounters_tmp$encounter.location.period.start, units = "days"))
-#encounters_tmp$encounter.location.period.days2 <- ifelse(encounters_tmp$encounter.location.period.days.fall < (encounters_tmp$encounter.location.period.days.its + encounters_tmp$encounter.location.period.days.normal),"+","fall")
-encounters_tmp <- encounters_tmp %>% select(-contains(c("resource_id","meta")))
-encounters_tmp <- encounters_tmp[colSums(!is.na(encounters_tmp)) > 0]
+#rm(encounters_tmp3)
 
 procedures_tmp <- procedures_raw
+procedures_tmp <- procedures_tmp[colSums(!is.na(procedures_tmp)) > 0]
+procedures_tmp <- procedures_tmp %>% select(-contains(c("resource_id","meta")))
 colnames(procedures_tmp) <- paste('procedure', colnames(procedures_tmp), sep = '.')
 procedures_tmp <- procedures_tmp[procedures_tmp$procedure.performedDateTime > "2016-01-01", ]
 procedures_tmp <- procedures_tmp %>% filter(grepl(paste(c(ops_codes_beatmung,ops_codes_blutkreislauf),collapse = '|'), procedure.code.coding.code))
 procedures_tmp[c('procedure.ops_code','procedure.snomed_code')] <- str_split_fixed(procedures_tmp$procedure.code.coding.code, ':::', 2)
-procedures_tmp$procedure.ops_code.beatmung <- ifelse(grepl(paste(ops_codes_beatmung,collapse = '|'),procedures_tmp$procedure.ops_code), "ja", ifelse(grepl(paste(ops_codes_blutkreislauf,collapse = '|'),procedures_tmp$procedure.ops_code), "ja", "nein"))
-procedures_tmp$procedure.ops_code.blutkreislauf <- ifelse(grepl(paste(ops_codes_blutkreislauf,collapse = '|'),procedures_tmp$procedure.ops_code), "ja", ifelse(grepl(paste(ops_codes_beatmung,collapse = '|'),procedures_tmp$procedure.ops_code), "ja", "nein"))
+procedures_tmp$procedure.ops_code.beatmung <- ifelse(grepl(paste(ops_codes_beatmung,collapse = '|'),procedures_tmp$procedure.ops_code), "ja", "nein")
+procedures_tmp$procedure.ops_code.blutkreislauf <- ifelse(grepl(paste(ops_codes_blutkreislauf,collapse = '|'),procedures_tmp$procedure.ops_code), "ja", "nein")
+#procedures_tmp$procedure.ops_code.beatmung <- ifelse(grepl(paste(ops_codes_beatmung,collapse = '|'),procedures_tmp$procedure.ops_code), "ja", ifelse(grepl(paste(ops_codes_blutkreislauf,collapse = '|'),procedures_tmp$procedure.ops_code), "ja", "nein"))
+#procedures_tmp$procedure.ops_code.blutkreislauf <- ifelse(grepl(paste(ops_codes_blutkreislauf,collapse = '|'),procedures_tmp$procedure.ops_code), "ja", ifelse(grepl(paste(ops_codes_beatmung,collapse = '|'),procedures_tmp$procedure.ops_code), "ja", "nein"))
 procedures_tmp$procedure.subject.reference <- sub(subject_reference_prefix, "", procedures_tmp[, "procedure.subject.reference"])
 procedures_tmp$procedure.encounter.reference <- sub(encounter_reference_prefix, "", procedures_tmp[, "procedure.encounter.reference"])
-procedures_tmp <- procedures_tmp[colSums(!is.na(procedures_tmp)) > 0]
-procedures_tmp <- procedures_tmp %>% select(-contains(c("resource_id","meta")))
 
 observations_tmp <- observations_raw
 colnames(observations_tmp) <- paste('observation', colnames(observations_tmp), sep = '.')
@@ -142,7 +165,7 @@ observations_tmp <- base::merge(observations_tmp, observations_tmp2, by = "obser
 rm(observations_tmp2)
 
 df_patients_encounters_conditions_procedures <- base::merge(conditions_tmp, encounters_tmp[ , c("encounter.diagnosis.condition.reference", "encounter.diagnosis.rank", "encounter.diagnosis.use.coding.code","encounter.diagnosis.use.coding.display")], by.x = "condition.id", by.y = "encounter.diagnosis.condition.reference", all.x=FALSE)
-df_patients_encounters_conditions_procedures <- base::merge(df_patients_encounters_conditions_procedures, encounters_tmp[ , c("encounter.serviceType.coding.code", "encounter.serviceType.coding.display", "encounter.location.location.identifier.value", "encounter.location.period.end", "encounter.location.period.start", "encounter.location.period.days.fall", "encounter.location.period.days.normal", "encounter.location.period.days.its", "encounter.location.status", "encounter.partOf.reference","encounter.period.start", "encounter.period.days")], by.x = "condition.encounter.reference", by.y = "encounter.partOf.reference", all.x=FALSE)
+df_patients_encounters_conditions_procedures <- base::merge(df_patients_encounters_conditions_procedures, encounters_tmp[ , c("encounter.serviceType.coding.code", "encounter.serviceType.coding.display", "encounter.location.location.identifier.value", "encounter.location.period.end", "encounter.location.period.start", "encounter.location.status", "encounter.partOf.reference","encounter.period.start", "encounter.period.days")], by.x = "condition.encounter.reference", by.y = "encounter.partOf.reference", all.x=FALSE)
 df_patients_encounters_conditions_procedures$encounter.location.period.days.normal <- ifelse(!grepl(paste(c("ITS","its"),collapse = '|'),df_patients_encounters_conditions_procedures$encounter.location.location.identifier.value), as.numeric(difftime(df_patients_encounters_conditions_procedures$encounter.location.period.end, df_patients_encounters_conditions_procedures$encounter.location.period.start, units = "days")), NA)
 df_patients_encounters_conditions_procedures$encounter.location.period.days.its <- ifelse(grepl(paste(c("ITS","its"),collapse = '|'),df_patients_encounters_conditions_procedures$encounter.location.location.identifier.value), as.numeric(difftime(df_patients_encounters_conditions_procedures$encounter.location.period.end, df_patients_encounters_conditions_procedures$encounter.location.period.start, units = "days")), NA)
 df_patients_encounters_conditions_procedures$encounter.location.period.days.fall <- as.numeric(difftime(df_patients_encounters_conditions_procedures$encounter.location.period.end, df_patients_encounters_conditions_procedures$encounter.location.period.start, units = "days"))
@@ -201,8 +224,11 @@ rm(df_patients_encounters_conditions_procedures2)
 
 df_patients_encounters_conditions_procedures <- df_patients_encounters_conditions_procedures %>%
   mutate(
-    encounter.period.start.patient.age = floor(as.double(as.Date(df_patients_encounters_conditions_procedures$encounter.period.start) - as.Date(df_patients_encounters_conditions_procedures$patient.birthDate)) / 365.25),
-    encounter.period.start.patient.age_dec = as.numeric(as.double(as.Date(df_patients_encounters_conditions_procedures$encounter.period.start) - as.Date(df_patients_encounters_conditions_procedures$patient.birthDate)) / 365.25),
+    encounter.period.start.patient.age.years = floor(as.double(as.Date(df_patients_encounters_conditions_procedures$encounter.period.start) - as.Date(df_patients_encounters_conditions_procedures$patient.birthDate)) / 365.25),
+    encounter.period.start.patient.age.days = interval(as.Date(df_patients_encounters_conditions_procedures$patient.birthDate), as.Date(df_patients_encounters_conditions_procedures$encounter.period.start)) %/% days(1),
+    encounter.period.start.patient.age.months = interval(as.Date(df_patients_encounters_conditions_procedures$patient.birthDate), as.Date(df_patients_encounters_conditions_procedures$encounter.period.start)) %/% months(1),
+    encounter.period.start.patient.age.dec = as.numeric(as.double(as.Date(df_patients_encounters_conditions_procedures$encounter.period.start) - as.Date(df_patients_encounters_conditions_procedures$patient.birthDate)) / 365.25),
+    encounter.period.start.patient.age = ifelse(encounter.period.start.patient.age.months == 0, paste0(encounter.period.start.patient.age.days,"d"), ifelse(encounter.period.start.patient.age.months <=23, paste0(encounter.period.start.patient.age.months,"m"), ifelse(encounter.period.start.patient.age.months >=24, paste0(encounter.period.start.patient.age.years,"y") ,NA ))),
     .after=patient.id
     )
 
@@ -210,6 +236,7 @@ df_result <- distinct(as.data.frame(
   df_patients_encounters_conditions_procedures %>% group_by(
     Patient.ID = df_patients_encounters_conditions_procedures$patient.id
     ,Patient.Alter = df_patients_encounters_conditions_procedures$encounter.period.start.patient.age
+    ,Patient.Alter.sort = round(df_patients_encounters_conditions_procedures$encounter.period.start.patient.age.dec,2)
     ,Patient.Geschlecht = df_patients_encounters_conditions_procedures$patient.gender
     ,Fall.ID = df_patients_encounters_conditions_procedures$encounter.id
     ,ICD.Primaercode.BE = df_patients_encounters_conditions_procedures$condition.pri_icd_code.cc
@@ -253,7 +280,7 @@ df_result$Labor.CRP.max <-round(df_result$Labor.CRP.max,2)
 df_result$Labor.Leuko.max <-round(df_result$Labor.Leuko.max,2)
 df_result <- df_result %>% 
   select(-contains(c("Pseudonym"))) %>% 
-  select("Patient.ID","Fall.ID","Patient.Alter","Patient.Geschlecht","ICD.Primaercode.BE","ICD.Sekundaercode.BE","ICD.Primaercode.EN","ICD.Sekundaercode.EN","Krankenhaus.Tage","Normalstation.Tage","Intensivstation.Tage","Prozedur.Beatmung","Prozedur.Blutkreislauf","Labor.CRP.max","Labor.Leuko.max")
+  select("Patient.ID","Fall.ID","Patient.Alter","Patient.Alter.sort","Patient.Geschlecht","ICD.Primaercode.BE","ICD.Sekundaercode.BE","ICD.Primaercode.EN","ICD.Sekundaercode.EN","Krankenhaus.Tage","Normalstation.Tage","Intensivstation.Tage","Prozedur.Beatmung","Prozedur.Blutkreislauf","Labor.CRP.max","Labor.Leuko.max")
 
 df_result <- df_result[order(df_result$Patient.ID), ]
 
