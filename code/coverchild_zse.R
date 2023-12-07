@@ -232,6 +232,10 @@ df_patients_encounters_conditions_procedures <- df_patients_encounters_condition
     .after=patient.id
     )
 
+#zse splitten in jahre
+df_patients_encounters_conditions_procedures_lt2020 <- df_patients_encounters_conditions_procedures[df_patients_encounters_conditions_procedures$encounter.period.start < "2020-02-01",]
+df_patients_encounters_conditions_procedures_gt2020 <- df_patients_encounters_conditions_procedures[df_patients_encounters_conditions_procedures$encounter.period.start >= "2020-02-01",]
+
 df_result <- distinct(as.data.frame(
   df_patients_encounters_conditions_procedures %>% group_by(
     Patient.ID = df_patients_encounters_conditions_procedures$patient.id
@@ -239,6 +243,7 @@ df_result <- distinct(as.data.frame(
     ,Patient.Alter.sort = round(df_patients_encounters_conditions_procedures$encounter.period.start.patient.age.dec,2)
     ,Patient.Geschlecht = df_patients_encounters_conditions_procedures$patient.gender
     ,Fall.ID = df_patients_encounters_conditions_procedures$encounter.id
+    ,Fall.Jahr = year(df_patients_encounters_conditions_procedures$encounter.period.start)
     ,ICD.Primaercode.BE = df_patients_encounters_conditions_procedures$condition.pri_icd_code.cc
     ,ICD.Sekundaercode.BE = df_patients_encounters_conditions_procedures$condition.sec_icd_code.cc
     ,ICD.Primaercode.EN = df_patients_encounters_conditions_procedures$condition.pri_icd_code.dd
@@ -280,7 +285,7 @@ df_result$Labor.CRP.max <-round(df_result$Labor.CRP.max,2)
 df_result$Labor.Leuko.max <-round(df_result$Labor.Leuko.max,2)
 df_result <- df_result %>% 
   select(-contains(c("Pseudonym"))) %>% 
-  select("Patient.ID","Fall.ID","Patient.Alter","Patient.Alter.sort","Patient.Geschlecht","ICD.Primaercode.BE","ICD.Sekundaercode.BE","ICD.Primaercode.EN","ICD.Sekundaercode.EN","Krankenhaus.Tage","Normalstation.Tage","Intensivstation.Tage","Prozedur.Beatmung","Prozedur.Blutkreislauf","Labor.CRP.max","Labor.Leuko.max")
+  select("Patient.ID","Fall.ID","Fall.Jahr","Patient.Alter","Patient.Alter.sort","Patient.Geschlecht","ICD.Primaercode.BE","ICD.Sekundaercode.BE","ICD.Primaercode.EN","ICD.Sekundaercode.EN","Krankenhaus.Tage","Normalstation.Tage","Intensivstation.Tage","Prozedur.Beatmung","Prozedur.Blutkreislauf","Labor.CRP.max","Labor.Leuko.max")
 
 df_result <- df_result[order(df_result$Patient.ID), ]
 
