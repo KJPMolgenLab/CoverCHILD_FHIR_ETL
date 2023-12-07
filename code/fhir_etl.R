@@ -2,7 +2,7 @@
 
 # CoverCHILD data integration FHIR ETL (FHIR server queries -> normal-form list of DFs)
 # @author: simeonplatte
-# @date: 2023-10-09
+# @date: 2023-10-17
 
 # setup ----------------------------------------------------------------------------------------------------------------
 options(warn = 1L)
@@ -13,7 +13,7 @@ if (length(cl_args) > 0) setwd(cl_args[[1]])
 ## load & install ----
 source("code/functions.R")
 inst_pkgs("config", "httr")
-load_inst_pkgs("tidyverse", "lubridate", "magrittr", "fhircrackr", "data.table", "tictoc", "rlang")
+load_inst_pkgs("tidyverse", "magrittr", "fhircrackr", "data.table", "tictoc", "rlang")
 
 ### load & postprocess config ----
 cfg <- config::get(file = file.path("config", "fhir_cfg.yml"))
@@ -140,7 +140,6 @@ for (i in seq_along(fhir_searches)) {
   fhir_search_urls[[this_search]] <- fhir_url_w_cfg(search_name = this_search,
                                                     parameters = c("encounter" = encounter_ids_to_keep_string))
   fhir_dfs[[this_search]] <- fhir_batched_w_cfg(search_name = this_search,
-                                                remove_ref_prefixes = FALSE,
                                                 tlog_path = tlog_path)
   ctoc_log(save = tlog_path)
 }
