@@ -76,9 +76,10 @@ if (exists("icd_code_system", where = cfg) && nchar(cfg$icd_code_system) >= 1) {
 }
 
 list_pri_icd_codes <- c("J12.1","J20.5", "J21.0", "P23.0")
-list_pri_sec_icd_codes <- c("J00","J01.8","J01.9","J02.8","J02.9","J03.8","J03.9","J04.0","J04.1","J04.2","J05.0","J05.1","J06.0","J06.8","J06.9", "J38.5")
-list_sec_icd_codes <- c("B97.4!")
-list_pri_sec_icd_codes_combined <- paste(list_pri_sec_icd_codes, list_sec_icd_codes)
+list_sec_icd_codes <- c("U07.1!","U99.0!","Z50.1!")
+list_pri_sec_icd_codes_combined <- append(list_pri_icd_codes,as.vector(sort(outer(list_pri_icd_codes,list_sec_icd_codes, paste))))
+list_pri_sec_B97.4_icd_codes <- c("B99","E84.0","J00","J01.2","J03.9","J06.8","J06.9","J18.0","J18.8","J18.9","J20.5","J20.9","J31.0","J38.5","J40","J45.0","J45.01","J45.02","J45.15","J45.9","J45.99","J96.09","J98.7","R05","R50.88","R50.9","R56.0","R56.8","Z11","Z22.8","Z29.0")
+list_pri_sec_B97.4_icd_codes <- as.vector(sort(outer(list_pri_sec_B97.4_icd_codes,c("B97.4!"), paste)))
 
 ops_codes_beatmung <- c("8-700","8-700.0","8-700.1","8-700.x","8-700.y","8-711","8-711.0","8-711.00","8-711.01","8-711.1","8-711.10","8-711.11","8-711.2","8-711.20","8-711.21","8-711.3","8-711.30","8-711.31","8-711.4","8-711.40","8-711.41","8-711.x","8-711.y","8-712","8-712.0","8-712.1","8-720")
 ops_codes_blutkreislauf <- c("8-771","8-779","8-800.6","8-800.c","8-800.d","8-800.f","8-800.g","8-800.h","8-800.j","8-800.k","8-800.m","8-800.n","8-810","8-820","8-821","8-851","8-852","8-853","8-854","8-855","8-856","8-857","8-85a")
@@ -100,12 +101,13 @@ conditions_tmp <- conditions_tmp[colSums(!is.na(conditions_tmp)) > 0]
 conditions_tmp <- conditions_tmp %>% select(-contains(c("resource_id","meta",".extension")))
 colnames(conditions_tmp) <- paste('condition', colnames(conditions_tmp), sep = '.')
 # filter conditions by system to obtain only icd-10-gm system
-conditions_tmp <- conditions_tmp[conditions_tmp$condition.code.coding.system == icd_code_system_custom, ]
+conditions_tmp <- conditions_tmp %>% filter(condition.code.coding.system %in% c(NA,icd_code_system_custom))
 conditions_tmp <- conditions_tmp[conditions_tmp$condition.recordedDate > "2016-01-01", ]
-conditions_tmp <- conditions_tmp %>% filter(grepl(paste(c(list_pri_icd_codes,list_pri_sec_icd_codes_combined),collapse = '|'), condition.code.coding.code))
+#conditions_tmp <- conditions_tmp %>% filter(grepl(paste(c(list_pri_sec_B97.4_icd_codes,list_pri_sec_icd_codes_combined),collapse = '|'), condition.code.coding.code))
+conditions_tmp <- conditions_tmp %>% filter(grepl(paste(c("B97.4!",list_pri_sec_icd_codes_combined),collapse = '|'), condition.code.coding.code))
 conditions_tmp[c('condition.pri_icd_code','condition.sec_icd_code')] <- str_split_fixed(conditions_tmp$condition.code.coding.code, ' ', 2)
 conditions_tmp$condition.sec_icd_code <- na_if(conditions_tmp$condition.sec_icd_code,"")
-conditions_tmp <- conditions_tmp %>% filter(condition.sec_icd_code %in% c(NA,list_sec_icd_codes))
+#conditions_tmp <- conditions_tmp %>% filter(condition.sec_icd_code %in% c(NA,"B97.4!",list_sec_icd_codes))
 conditions_tmp$condition.subject.reference <- sub(subject_reference_prefix, "", conditions_tmp[, "condition.subject.reference"])
 conditions_tmp$condition.encounter.reference <- sub(encounter_reference_prefix, "", conditions_tmp[, "condition.encounter.reference"])
 
@@ -244,8 +246,9 @@ df_result <- distinct(as.data.frame(
     ,Patient.Geschlecht = df_patients_encounters_conditions_procedures$patient.gender
     ,Fall.ID = df_patients_encounters_conditions_procedures$encounter.id
     ,Fall.Jahr = year(df_patients_encounters_conditions_procedures$encounter.period.start)
-    ,ICD.Primaercode.BE = df_patients_encounters_conditions_procedures$condition.pri_icd_code.cc
-    ,ICD.Sekundaercode.BE = df_patients_encounters_conditions_procedures$condition.sec_icd_code.cc
+    ,Fall.Monat = sprintf("%02d", month(df_patients_encounters_conditions_procedures$encounter.period.start))
+    ,ICD.Primaercode.BE = coalesce(df_patients_encounters_conditions_procedures$condition.pri_icd_code.cc,NA)
+    ,ICD.Sekundaercode.BE = coalesce(df_patients_encounters_conditions_procedures$condition.sec_icd_code.cc,NA)
     ,ICD.Primaercode.EN = df_patients_encounters_conditions_procedures$condition.pri_icd_code.dd
     ,ICD.Sekundaercode.EN = df_patients_encounters_conditions_procedures$condition.sec_icd_code.dd
     ,Krankenhaus.Tage = coalesce(df_patients_encounters_conditions_procedures$encounter.period.days,NA)
@@ -285,9 +288,23 @@ df_result$Labor.CRP.max <-round(df_result$Labor.CRP.max,2)
 df_result$Labor.Leuko.max <-round(df_result$Labor.Leuko.max,2)
 df_result <- df_result %>% 
   select(-contains(c("Pseudonym"))) %>% 
-  select("Patient.ID","Fall.ID","Fall.Jahr","Patient.Alter","Patient.Alter.sort","Patient.Geschlecht","ICD.Primaercode.BE","ICD.Sekundaercode.BE","ICD.Primaercode.EN","ICD.Sekundaercode.EN","Krankenhaus.Tage","Normalstation.Tage","Intensivstation.Tage","Prozedur.Beatmung","Prozedur.Blutkreislauf","Labor.CRP.max","Labor.Leuko.max")
+  select("Patient.ID","Fall.ID","Fall.Jahr","Fall.Monat","Patient.Alter","Patient.Alter.sort","Patient.Geschlecht","ICD.Primaercode.BE","ICD.Sekundaercode.BE","ICD.Primaercode.EN","ICD.Sekundaercode.EN","Krankenhaus.Tage","Normalstation.Tage","Intensivstation.Tage","Prozedur.Beatmung","Prozedur.Blutkreislauf","Labor.CRP.max","Labor.Leuko.max")
 
 df_result <- df_result[order(df_result$Patient.ID), ]
+df_result_dev <- df_result
+#df_result <- df_result_dev
+
+df_result$ICD.Primaercode.EN <- ifelse(is.na(df_result$ICD.Primaercode.EN), df_result$ICD.Primaercode.BE, df_result$ICD.Primaercode.EN)
+
+df_result_agg_year_pri_sec_full <- as.data.frame(df_result %>% group_by(Jahr = df_result$Fall.Jahr, ICD.Primaercode.BE = df_result$ICD.Primaercode.BE, ICD.Sekundaercode.BE = df_result$ICD.Sekundaercode.BE, ICD.Primaercode.EN = df_result$ICD.Primaercode.EN, ICD.Sekundaercode.EN = df_result$ICD.Sekundaercode.EN) %>% summarise(Anzahl = n()) )
+df_result_agg_year_pri_sec <- as.data.frame(df_result %>% group_by(Jahr = df_result$Fall.Jahr, ICD.Primaercode = df_result$ICD.Primaercode.EN, ICD.Sekundaercode = df_result$ICD.Sekundaercode.EN) %>% summarise(Anzahl = n()) )
+df_result_agg_year_pri <- as.data.frame(df_result %>% group_by(Jahr = df_result$Fall.Jahr, ICD.Primaercode = df_result$ICD.Primaercode.EN) %>% summarise(Anzahl = n()) )
+df_result_agg_year_month_full <- as.data.frame(df_result %>% group_by(Jahr = df_result$Fall.Jahr, Monat = df_result$Fall.Monat, ICD.Primaercode.BE = df_result$ICD.Primaercode.BE, ICD.Sekundaercode.BE = df_result$ICD.Sekundaercode.BE, ICD.Primaercode.EN = df_result$ICD.Primaercode.EN, ICD.Sekundaercode.EN = df_result$ICD.Sekundaercode.EN) %>% summarise(Anzahl = n()) )
+df_result_agg_year_month <- as.data.frame(df_result %>% group_by(Jahr_Monat = paste0(df_result$Fall.Jahr,'-',df_result$Fall.Monat), ICD.Primaercode = df_result$ICD.Primaercode.EN, ICD.Sekundaercode = df_result$ICD.Sekundaercode.EN) %>% summarise(Anzahl = n()) )
+
+
+
 
 now <- format(Sys.time(), "%Y%m%d_%H%M%S")
-write.csv2(df_result, file = paste0("output/",now,"_result.csv"), row.names = FALSE)
+write.csv2(df_result_dev, file = paste0("output/",now,"_result.csv"), row.names = FALSE)
+write.csv2(df_result_agg_year_pri, file = paste0("output/",now,"_result_agg_year_pri.csv"), row.names = FALSE)
