@@ -294,6 +294,7 @@ df_result <- df_result[order(df_result$Patient.ID), ]
 df_result_dev <- df_result
 #df_result <- df_result_dev
 
+df_result$ICD.Sekundaercode.EN <- ifelse(is.na(df_result$ICD.Primaercode.EN), df_result$ICD.Sekundaercode.BE, df_result$ICD.Sekundaercode.EN)
 df_result$ICD.Primaercode.EN <- ifelse(is.na(df_result$ICD.Primaercode.EN), df_result$ICD.Primaercode.BE, df_result$ICD.Primaercode.EN)
 
 df_result_agg_year_pri_sec_full <- as.data.frame(df_result %>% group_by(Jahr = df_result$Fall.Jahr, ICD.Primaercode.BE = df_result$ICD.Primaercode.BE, ICD.Sekundaercode.BE = df_result$ICD.Sekundaercode.BE, ICD.Primaercode.EN = df_result$ICD.Primaercode.EN, ICD.Sekundaercode.EN = df_result$ICD.Sekundaercode.EN) %>% summarise(Anzahl = n()) )
@@ -302,9 +303,42 @@ df_result_agg_year_pri <- as.data.frame(df_result %>% group_by(Jahr = df_result$
 df_result_agg_year_month_full <- as.data.frame(df_result %>% group_by(Jahr = df_result$Fall.Jahr, Monat = df_result$Fall.Monat, ICD.Primaercode.BE = df_result$ICD.Primaercode.BE, ICD.Sekundaercode.BE = df_result$ICD.Sekundaercode.BE, ICD.Primaercode.EN = df_result$ICD.Primaercode.EN, ICD.Sekundaercode.EN = df_result$ICD.Sekundaercode.EN) %>% summarise(Anzahl = n()) )
 df_result_agg_year_month <- as.data.frame(df_result %>% group_by(Jahr_Monat = paste0(df_result$Fall.Jahr,'-',df_result$Fall.Monat), ICD.Primaercode = df_result$ICD.Primaercode.EN, ICD.Sekundaercode = df_result$ICD.Sekundaercode.EN) %>% summarise(Anzahl = n()) )
 
+df_tmp_J20_5 <- df_result_agg_year_pri %>% filter(grepl(paste(c("J20.5"),collapse = '|'), ICD.Primaercode))
+df_tmp_J21_0 <- df_result_agg_year_pri %>% filter(grepl(paste(c("J21.0"),collapse = '|'), ICD.Primaercode))
+df_tmp_J12_1 <- df_result_agg_year_pri %>% filter(grepl(paste(c("J12.1"),collapse = '|'), ICD.Primaercode))
+df_tmp_B97_4 <- df_result %>% filter(!grepl(paste(c("J20.5","J21.0","J12.1"),collapse = '|'), ICD.Primaercode.EN))
+df_tmp_B97_4 <- as.data.frame(df_tmp_B97_4 %>% group_by(Jahr = df_tmp_B97_4$Fall.Jahr, ICD.Sekundaercode = df_tmp_B97_4$ICD.Sekundaercode.EN) %>% summarise(Anzahl = n()) )
 
+df_json_values <- df_tmp_J20_5 %>% select(-contains(c("Jahr","ICD","Anzahl")))
+df_json_values$J20.5 <- df_tmp_J20_5$Anzahl
+df_json_values$J21.0 <- df_tmp_J21_0$Anzahl
+df_json_values$J12.1 <- df_tmp_J12_1$Anzahl
+df_json_values$B97.4 <- df_tmp_B97_4$Anzahl
+
+df_json_values <- t(df_json_values)
+
+dashboard_export <- jsonlite::toJSON(
+  list(
+    itemname = "timeline.coverchild.diags.icdcodes",
+    itemtype = "stackedbarcharts",
+    data = list(
+      charts = list("allicdcodes"),
+      bars = sort(unique(year(df_patients_encounters_conditions_procedures$encounter.period.start))),
+      stacks = list(
+        "J20.5: Akute RSV-Bronchitis",
+        "J21.0: Akute RSV-Bronchiolitis",
+        "J12.1: RSV-Pneumonie",
+        "B97.4!: RSV als Krankheitsursache"
+      ),
+      values = list(
+        t(df_json_values)
+      )
+    )
+  ),
+  pretty = TRUE)
 
 
 now <- format(Sys.time(), "%Y%m%d_%H%M%S")
 write.csv2(df_result_dev, file = paste0("output/",now,"_result.csv"), row.names = FALSE)
 write.csv2(df_result_agg_year_pri, file = paste0("output/",now,"_result_agg_year_pri.csv"), row.names = FALSE)
+write(dashboard_export, paste0("output/",now,"dashboard_export.json"))
