@@ -716,7 +716,7 @@ fhir_batched_w_cfg <- function(search_url = NULL,
   if (remove_ref_prefixes) {
     if (do_melt) {
       if (is_nonempty_df(fhir_dfs)) fhir_dfs <- fhir_dfs %>%
-          {mutate(., across(contains("reference"),
+          {mutate(., across(matches("\\w+\\.reference$", ignore.case = FALSE),
                             \(x) remove_ref_prefix(refs = x, resource = attr(., "resource"), config = config)))}
     } else {
       warning("Reference prefix removal was requested, but they will only be removed from a molten DF. Melting was ",
