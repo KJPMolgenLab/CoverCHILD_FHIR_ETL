@@ -89,10 +89,8 @@ default:
   ref_prefixes:
     encounter:
       subject.reference: null
-
-  # set custom reference prefix, default = "Patient/" & "Encounter/"
-  subject_reference_prefix:   ''
-  encounter_reference_prefix: ''
+    condition:
+      subject.reference: null
 
   # custom parameters for conditions resources on local fhir server
   # use 'http://fhir.de/CodeSystem/dimdi/icd-10-gm' or 'http://fhir.de/CodeSystem/bfarm/icd-10-gm'
