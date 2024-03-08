@@ -138,6 +138,8 @@ colnames(encounters_tmp) <- paste('encounter', colnames(encounters_tmp), sep = '
 #encounters_tmp$encounter.diagnosis.condition.reference <- sub(condition_reference_prefix, "", encounters_tmp[, "encounter.diagnosis.condition.reference"])
 encounters_tmp <- encounters_tmp[encounters_tmp$encounter.period.start > "2016-01-01", ]
 encounters_tmp <-encounters_tmp %>% filter((encounter.diagnosis.use.coding.code != 'AD') %>% replace_na(TRUE))
+latest_period_startend_timestamp <- max(c(max(na.omit(encounters_tmp$encounter.period.start)),max(na.omit(encounters_tmp$encounter.period.end))))
+encounters_tmp$encounter.period.end <- coalesce(encounters_tmp$encounter.period.end,latest_period_startend_timestamp)
 encounters_tmp$encounter.period.days <- as.numeric(difftime(encounters_tmp$encounter.period.end, encounters_tmp$encounter.period.start, units = "days"))
 rm(encounters_raw)
 
@@ -470,7 +472,6 @@ if (exists("encounter.location.location.identifier.value", df_patients_encounter
   df_result <- df_result %>% 
     select(-contains(c("Pseudonym"))) %>% 
     select("Patient.ID","Fall.ID","Fall.Jahr","Fall.Monat","Patient.Alter","Patient.Alter.sort","Patient.Geschlecht","ICD.Primaercode.BE","ICD.Sekundaercode.BE","ICD.Primaercode.EN","ICD.Sekundaercode.EN","Krankenhaus.Tage","Prozedur.Beatmung","Prozedur.Blutkreislauf","Labor.CRP.max","Labor.Leuko.max")
-  
 }
   
 df_result <- df_result[order(df_result$Patient.ID), ]
