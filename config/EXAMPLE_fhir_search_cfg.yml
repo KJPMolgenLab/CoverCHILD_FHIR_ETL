@@ -79,6 +79,7 @@ default:
 
     encounter:
       ## to extract
+      - "class/code"
       - "class/display"
       - "hospitalization/admitSource/coding/code"
       - "hospitalization/admitSource/coding/display"
@@ -122,7 +123,6 @@ default:
       - "partOf/reference"
 
       ## for QC only, discarded before export
-      #- "class/code"
       - "class/system"
       - "hospitalization/admitSource/coding/system"
       - "hospitalization/dischargeDisposition/coding/system"
