@@ -183,6 +183,31 @@ remove_ref_prefix <- function(refs, resource = NULL, ref_col = NULL, ref_prefix 
   return(str_remove(refs, str_glue("^{ref_prefix}/")))
 }
 
+# split a vector of IDs into url-includable string batches of max_len characters
+# (rationale: prevent overly long search strings from being passed to FHIR server)
+split_ids_w_cfg <- function(ids, max_len = NULL, config = cfg) {
+  # read max_len from config if not provided
+  if (!is.null(config)) if (is.null(max_len)) max_len <- config$max_id_str_len
+  if (is.null(max_len)) {
+    warn("No max_len provided and could not read from config, using default: 1000.")
+    max_len <- 1000
+  }
+  
+  # clean up
+  ids <- ids %>% {if_else(str_detect(., "/"), NA, .)} %>% na.omit() %>% unique()
+  if (nchar(paste0(ids, collapse = ",")) > max_len) {
+    ids <- tibble(id = ids,
+                  group = cumsum(nchar(id)+1.5)%/%max_len) %>%
+      group_split(group, .keep = FALSE) %>%
+      map(\(x) deframe(x) %>% paste0(collapse = ","))
+    warn(str_glue("Too many IDs for a single search (string length > {max_len} characters), ",
+                  "splitting into {length(ids)} batches."))
+  } else {
+    ids <- list(paste0(ids, collapse = ","))
+  }
+  return(ids)
+}
+
 ## modified fhircrackr functions with default values read from config ----
 #TODO: add tictoc-logging to functions. Use decorators if possible?
 

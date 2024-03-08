@@ -123,11 +123,18 @@ default:
 
   # Maximum number of bundles processed per resource, possibly accumulated over multiple batches.
   # This should be .inf, but can be limited for testing and debugging purposes. Takes precedence
-  # over 'bundles_per_batch' if necessary.
-  # type: .inf | integer
+  # over 'bundles_per_batch' if necessary. type: .inf | integer
   #   .inf:    batch-process all available bundles of a queried resource
   #   integer: stop batch-processing without exceeding the given number of bundles
   max_bundles: .inf
+  
+  # Maximum character length of IDs for generation of FHIR search URLs. If the length of the 
+  # combined IDs of a search exceeds this value, the IDs are split into multiple search strings.
+  # Decrease this value if necessary to avoid HTTP 414 errors or server timeouts caused by overly
+  # long search URLs. type: .inf | integer
+  #   .inf:    combine all available IDs into a single search string.
+  #   integer: split IDs into search strings of a maximum length of the given value.
+  max_id_str_len: 5.e+04
 
 
   # Saving to disc, directory paths ----------------------------------------------------------------
