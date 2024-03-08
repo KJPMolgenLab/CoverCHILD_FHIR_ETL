@@ -15,4 +15,4 @@ docs/*
 logs/*
 output/*
 tmp/*
-config/fhir_*
+config/*_cfg.yml

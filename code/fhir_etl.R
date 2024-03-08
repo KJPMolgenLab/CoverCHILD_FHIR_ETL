@@ -91,11 +91,7 @@ encounter_ids_department <- fhir_dfs[[this_search]] %>%
 fhir_dfs[[this_search]] <- fhir_dfs[[this_search]] %>% filter(id %in% encounter_ids_department)
 
 # extract subject ids for next FHIR search
-encounter_subject_id_string <- fhir_dfs[[this_search]]$subject.reference %>%
-  {if_else(str_detect(., "/"), NA, .)} %>%
-  na.omit() %>%
-  unique() %>%
-  paste0(collapse = ",")
+encounter_subject_id_strings <- split_ids_w_cfg(fhir_dfs[[this_search]]$subject.reference)
 gc(); gc()
 ctoc_log(save = tlog_path)
 
@@ -103,10 +99,19 @@ ctoc_log(save = tlog_path)
 ## FHIR search 2: patients belonging to encounters ----
 ctic("FHIR search 2: patients")
 this_search <- "patient"
-# url & batched search
-fhir_search_urls[[this_search]] <- fhir_url_w_cfg(search_name = this_search,
-                                                  parameters = c("_id" = encounter_subject_id_string))
-fhir_dfs[[this_search]] <- fhir_batched_w_cfg(search_name = this_search, tlog_path = tlog_path)
+# split search into batches of subject IDs if applicable
+for (id_run in seq_along(encounter_subject_id_strings)) {
+  ctic(str_glue("FHIR search 2: patients (subject ID batch {id_run}/{length(encounter_subject_id_strings)})."))
+  # url & batched search
+  fhir_search_urls[[this_search]][[id_run]] <-
+    fhir_url_w_cfg(search_name = this_search, parameters = c("_id" = encounter_subject_id_strings[[id_run]]))
+  fhir_dfs[[this_search]][[id_run]] <-
+    fhir_batched_w_cfg(search_url = fhir_search_urls[[this_search]][[id_run]], tlog_path = tlog_path)
+  ctoc_log(save = tlog_path)
+}
+# unite patient ID batches
+fhir_dfs[[this_search]] <- bind_rows(fhir_dfs[[this_search]])
+gc(); gc()
 ctoc_log(save = tlog_path)
 
 
@@ -119,28 +124,37 @@ underage_patients <- fhir_dfs$patient %>%
              by = c(patient_id = "subject.reference")) %>%
   mutate(is_underage = as_date(period.start) < (as_date(birthDate) + years(18))) %>%
   filter(is_underage)
-encounter_ids_to_keep <- unique(na.omit(underage_patients$encounter_id))
-# extract encounter ids for next FHIR searches
-encounter_ids_to_keep_string <- paste0(encounter_ids_to_keep, collapse = ",")
-
 # filter encounter DF
-fhir_dfs$encounter <- fhir_dfs$encounter %>% filter(id %in% encounter_ids_to_keep)
+fhir_dfs$encounter <- fhir_dfs$encounter %>% filter(id %in% unique(na.omit(underage_patients$encounter_id)))
 # filter patient DF
-fhir_dfs$patient <- fhir_dfs$patient %>% filter(id %in% unique(underage_patients$patient_id))
+fhir_dfs$patient <- fhir_dfs$patient %>% filter(id %in% unique(na.omit(underage_patients$patient_id)))
+
+# extract encounter id strings for next FHIR searches
+encounter_ids_underage_strings <- split_ids_w_cfg(underage_patients$encounter_id)
 gc(); gc()
 ctoc_log(save = tlog_path)
 
-## FHIR search 3 & 4: conditions / procedures / observations ----
+
+## FHIR search 3-5: conditions, procedures, observations ----
 fhir_searches <- c("condition", "procedure", "observation")
 for (i in seq_along(fhir_searches)) {
   this_search <- fhir_searches[[i]]
   ctic(str_glue("FHIR search {i+2}: {this_search}s"))
-
-  # url & batched search
-  fhir_search_urls[[this_search]] <- fhir_url_w_cfg(search_name = this_search,
-                                                    parameters = c("encounter" = encounter_ids_to_keep_string))
-  fhir_dfs[[this_search]] <- fhir_batched_w_cfg(search_name = this_search,
-                                                tlog_path = tlog_path)
+  
+  # split search into batches of encounter IDs if applicable
+  for (id_run in seq_along(encounter_ids_underage_strings)) {
+    ctic(str_glue("FHIR search {i+2}: {this_search}s ",
+                  "(encounter ID batch {id_run}/{length(encounter_ids_underage_strings)})."))
+    # url & batched search
+    fhir_search_urls[[this_search]][[id_run]] <-
+      fhir_url_w_cfg(search_name = this_search, parameters = c("encounter" = encounter_ids_underage_strings[[id_run]]))
+    fhir_dfs[[this_search]][[id_run]] <-
+      fhir_batched_w_cfg(search_url = fhir_search_urls[[this_search]][[id_run]], tlog_path = tlog_path)
+    ctoc_log(save = tlog_path)
+  }
+  # unite encounter ID batches
+  fhir_dfs[[this_search]] <- bind_rows(fhir_dfs[[this_search]])
+  gc(); gc()
   ctoc_log(save = tlog_path)
 }
 ctoc_log(save = tlog_path)
