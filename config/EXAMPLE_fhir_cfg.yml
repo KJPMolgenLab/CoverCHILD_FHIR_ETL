@@ -140,7 +140,7 @@ default:
   # long search URLs. type: .inf | integer
   #   .inf:    combine all available IDs into a single search string.
   #   integer: split IDs into search strings of a maximum length of the given value.
-  max_id_str_len: 5.e+04
+  max_id_str_len: 1.e+04
 
 
   # Saving to disc, directory paths ----------------------------------------------------------------
