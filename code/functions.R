@@ -734,7 +734,7 @@ fhir_batched_w_cfg <- function(search_url = NULL,
   # load downloaded FHIR DFs if requested
   if (do_log) ctic(str_glue("Batched FHIR search: {search_name} - Combine downloaded DFs"))
   if (save_batches_to_disc) fhir_dfs <- map(Sys.glob(str_glue(save_mask, id = "*")), readRDS)
-  fhir_dfs <- bind_rows(fhir_dfs)
+  fhir_dfs <- map(fhir_dfs, \(x) mutate(x, across(everything(), as.character))) %>% bind_rows()
   if (do_log) ctoc_log()
 
   # remove reference prefixes if requested
