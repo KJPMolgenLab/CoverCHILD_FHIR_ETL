@@ -1,0 +1,51 @@
+default:
+
+  # custom parameter for patient.adress.country
+  patient:
+    filter_countrycode: DE
+
+  # custom parameters for conditions resources on local fhir server
+  # use 'http://fhir.de/CodeSystem/dimdi/icd-10-gm' or 'http://fhir.de/CodeSystem/bfarm/icd-10-gm'
+  icd_code_system:            'http://fhir.de/CodeSystem/bfarm/icd-10-gm'
+
+  # Settings for Dashboard Export ------------------------------------------------------------------
+  
+  # "Charité" – Universitätsklinikum Berlin Charité
+  # "LMU" – Universitätsklinikum der Ludwig-Maximilians-Universität München
+  # "MHH" – Universitätsklinikum Hannover
+  # "RUB" – Ruhr-Universität Bochum
+  # "UKA" – Universitätsklinikum Aachen
+  # "UKAU" – Universitätsklinikum Augsburg
+  # "UKB" – Universitätsklinikum Bonn
+  # "UKD" – Universitätsklinikum Düsseldorf
+  # "UKDD" – Universitätsklinikum Dresden
+  # "UKE" – Universitätsklinikum Hamburg-Eppendorf
+  # "UKER" – Universitätsklinikum Erlangen
+  # "UKG" – Universitätsklinikum Greifswald
+  # "UKGM" – Universitätsklinikum Gießen-Marburg
+  # "UKH" – Universitätsklinikum Halle (Saale)
+  # "UKHD" – Universitätsklinikum Heidelberg
+  # "UKJ" – Universitätsklinikum Jena
+  # "UKL" – Universitätsklinikum Leipzig
+  # "UKOWL" Universität Bielefeld mit Medizinischer Fakultät der UKOWL
+  # "UKR" – Universitätsklinikum Regensburg
+  # "UKS" – Universitätsklinikum Saarland
+  # "UKT" – Universitätsklinikum Tübingen
+  # "UKU"- Universitätsklinikum Ulm
+  # "UKW" – Universitätsklinikum Würzburg
+  # "UM" – Universitätsklinikum Mainz
+  # "UME" – Universitätsklinikum Essen
+  # "UMG" – Universitätsklinikum Göttingen
+  # "UMM" – Universitätsklinikum Mannheim
+  # "UMMD" – Universitätsklinikum Magdeburg
+  # "UMR" – Universitätsklinikum Rostock
+  # "Praxen" – Hausarztpraxen Allgemeinmedizin
+  
+  dashboard:
+    send_data: false
+    environment: 'test'
+    provider: ''
+    author: ''
+    user: ''
+    password: ''
+    
