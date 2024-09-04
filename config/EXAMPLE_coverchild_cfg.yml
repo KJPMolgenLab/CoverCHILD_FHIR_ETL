@@ -1,6 +1,6 @@
 default:
 
-  # custom parameter for patient.adress.country
+  # custom parameter for patient.adress.country if available
   patient:
     filter_countrycode: DE
 
