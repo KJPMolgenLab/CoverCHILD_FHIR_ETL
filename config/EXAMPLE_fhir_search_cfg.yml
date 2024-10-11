@@ -14,7 +14,7 @@ default:
       # admission date greater or equal to 2016-01-01
       - "date=ge2016-01-01"
       # admission date less or equal to 2022-03-31
-      - "date=le2022-03-31"
+      - "date=le2024-12-31"
       # birthdate greater or equal to 1998-01-01 (upper limit for underage patients at the begin
       # of the study interval)
       - "patient.birthdate=ge1998"
